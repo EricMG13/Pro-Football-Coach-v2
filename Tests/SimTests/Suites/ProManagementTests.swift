@@ -48,6 +48,8 @@ func runProManagementTests() {
                 contract: Contract(years: 2, baseSalaryByYear: [1_000_000, 1_000_000], signingBonus: 700_003),
                 in: state
             )
+            expect(WorldIntegrity.check(signed.state).isValid,
+                   "the acquisition left an invalid professional root")
             let released = try ProManagementSystem.release(
                 playerID: player.id,
                 from: teamID,

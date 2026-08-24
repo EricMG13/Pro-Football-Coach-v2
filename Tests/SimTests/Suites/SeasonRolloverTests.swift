@@ -38,6 +38,35 @@ func runSeasonRolloverTests() {
                            .map(\.description).joined(separator: " ; "))
         }
 
+        // Bootstrap and generated-slate tests cannot see the schedule that the live boundary
+        // installs after realignment, lifecycle work and postseason completion. Walk several
+        // independent worlds through several actual rollovers and check each installed slate at
+        // the moment the new season begins.
+        test("every live rollover installs an exact slate across seeds and seasons") {
+            for seed in UInt64(97_020)...97_023 {
+                var state = GameState.bootstrap(seed: seed)
+                for expectedSeason in 1...3 {
+                    while state.calendar.season < expectedSeason {
+                        state = try WorldScheduler.advanceWeek(state).state
+                    }
+                    let label = "seed \(seed) season \(expectedSeason)"
+                    expectEqual(state.calendar, CalendarState(season: expectedSeason, week: 1),
+                                "\(label) did not land at the new season root")
+                    expectEqual(state.league.season, expectedSeason,
+                                "\(label) league season disagrees with calendar")
+                    expectEqual(state.league.week, 1,
+                                "\(label) league week disagrees with calendar")
+                    expectEqual(state.competition.currentSchedule.season, expectedSeason,
+                                "\(label) installed a slate for the wrong season")
+                    assertTransitionScheduleShape(state)
+                    let integrity = WorldIntegrity.check(state)
+                    expect(integrity.isValid,
+                           "\(label) produced an invalid root: "
+                               + integrity.issues.prefix(3).map(\.description).joined(separator: " ; "))
+                }
+            }
+        }
+
         test("no professional contract outlives its own term") {
             // The invariant the cap check reads, asserted over every team and every rostered player
             // rather than over the eleven that happened to fail. A contract is legal only while the

@@ -185,6 +185,13 @@ private let pinnedNewsFeedFingerprint: UInt64 = 15_792_896_265_198_872_985
 /// the merged release run.
 private let pinnedArchivedLedgerFingerprint: UInt64 = 9_134_642_366_837_657_455
 
+/// Bootstrap and the scheduler fingerprint both leave `PendingQueues.mandatoryDecisions` empty.
+/// This controlled-college fixture builds two real recruiting decisions from the generated
+/// programme and prospect entities, reverses their insertion order, and pins the persisted queue.
+/// The array hash therefore covers both the UUID ordering imposed by `PendingQueues` and every
+/// durable decision field: subject, calendar, authority, options, recommendation and reasons.
+private let pinnedMandatoryDecisionQueueFingerprint: UInt64 = 9_411_499_220_108_685_895
+
 /// Hashes the canonical JSON body, not the save envelope.
 ///
 /// It hashed the envelope until 2026-08-12, when the body became zlib-compressed. That would have
@@ -415,6 +422,80 @@ func runArchitectureTests() {
             expectEqual(
                 try architectureFingerprint(state),
                 pinnedArchivedLedgerFingerprint
+            )
+        }
+
+        test("the mandatory-decision queue is pinned across processes") {
+            let source = GameState.bootstrap(seed: 20_260_823)
+            let programmeID = source.programmes.ids[0]
+            var state = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let prospects = Array(state.prospects.ids.prefix(2))
+            expectEqual(prospects.count, 2)
+
+            let decisions = prospects.enumerated().map { index, prospectID in
+                let decisionID = DomainEvent.deterministicID(
+                    rootSeed: 20_260_823,
+                    sequence: index + 1
+                )
+                let primaryOptionID = DomainEvent.deterministicID(
+                    rootSeed: 20_260_823,
+                    sequence: 10 + index * 2
+                )
+                let alternateOptionID = DomainEvent.deterministicID(
+                    rootSeed: 20_260_823,
+                    sequence: 11 + index * 2
+                )
+                return MandatoryDecision(
+                    id: decisionID,
+                    programmeID: programmeID,
+                    subject: .recruiting(prospectID: prospectID),
+                    createdAt: state.calendar,
+                    deadline: state.calendar.advancedWeek(),
+                    owner: .user,
+                    options: index == 0
+                        ? [
+                            MandatoryDecisionOption(
+                                id: primaryOptionID,
+                                action: .recruiting(.offerScholarship)
+                            ),
+                            MandatoryDecisionOption(
+                                id: alternateOptionID,
+                                action: .recruiting(.withdraw)
+                            ),
+                        ]
+                        : [
+                            MandatoryDecisionOption(
+                                id: primaryOptionID,
+                                action: .recruiting(.contact(points: 5))
+                            ),
+                            MandatoryDecisionOption(
+                                id: alternateOptionID,
+                                action: .recruiting(.addToBoard)
+                            ),
+                        ],
+                    recommendedOptionID: primaryOptionID,
+                    reasons: [
+                        MandatoryDecisionReason(
+                            code: index == 0 ? .rosterNeed : .fit,
+                            value: index == 0 ? 8 : 6,
+                            relatedEntityID: prospectID
+                        ),
+                        MandatoryDecisionReason(code: .deadline, value: 1),
+                    ]
+                )
+            }
+            state.pending = PendingQueues(mandatoryDecisions: decisions.reversed())
+
+            expectEqual(
+                state.pending.mandatoryDecisions.map(\.id),
+                decisions.map(\.id).sorted { $0.uuidString < $1.uuidString }
+            )
+            expectEqual(
+                try architectureFingerprint(state.pending.mandatoryDecisions),
+                pinnedMandatoryDecisionQueueFingerprint
             )
         }
 
