@@ -8,6 +8,8 @@ The honest picture: what exists, what is verified, what is not.
 
 > **2026-08-24 — Owner-gate D9 onboarding evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-10-d9-onboarding-evidence-pack.md` preserves the five canonical first-session beats and D9's fixed 2-of-3 falsifier for the owner; no candidate preflight, participant recruitment or consent, build, launch, timing, capture, onboarding attempt, or observation ran.
 
+> **2026-08-24 — Loop 925 branch inventory is recorded read-only.** `docs/plans/2026-08-24-loop-925-branch-inventory.md` confirms the named refs are already converged; detached `0c3d` is the sole clean integrate-pending candidate, while `3f0e`, `e0c0`, and this worktree are not stable. No branch was integrated, rejected, or altered; scheduling remains pending stable engine, UI, and release commits.
+
 > **2026-08-24 — Owner-gate Reduce Motion full-match evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-08-reduce-motion-full-match-evidence-pack.md` is ready for the owner; no setting change, build, simulator or device launch, full-match walkthrough, capture, or observation ran.
 
 > **2026-08-24 — Owner-gate VoiceOver week-loop and Match Day evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-06-voiceover-week-and-match-evidence-pack.md` is ready for the owner; no physical-device run, build, launch, VoiceOver interaction, capture, or observation ran.
