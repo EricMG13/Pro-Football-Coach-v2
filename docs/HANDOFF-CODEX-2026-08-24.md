@@ -34,19 +34,20 @@ You cannot write to the standard. So:
 
 ---
 
-## Prerequisite — the owner must do this first
+## Prerequisite — satisfied 2026-08-24, nothing to do
 
-Two v1 branches carry `docs/reviews/2026-08-22-all-screen-presentation-contract.md` and are
-**local-only, never pushed**. That file states what each screen's read model holds and what it must
-omit; it outranks the design standard on facts, and the whole build depends on it.
+Two v1 branches carry `docs/reviews/2026-08-22-all-screen-presentation-contract.md`. That file states
+what each screen's read model holds and what it must omit; it outranks the design standard on facts,
+and the whole build depends on it. **Both are on v1's `origin` and fetchable.**
 
-```bash
-cd /Users/ericguei/Documents/pro-football-coach && git push -u origin codex/mock-reconciliation-vertical-slice codex/integrate-mock-reconciliation
-```
+The two versions differ: `codex/mock-reconciliation-vertical-slice` carries per-screen omission
+lists, `codex/integrate-mock-reconciliation` collapses them to boilerplate. **Use the vertical-slice
+version.**
 
-**Do not start until this has been done.** The two versions differ: `codex/mock-reconciliation-vertical-slice`
-carries per-screen omission lists, `codex/integrate-mock-reconciliation` collapses them to
-boilerplate. **Use the vertical-slice version.**
+*An earlier draft of this handoff blocked here, on a claim that both branches were local-only and
+never pushed. That was wrong — the check behind it tested whether a remote contained each branch's*
+***tip***, *which was 8 commits ahead, and read the negative as "not on origin at all". The contract
+itself was already on `origin`, byte-identical. The 8 commits have since been pushed.*
 
 ---
 

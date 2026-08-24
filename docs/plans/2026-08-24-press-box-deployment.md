@@ -137,18 +137,26 @@ the ledger at all. Its repairs are Phase 1 work.
 v2 and v1 hold the same 556 tracked source and doc files. **26 differ, in two clean directions**, so
 this is a two-way merge and not a fast-forward.
 
-### 0.1 Rescue the unpushed work — do this first
+### 0.1 The contract's two branches — DONE 2026-08-24, and the alarm was overstated
 
-Both versions of the presentation contract live only on **local, never-pushed** v1 branches. A pruned
-worktree takes them with it.
+Both branches are on v1's `origin`:
 
 - `codex/mock-reconciliation-vertical-slice` — carries per-screen omission lists ("no playoff
   probability, no projected seed, no tiebreak the model does not state")
 - `codex/integrate-mock-reconciliation` — collapses those same rows to boilerplate
 
-**The vertical-slice version is strictly more informative and is the one to adopt.** A bundle of both
-is already written to this session's scratchpad as `codex-reconciliation-backup.bundle`; it is a
-scratch file, so **push both branches to a remote before relying on it**.
+**The vertical-slice version is strictly more informative and is the one to adopt.**
+
+**This section previously said both branches were local-only and never pushed, and that was wrong.**
+The check behind it was `git branch -r --contains <branch>`, which tests whether any remote branch
+contains that branch's **tip commit**. Nothing did, because the tip was 8 commits ahead of
+`origin` — and that was read as "the branch is not on origin at all". It is the same class of error
+`docs/briefs/2026-08-23-surface-coverage.md` made when it called this *"the single most important
+finding of the survey"*: **a negative result about a tip is not a negative result about a branch.**
+
+What was actually unpushed was 8 commits. `docs/reviews/2026-08-22-all-screen-presentation-contract.md`
+was **already on `origin` and byte-identical** at the old tip, so the file this whole build depends
+on was never at risk. The 8 commits were pushed on 2026-08-24 and both branches now track `origin`.
 
 ### 0.2 Bring across from v1 — 21 commits, and 19 of them are docs
 
@@ -369,7 +377,7 @@ be started early.
 
 | Risk | Mitigation |
 |---|---|
-| **The contract is on two unpushed local branches** | Phase 0.1. Push before anything else. The scratchpad bundle is not a backup. |
+| ~~The contract is on two unpushed local branches~~ | **Closed 2026-08-24 — the risk was misread, see 0.1.** The contract was already on `origin`; 8 tip commits were not, and now are. |
 | **Save migration on the delegation enum** | `CollegeCareerControl`'s decoder requires every case. Default new areas to `.user` and test it. |
 | **`04` conflicts on the port** | Two hunks, nine lines — small, but re-run the colour scan afterwards. It reads canon as a whitelist, so an unstated hex fails to compile, which is the scan working. |
 | **Press Box's own numbers going stale** | The change flow puts Press Box first for exactly this reason. Its `checks.card.html` and `coverage.card.html` are scans, not checklists; they only stay true if the standard moves first. |
