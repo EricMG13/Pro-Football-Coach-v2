@@ -542,9 +542,17 @@ func runCareerArcTests() {
                     (CareerStakeholder.fanbase, 90),
                     (CareerStakeholder.lockerRoom, 67),
                 ]),
+                stakeholderLastMovement: Dictionary(uniqueKeysWithValues: [
+                    (CareerStakeholder.administration, 6),
+                    (CareerStakeholder.boosters, -4),
+                    (CareerStakeholder.fanbase, 8),
+                    (CareerStakeholder.lockerRoom, -2),
+                ]),
                 opportunities: [opportunity],
                 status: .employed
             )
+            let supportBeforePromotion = promoting.careerArc.stakeholderSupport
+            let movementBeforePromotion = promoting.careerArc.stakeholderLastMovement
             let promoted = try IntentResolver.resolve(
                 .career(CareerArcRequest(
                     calendar: promoting.calendar,
@@ -564,6 +572,10 @@ func runCareerArcTests() {
                 promoted.careerArc.opportunities.isEmpty,
                 "the accepted opportunity was left on the board"
             )
+            expectEqual(promoted.careerArc.stakeholderSupport, supportBeforePromotion,
+                        "promotion reset the coach's job-security state")
+            expectEqual(promoted.careerArc.stakeholderLastMovement, movementBeforePromotion,
+                        "promotion dropped the rationale for the coach's job-security state")
 
             let restored = try SaveEnvelope.decode(
                 GameState.self,

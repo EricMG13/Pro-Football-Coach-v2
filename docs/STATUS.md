@@ -4,6 +4,13 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Loop 911 preserved job-security rationale across promotion.**
+> The career-arc promotion fixture now carries both stakeholder support and each stakeholder's last
+> movement from the college job into the professional one, so a promotion cannot preserve the score
+> while discarding why it moved. Required suites passed: career arc **23 / 369**, career control
+> **14 / 99**, coaching tree **11 / 25**, professional career session **1 / 7**, and history archive
+> **20 / 147**. Files changed: `Tests/SimTests/Suites/CareerArcTests.swift`, `docs/STATUS.md`.
+
 > **2026-08-24 — Loop 910 added a project-local staff-tenure distribution check.**
 > Active staff tenure is derived from the final `StaffCareerAssignment`: that record changes only
 > for a hire, move, or vacancy replacement, so an incumbent retains its original assignment season.
