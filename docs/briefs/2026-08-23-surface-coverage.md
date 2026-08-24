@@ -1,5 +1,9 @@
 # Surface coverage: what is required, what is built, what is drawn
 
+**Superseded 2026-08-24 by `docs/plans/2026-08-24-press-box-deployment.md`.** Press Box now covers
+**47 of 47 canonical destinations** (62 identities, 15 aliases). The body below remains the branch
+survey that recorded where the work was at the time.
+
 **2026-08-23.** A working brief, not canon. `docs/DOC-MANIFEST.md` governs what is canon;
 nothing here amends a canon document.
 
