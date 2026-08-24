@@ -4,6 +4,18 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Loop 901 widened the determinism pin to the non-empty mandatory-decision queue.**
+> `ArchitectureTests` now starts a controlled college career, constructs two recruiting decisions
+> from that generated programme and its generated prospects, inserts them in reverse UUID order,
+> and fingerprints the persisted `PendingQueues.mandatoryDecisions` payload. The check covers the
+> queue's canonical ordering and each durable decision field (subject, calendar, owner, options,
+> recommendation and reasons); it leaves every existing fingerprint literal unchanged. The new pin
+> is `9_411_499_220_108_685_895`. Two separate `./scripts/verify.sh --lane determinism` release
+> invocations both passed identically: architecture **30 tests / 248 checks**, competition **37
+> tests / 8,331 checks**, and terminal lane summary **2 passed, 0 failed**. Files changed:
+> `Tests/SimTests/Suites/ArchitectureTests.swift`, `docs/STATUS.md`,
+> `.superpowers/sdd/task-901-report.md`.
+
 > **2026-08-22 — Match Day moves like football now, and one engine defect is escalated.** The owner
 > watched the 2D animation on a booted iPhone 17e and rejected it: players stopped moving after the
 > play, did not follow it to the end, and tackles did not read as tackles. Measured over 200
