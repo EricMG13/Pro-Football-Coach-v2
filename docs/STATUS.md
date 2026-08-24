@@ -4355,3 +4355,12 @@ against `CollegeRules.initialRosterByPosition` or `ProRules.initialRosterByPosit
 position list is maintained by the test. The pass changed only the roster-population test and this
 status record. Verification passed: `--roster-population` (**8 tests / 246,852 checks**),
 `--generation-only` (**35 / 42,346**), and `--trait-population` (**8 / 610**).
+
+### 2026-08-24 — Loop 925 exclusive integration blocked
+
+Release/evidence `91b54f4` is the candidate baseline. Engine `fc8fa415` was integrated as
+`ad22f2f`; UI `0b8a1c2` was deliberately not merged. No default lane or legal validation ran.
+
+The pass is blocked: `03` says constants tune on disjoint tuning worlds, while the Q4 adjustment
+uses the known fixed-holdout lower-edge miss; the resulting holdout release evidence is therefore
+not independent. No band, margin, commitment, or existing pin was relaxed or re-pinned.
