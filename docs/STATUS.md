@@ -4,6 +4,14 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — the clean app lane now asserts its privacy manifest and bundle boundary.**
+> `PrivacyInfo.xcprivacy` declares only the observed app-container file-metadata access
+> (`NSPrivacyAccessedAPICategoryFileTimestamp` / `C617.1`), no collection and no tracking. The app
+> lane builds a copied clean checkout, verifies the bundled API/reason, checks the manifest source's
+> empty collection/tracking declarations, and allowlists the shallow unsigned Debug bundle. It passed
+> xcodegen, xcodebuild and the allowlist; an injected temporary top-level file made the allowlist fail.
+> Export-compliance selection and the signed archive remain owner-only.
+
 > **2026-08-24 — release is routed in CI with a retained one-runner cap.** The `release` job runs
 > after `full` (including after a `full` failure), uses `macos-15`, has its own 180-minute ceiling,
 > and invokes only `./scripts/verify.sh --lane release`. Its command has locally printed catalog,
