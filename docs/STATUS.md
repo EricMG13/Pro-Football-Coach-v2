@@ -4,6 +4,15 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Loop 909 widened the acquire-to-release professional transition.**
+> `ProManagementTests` now validates the complete world immediately after a successful acquisition,
+> before the following release can conceal an intermediate cap, contract, roster, or depth state.
+> Required regressions passed: management **9 / 27**, cap **8 / 29**, market **15 / 109**, draft
+> probe **2 / 70**, and depth chart **7 / 253**. `--core-contracts` completed with **235 / 3,448**
+> and the same pre-existing unclassified-`docs/loops/` manifest failure recorded above; this pass
+> touches no document-manifest source. Files changed: `Tests/SimTests/Suites/ProManagementTests.swift`,
+> `docs/STATUS.md`.
+
 > **2026-08-24 — Loop 908 widened the transaction-time college capacity sweep.**
 > The existing scheduler observer now also checks each programme's projected commitments preserve
 > enough openings to meet every minimum position, using the existing capacity predicate. The
