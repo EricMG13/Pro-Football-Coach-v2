@@ -759,6 +759,8 @@ private func checkCoachTenure(_ state: GameState, season: Int) {
             season - $0.season + 1
         }
     }.sorted()
+    expectEqual(tenures.count, state.staff.count,
+                "season \(season): an active staff member lacks a career assignment")
     guard let first = tenures.first, let last = tenures.last else {
         expect(false, "season \(season): no staff careers to measure tenure over")
         return

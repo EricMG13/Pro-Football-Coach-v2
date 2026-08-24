@@ -4,6 +4,18 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Loop 910 added a project-local staff-tenure distribution check.**
+> Active staff tenure is derived from the final `StaffCareerAssignment`: that record changes only
+> for a hire, move, or vacancy replacement, so an incumbent retains its original assignment season.
+> The existing deterministic lifecycle walk (seed **84,010**) established the narrow model band at
+> seasons **1 / 3 / 6 / 10**: minimum **1** year and median / maximum **season + 1** years
+> (**2 / 4 / 7 / 11**). The assertion also requires every active staff member to carry such a
+> record. This is model evidence, not an external football measurement; revisit it only when a
+> staff-carousel mechanism is introduced. Required suites passed: people lifecycle **24 / 520,279**,
+> discipline **9 / 36**, roster tenure **4 / 5**, injury evidence **1 / 34**, and programme
+> evolution **7 / 275**. Files changed: `Tests/SimTests/Suites/PeopleLifecycleTests.swift`,
+> `docs/STATUS.md`.
+
 > **2026-08-24 — Loop 909 widened the acquire-to-release professional transition.**
 > `ProManagementTests` now validates the complete world immediately after a successful acquisition,
 > before the following release can conceal an intermediate cap, contract, roster, or depth state.
