@@ -1,0 +1,494 @@
+import Foundation
+import FootballSimCore
+
+func runProMarketTests() {
+    suite("M6 professional market") {
+        test("offseason market is deterministic and bounded") {
+            let first = try ProMarketSystem.openOffseason(in: GameState.bootstrap(seed: 60_101))
+            let second = try ProMarketSystem.openOffseason(in: GameState.bootstrap(seed: 60_101))
+            expectEqual(first.proMarket, second.proMarket)
+            expectEqual(first.proMarket.phase, .freeAgency)
+            expectEqual(first.proMarket.draftClass.count, ProRules.draftPickCount)
+            expectEqual(first.proMarket.draftOrder.count, ProRules.draftPickCount)
+            expectEqual(Set(first.proMarket.draftOrder), Set(first.proTeams.ids))
+            expect(first.proMarket.draftClass.allSatisfy { $0.player.eligibility == nil })
+            expect(first.proMarket.draftClass.allSatisfy { $0.player.contract == nil })
+            let encoded = try SaveEnvelope.encode(first)
+            expectEqual(try SaveEnvelope.decode(GameState.self, from: encoded), first)
+            var closed = first
+            expect(closed.proMarket.close())
+            expectEqual(closed.proMarket.archivedDraftProspectIDs.count, ProRules.draftPickCount)
+            expect(WorldIntegrity.check(closed).isValid)
+        }
+
+        test("a draft order that hands one team two picks in a round is refused") {
+            let opened = try ProMarketSystem.openOffseason(in: GameState.bootstrap(seed: 60_130))
+            var market = opened.proMarket
+            let season = market.season
+            let draftClass = market.draftClass
+            let order = market.draftOrder
+            expect(ProRules.isLegalDraftOrder(order, teamIDs: Set(opened.proTeams.ids)),
+                   "the market built an illegal draft order")
+            expect(market.close())
+
+            var hoarded = order
+            hoarded[1] = hoarded[0]
+            expectEqual(hoarded.count, order.count)
+            expect(Set(hoarded).isSubset(of: Set(opened.proTeams.ids)))
+            expect(!market.open(
+                season: season,
+                draftClass: draftClass,
+                draftOrder: hoarded,
+                freeAgentIDs: []
+            ), "a round with a team holding two picks was installed")
+            expect(market.open(
+                season: season,
+                draftClass: draftClass,
+                draftOrder: order,
+                freeAgentIDs: []
+            ), "the legal order the market itself built was refused")
+        }
+
+        test("scouting is observer-specific and round trips") {
+            let opened = try ProMarketSystem.openOffseason(in: GameState.bootstrap(seed: 60_102))
+            let prospectID = try require(opened.proMarket.draftClass.first?.id)
+            let teamID = try require(opened.proTeams.ids.first)
+            let observed = try ProMarketSystem.recordScouting(
+                teamID: teamID,
+                prospectID: prospectID,
+                in: opened
+            )
+            expectEqual(observed.proMarket.observations.count, 1)
+            expectEqual(observed.proMarket.observations[0].teamID, teamID)
+            expectEqual(observed.proMarket.observations[0].prospectID, prospectID)
+            expectEqual(try SaveEnvelope.decode(
+                GameState.self,
+                from: SaveEnvelope.encode(observed)
+            ), observed)
+        }
+
+        test("draft consumes one pick and acquires the prospect atomically") {
+            var state = try ProMarketSystem.openOffseason(in: GameState.bootstrap(seed: 60_103))
+            let teamID = try require(state.proMarket.draftOrder.first)
+            removeProRosterPlayers(count: 1, teamID: teamID, in: &state)
+            state = try ProMarketSystem.beginDraft(in: state)
+            let prospect = try require(state.proMarket.draftClass.first)
+            let drafted = try ProMarketSystem.draft(
+                prospectID: prospect.id,
+                for: teamID,
+                in: state
+            )
+            expectEqual(drafted.proMarket.nextPick, 1)
+            expect(drafted.proMarket.draftedProspectIDs.contains(prospect.id))
+            expect(drafted.proTeams[teamID]?.rosterIDs.contains(prospect.id) == true)
+            expectEqual(
+                drafted.players[prospect.id]?.contract,
+                ProMarketSystem.rookieContract(for: prospect.player)
+                    .withSignedSeason(state.proMarket.season)
+            )
+            expect(WorldIntegrity.check(drafted).isValid)
+        }
+
+        test("a club with no seat passes its pick and the draft carries on") {
+            // The defect this replaces: `makeDraftPicks` stopped the whole run on the first
+            // `activeRosterFull`, so one full club ended the round for every club behind it. Live,
+            // that left the market in `.draft` for fifteen weeks a season and the draft making 130
+            // of 224 picks by season four (`--pro-movement-probe`, seed 96,001).
+            //
+            // The fixture is the extreme of the real shape: every club full except one, which is
+            // given exactly three seats. A stopping draft makes zero picks here; a passing one makes
+            // three and finishes.
+            var state = try ProMarketSystem.openOffseason(in: GameState.bootstrap(seed: 60_140))
+            let seated = try require(state.proMarket.draftOrder.first)
+            removeProRosterPlayers(count: 3, teamID: seated, in: &state)
+            state = try ProMarketSystem.beginDraft(in: state)
+            for teamID in state.proTeams.ids where teamID != seated {
+                expectEqual(state.proTeams[teamID]?.rosterIDs.count, ProRules.activeRosterLimit,
+                            "the fixture left a second club with room")
+            }
+
+            let transition = try ProRosterAISystem.process(at: state.calendar, in: state)
+            let market = transition.state.proMarket
+
+            expectEqual(market.phase, .rosterBuild, "the draft did not finish")
+            expectEqual(transition.signedPlayerIDs.count, 3)
+            expectEqual(market.draftedProspectIDs.count, 3)
+            expectEqual(transition.passedPicks, ProRules.draftPickCount - 3)
+            expectEqual(market.passedPickCount, ProRules.draftPickCount - 3)
+            expectEqual(market.nextPick, ProRules.draftPickCount)
+            expectEqual(transition.stoppedBecause, nil, "the draft stopped for an unhandled reason")
+            expectEqual(transition.state.proTeams[seated]?.rosterIDs.count,
+                        ProRules.activeRosterLimit)
+            expect(WorldIntegrity.check(transition.state).isValid,
+                   "a market holding passed picks failed root integrity")
+            expectEqual(try SaveEnvelope.decode(
+                GameState.self,
+                from: SaveEnvelope.encode(transition.state)
+            ), transition.state)
+
+            // A pass spends the pick, not the player: the three the seated club took are the three
+            // best in the class, because every club that passed ahead of it left them on the board.
+            let bestThree = state.proMarket.draftClass
+                .sorted {
+                    $0.player.overall.value == $1.player.overall.value
+                        ? $0.id.uuidString < $1.id.uuidString
+                        : $0.player.overall.value > $1.player.overall.value
+                }
+                .prefix(3)
+                .map(\.id)
+            expectEqual(Set(transition.signedPlayerIDs), Set(bestThree),
+                        "a passed pick took its prospect off the board with it")
+        }
+
+        test("a market saved before passed picks existed decodes as none passed") {
+            let opened = try ProMarketSystem.openOffseason(in: GameState.bootstrap(seed: 60_141))
+            let encoded = try JSONEncoder().encode(opened.proMarket)
+            var object = try require(
+                try JSONSerialization.jsonObject(with: encoded) as? [String: Any]
+            )
+            expect(object.removeValue(forKey: "passedPickCount") != nil,
+                   "the field is not written, so this test proves nothing")
+            let stripped = try JSONSerialization.data(withJSONObject: object)
+            let decoded = try JSONDecoder().decode(ProMarketState.self, from: stripped)
+            expectEqual(decoded.passedPickCount, 0)
+            expectEqual(decoded, opened.proMarket)
+        }
+
+        test("an unattached professional can sign in free agency") {
+            var state = GameState.bootstrap(seed: 60_104)
+            let teamID = try require(state.proTeams.ids.first)
+            removeProRosterPlayers(count: 1, teamID: teamID, in: &state)
+            let player = marketFreeAgent(id: UUID(uuidString: "00000000-0000-4000-8000-000000006104")!)
+            state.players.insert(player)
+            state.people.insert(player: player)
+            state = try ProMarketSystem.openOffseason(in: state)
+            expect(state.proMarket.freeAgentIDs.contains(player.id))
+            let signed = try ProMarketSystem.signFreeAgent(
+                playerID: player.id,
+                teamID: teamID,
+                contract: Contract(years: 2, baseSalaryByYear: [1_000_000, 1_200_000], signingBonus: 0),
+                in: state
+            )
+            expect(signed.proTeams[teamID]?.rosterIDs.contains(player.id) == true)
+            expect(!signed.proMarket.freeAgentIDs.contains(player.id))
+            expect(WorldIntegrity.check(signed).isValid)
+        }
+
+        test("wrong draft team and duplicate pick leave bytes unchanged") {
+            var state = try ProMarketSystem.openOffseason(in: GameState.bootstrap(seed: 60_105))
+            state = try ProMarketSystem.beginDraft(in: state)
+            let prospect = try require(state.proMarket.draftClass.first)
+            let before = try JSONEncoder.stable().encode(state)
+            let wrongTeam = state.proTeams.ids.first { $0 != state.proMarket.currentPickTeamID } ?? state.proTeams.ids[0]
+            do {
+                _ = try ProMarketSystem.draft(prospectID: prospect.id, for: wrongTeam, in: state)
+                expect(false, "wrong draft team was accepted")
+            } catch ProMarketError.wrongDraftTeam {
+                expectEqual(try JSONEncoder.stable().encode(state), before)
+            }
+        }
+
+        test("professional market intents require a professional job") {
+            var state = GameState.bootstrap(seed: 60_106)
+            let teamID = try require(state.proTeams.ids.first)
+            state.careerArc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: teamID,
+                    tier: .professional,
+                    startedAt: state.calendar
+                ),
+                status: .employed
+            )
+            let request = ProMarketRequest(
+                calendar: state.calendar,
+                action: .openOffseason
+            )
+            let resolved = try IntentResolver.resolve(.proMarket(request), in: state)
+            if case let .proMarketUpdated(result) = resolved.result {
+                expectEqual(result.action, .openOffseason)
+            } else {
+                expect(false, "professional market intent returned the wrong result")
+            }
+            let playerID = try require(resolved.state.proTeams[teamID]?.rosterIDs.first)
+            let moveRequest = ProMarketRequest(
+                calendar: resolved.state.calendar,
+                action: .moveToPracticeSquad(playerID: playerID, teamID: teamID)
+            )
+            let moved = try IntentResolver.resolve(.proMarket(moveRequest), in: resolved.state)
+            if case let .proMarketUpdated(result) = moved.result {
+                expect(result.emittedEvents.contains {
+                    if case .proPracticeSquadMoved(playerID: playerID, teamID: teamID, promoted: false) = $0.payload {
+                        return true
+                    }
+                    return false
+                })
+            } else {
+                expect(false, "practice-squad intent returned the wrong result")
+            }
+            let promoted = try ProMarketSystem.promoteFromPracticeSquad(
+                playerID: playerID,
+                teamID: teamID,
+                in: moved.state
+            )
+            expect(promoted.proTeams[teamID]?.rosterIDs.contains(playerID) == true)
+            do {
+                _ = try IntentResolver.resolve(
+                    .proMarket(request),
+                    in: GameState.bootstrap(seed: 60_107)
+                )
+                expect(false, "a college root accepted a professional market intent")
+            } catch IntentResolutionError.professionalMarketUnavailable {
+                expect(true)
+            }
+        }
+
+        test("root integrity rejects an out-of-season professional market") {
+            var state = GameState.bootstrap(seed: 60_108)
+            state.proMarket = ProMarketState(season: state.calendar.season + 3)
+            expect(WorldIntegrity.check(state).issues.contains(.invalidProfessionalMarket))
+        }
+
+        test("practice squad, trade, and waivers preserve ownership atomically") {
+            var state = GameState.bootstrap(seed: 60_109)
+            let teamIDs = Array(state.proTeams.ids.prefix(2))
+            let sourceTeamID = try require(teamIDs.first)
+            let destinationTeamID = try require(teamIDs.dropFirst().first)
+            let sourcePlayerID = try require(state.proTeams[sourceTeamID]?.rosterIDs.first)
+            let destinationPlayerID = try require(state.proTeams[destinationTeamID]?.rosterIDs.first)
+            let contract = Contract(years: 2, baseSalaryByYear: [1_000_000, 1_000_000], signingBonus: 0)
+            state.players.update(sourcePlayerID) { $0.contract = contract }
+
+            let traded = try ProMarketSystem.trade(
+                sourcePlayerID: sourcePlayerID,
+                sourceTeamID: sourceTeamID,
+                destinationPlayerID: destinationPlayerID,
+                destinationTeamID: destinationTeamID,
+                in: state
+            )
+            expect(traded.proTeams[sourceTeamID]?.rosterIDs.contains(destinationPlayerID) == true)
+            expect(traded.proTeams[destinationTeamID]?.rosterIDs.contains(sourcePlayerID) == true)
+
+            state = try ProMarketSystem.moveToPracticeSquad(
+                playerID: sourcePlayerID,
+                teamID: sourceTeamID,
+                in: state
+            )
+            expect(state.proTeams[sourceTeamID]?.practiceSquadIDs.contains(sourcePlayerID) == true)
+            state = try ProMarketSystem.placeOnWaivers(
+                playerID: sourcePlayerID,
+                teamID: sourceTeamID,
+                at: state.calendar,
+                in: state
+            )
+            removeProRosterPlayers(count: 1, teamID: destinationTeamID, in: &state)
+            let claimed = try ProMarketSystem.claimWaiver(
+                playerID: sourcePlayerID,
+                teamID: destinationTeamID,
+                at: state.calendar,
+                in: state
+            )
+            expect(claimed.proTeams[sourceTeamID]?.practiceSquadIDs.contains(sourcePlayerID) == false)
+            expect(claimed.proTeams[destinationTeamID]?.rosterIDs.contains(sourcePlayerID) == true)
+            expect(claimed.proMarket.waivers.isEmpty)
+            expect(WorldIntegrity.check(claimed).isValid)
+        }
+
+        test("expired waiver releases a player into the free-agent ledger") {
+            var state = GameState.bootstrap(seed: 60_110)
+            let teamID = try require(state.proTeams.ids.first)
+            let playerID = try require(state.proTeams[teamID]?.rosterIDs.first)
+            state.players.update(playerID) {
+                $0.contract = Contract(years: 2, baseSalaryByYear: [1_000_000, 1_000_000], signingBonus: 0)
+            }
+            state = try ProMarketSystem.placeOnWaivers(
+                playerID: playerID,
+                teamID: teamID,
+                at: state.calendar,
+                in: state
+            )
+            let expiredAt = state.calendar.advancedWeek().advancedWeek()
+            state = try ProMarketSystem.resolveExpiredWaivers(at: expiredAt, in: state)
+            expect(state.proMarket.freeAgentIDs.contains(playerID))
+            expect(state.players[playerID]?.contract == nil)
+            expect(WorldIntegrity.check(state).isValid)
+        }
+
+        test("market signings carry a season and expire without dead money") {
+            do {
+                _ = try JSONDecoder().decode(
+                    Contract.self,
+                    from: Data(#"{"years":1,"baseSalaryByYear":[1],"signingBonus":0,"signedSeason":-1}"#.utf8)
+                )
+                expect(false, "negative contract start season was accepted")
+            } catch {
+                expect(true)
+            }
+            var state = GameState.bootstrap(seed: 60_111)
+            let teamID = try require(state.proTeams.ids.first)
+            // Take the identity from the helper rather than assuming which player it displaces:
+            // it frees the most-populated position so that larger removals keep the root's
+            // positional coverage, which is not necessarily `rosterIDs.first`.
+            let playerID = try require(
+                removeProRosterPlayers(count: 1, teamID: teamID, in: &state).first
+            )
+            state = try ProMarketSystem.openOffseason(in: state)
+            state = try ProMarketSystem.signFreeAgent(
+                playerID: playerID,
+                teamID: teamID,
+                contract: Contract(years: 1, baseSalaryByYear: [1_000_000], signingBonus: 200_000),
+                in: state
+            )
+            expectEqual(state.players[playerID]?.contract?.signedSeason, state.proMarket.season)
+            expectEqual(try SaveEnvelope.decode(
+                GameState.self,
+                from: SaveEnvelope.encode(state)
+            ), state)
+
+            var rollover = GameState.bootstrap(seed: 60_112)
+            let rolloverTeamID = try require(rollover.proTeams.ids.first)
+            let rolloverPlayerID = try require(rollover.proTeams[rolloverTeamID]?.rosterIDs.first)
+            rollover.players.update(rolloverPlayerID) {
+                $0.contract = Contract(
+                    years: 1,
+                    baseSalaryByYear: [1_000_000],
+                    signingBonus: 200_000,
+                    signedSeason: 0
+                )
+            }
+            rollover.league.season = 0
+            rollover.league.week = SharedRules.inSeasonWeeks
+            rollover.calendar = CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            // The signing week carries the signing phase (`02` section 4.1). Without this the
+            // hand-built calendar produces a root the scheduler could never emit, and the integrity
+            // assertion at the end of this test is checking the fixture rather than the expiry.
+            rollover.college.phase = CollegeRules
+                .recruitingCyclePhase(inWeek: rollover.calendar.week)
+            let expired = try ProMarketSystem.expireContracts(at: rollover.calendar, in: rollover)
+            expect(expired.expiredPlayerIDs.contains(rolloverPlayerID))
+            expect(expired.state.players[rolloverPlayerID]?.contract == nil)
+            expect(expired.state.proTeams[rolloverTeamID]?.rosterIDs.contains(rolloverPlayerID) == false)
+            expect(expired.state.proMarket.freeAgentIDs.contains(rolloverPlayerID))
+            expectEqual(expired.state.proTeams[rolloverTeamID]?.deadMoney, 0)
+            expect(WorldIntegrity.check(expired.state).isValid)
+        }
+
+        test("professional roster AI is deterministic and leaves the controlled team alone") {
+            func fixture() throws -> GameState {
+                var state = GameState.bootstrap(seed: 60_113)
+                let controlledTeamID = try require(state.proTeams.ids.first)
+                let aiTeamID = try require(state.proTeams.ids.dropFirst().first)
+                removeProRosterPlayers(teamID: aiTeamID, in: &state)
+                state.careerArc = CareerArcState(
+                    currentJob: CareerJob(
+                        organisationID: controlledTeamID,
+                        tier: .professional,
+                        startedAt: state.calendar
+                    ),
+                    status: .employed
+                )
+                state = try ProMarketSystem.openOffseason(in: state)
+                return state
+            }
+            let firstRoot = try fixture()
+            let secondRoot = try fixture()
+            let first = try ProRosterAISystem.process(
+                at: firstRoot.calendar,
+                in: firstRoot
+            )
+            let second = try ProRosterAISystem.process(
+                at: secondRoot.calendar,
+                in: secondRoot
+            )
+            expectEqual(first.state, second.state)
+            expectEqual(first.eventPayloads, second.eventPayloads)
+            let aiTeamID = try require(first.state.proTeams.ids.dropFirst().first)
+            expectEqual(first.signedPlayerIDs.count, 1)
+            // `require` rather than `[0]`: an empty signing list is a failure to report, not a
+            // reason to trap. Indexing it here aborted the process and took the rest of the suite
+            // — and, in the full run, every suite after it — down with it.
+            let signedPlayerID = try require(first.signedPlayerIDs.first)
+            expect(first.state.proTeams[aiTeamID]?.rosterIDs.contains(signedPlayerID) == true)
+            let controlledTeamID = try require(first.state.proTeams.ids.first)
+            expect(first.state.proTeams[controlledTeamID]?.rosterIDs.contains(signedPlayerID) == false)
+            expect(WorldIntegrity.check(first.state).isValid)
+        }
+
+        test("a weekly scheduler pass preserves both-tier legality after professional AI") {
+            var state = GameState.bootstrap(seed: 60_114)
+            let aiTeamID = try require(state.proTeams.ids.dropFirst().first)
+            removeProRosterPlayers(teamID: aiTeamID, in: &state)
+            state = try ProMarketSystem.openOffseason(in: state)
+            let transition = try WorldScheduler.advanceWeek(state)
+            expect(WorldIntegrity.check(transition.state).isValid)
+            expect(transition.state.players.values
+                .filter { $0.contract?.signedSeason == transition.state.proMarket.season }
+                .allSatisfy { $0.eligibility == nil })
+            expectEqual(
+                try SaveEnvelope.decode(
+                    GameState.self,
+                    from: SaveEnvelope.encode(transition.state)
+                ),
+                transition.state
+            )
+        }
+    }
+}
+
+private func marketFreeAgent(id: UUID) -> Player {
+    Player(
+        id: id,
+        firstName: "Market",
+        lastName: "FreeAgent",
+        position: .wideReceiver,
+        age: 23,
+        attributes: Attributes([.speed: Rating(80), .hands: Rating(78)]),
+        potential: Rating(84)
+    )
+}
+
+private enum ProMarketTestError: Error { case missingFixture }
+
+private func require<T>(_ value: T?) throws -> T {
+    guard let value else { throw ProMarketTestError.missingFixture }
+    return value
+}
+
+/// Opens `count` roster slots and puts the players they displace into the market, always taking
+/// from the most-populated position so the root keeps positional coverage however many are freed.
+///
+/// The contract goes with them, and that is not incidental. `openOffseason` builds the free-agent
+/// pool from players who are unowned **and uncontracted**, so before `0deb629` — when a generated
+/// world issued no contracts at all — removing a player from a roster was enough to make them a
+/// free agent. Once bootstrap began issuing contracts it silently stopped being enough: the pool
+/// came back empty, the AI signed nobody, and a test that indexed the first signing crashed the
+/// whole process instead of failing one check.
+///
+/// The default is `ProRules.draftRounds + 1` rather than 1 because free agency now signs only down
+/// to the seats the draft reserves (`02` section 4.2). A fixture that frees one seat on a 53-man
+/// roster leaves it at 52, which is above the reserve, so the AI correctly signs nobody and a test
+/// that wanted to observe a signing observes nothing.
+@discardableResult
+private func removeProRosterPlayers(
+    count: Int = ProRules.draftRounds + 1,
+    teamID: UUID,
+    in state: inout GameState
+) -> [UUID] {
+    var removed: [UUID] = []
+    for _ in 0..<count {
+        guard let team = state.proTeams[teamID] else { break }
+        var byPosition: [Position: [UUID]] = [:]
+        for playerID in team.rosterIDs {
+            guard let position = state.players[playerID]?.position else { continue }
+            byPosition[position, default: []].append(playerID)
+        }
+        guard let playerID = byPosition.max(by: { lhs, rhs in
+            lhs.value.count == rhs.value.count
+                ? lhs.key.rawValue > rhs.key.rawValue
+                : lhs.value.count < rhs.value.count
+        })?.value.first else { break }
+        _ = state.proTeams.update(teamID) { $0.rosterIDs.removeAll { $0 == playerID } }
+        state.players.update(playerID) { $0.contract = nil }
+        removed.append(playerID)
+    }
+    return removed
+}

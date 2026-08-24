@@ -1,0 +1,257 @@
+# Claude build handoff
+
+## Latest handoff — eight red suites on main, seven of them a merge (2026-08-22)
+
+`main` at `da0eb73` failed eight suites in CI run `32558005794`. Seven of the eight were the shape
+of a merge rather than a defect: PR #69 resolved file by file and kept one branch's tests beside
+the other branch's production code. `docs/STATUS.md`'s 2026-08-22 entry carries the full account
+and is the record to read; this is the pointer to it.
+
+What was done, in order:
+
+1. Merged the nine unmerged commits on `agent/floodlit-injury-evidence` (`c42b6e4`…`3a35bc6`).
+   They restore `DetailedGameSummaryBuilder`'s preserved losses and re-derive ten fingerprints, and
+   they close `Legal: shipped copy`, `League generation`, `Game loop` and `Authoritative game state`.
+2. Reconciled four assertions that could not hold together after the merge — the pre-kickoff
+   comparison root in `M4 tactical state`, the appended professional seat in `M5 career arc`, and
+   the week-20 terminal checkpoint and NIL-budget fixture in `College portal scheduler lifecycle`.
+3. Raised `SharedRules.minimumPlayableRosterByPosition[.runningBack]` to 2, for the reserve back
+   `DepthChart.offensiveTemplate` now fields. This was a new failure the merge created, caught by
+   the existing cross-check in `RulesTests`; no determinism lane moved with it.
+
+### Closed 2026-08-24 — the band holds, and the cause was an intake that invented players
+
+`46b96bb8` offers a seat vacated by retirement to the professionals the league already has before
+generating one. The past-decline share reads **0.228, 0.196, 0.183, 0.203, 0.218** at seasons 0, 1,
+3, 6 and 10, against 0.228, 0.196, 0.134, **0.067**, 0.162 before; mean age holds at 27.07, 26.81,
+26.56, 26.80, 26.70 instead of sagging to 25.59. `--people-lifecycle` passes at 24 tests / 520,238
+checks, `--architecture-only` at 29 / 245 with no pin moved. No band was widened and no retirement
+constant moved. Everything below is the investigation that got there, kept because four of its
+findings are things not to retry.
+
+### What it was, and must not be re-pinned
+
+`Lifecycle distributions hold their bands`. The professional past-decline share reads 0.228, 0.196,
+0.146, **0.073**, 0.170 at seasons 0, 1, 3, 6, 10 against a band of 0.08…0.30. It is a real
+measurement of two things at once: active professional rosters hold 1,411…1,533 against 32 × 53 =
+1,696 from the first offseason onward, and every professional enters at age 22, so the initial
+veteran tail retires out before the drafted cohorts reach decline. `--pro-soak` already asserts the
+roster-legality half and is already red for it.
+
+**Do not widen the band.** `--pro-movement-probe` found three things. One is not a defect, one is
+fixed, and one is open.
+
+**Not a defect — read the probe's season labels.** Its window labelled "season 1" is the weeks of
+season 0, when the market is legitimately closed; it opens at the season-0 boundary. "Free agency
+never ran" there is correct. An earlier revision of this file called that the bug. It is not.
+
+**Fixed, 2026-08-23 — the draft could not finish.** Expiry leaves clubs six to seventeen seats short
+against seven rounds, so the club that lost fewest filled up on its own sixth pick, and
+`makeDraftPicks` treated the `activeRosterFull` as fatal: one full club ended the round for the
+other thirty-one, and the next week resumed at the same stuck pick. The market never reached
+`.rosterBuild` in any season and the draft made 130 of 224 picks by season four. A pick a club
+cannot seat is now passed (`02` section 4.2), leaving the prospect on the board for the club behind
+it. Picks landed went 220→223, 197→218, 130→189, 135→165 across seasons 2 to 5, active rosters
+1,436→1,439, 1,474→1,496, 1,456→1,526 and 1,271→1,341, and the weeks stuck in `.draft` 16→1.
+
+**The draft fix did not close the band, and nudged it the other way.** After it, the past-decline
+share reads 0.228, 0.196, 0.134, **0.067**, 0.161 against 0.228, 0.196, 0.146, 0.073, 0.170 before.
+Every figure fell, which is the expected direction: the extra picks are all age-22 intake. It rules
+the draft out as the band's cause and points squarely at the two items below.
+
+**Free agency's throughput is not a defect (2026-08-23).** With the draft finishing, the boundary
+count is exactly `1,696 - expiries` every season and a week-12 sample reads 1,696 in every season.
+The league is fully seated all year and short only in the instant between expiry and the market
+reopening. An earlier revision of this file said otherwise; with the draft stuck that was true.
+
+**The band is not a sampling artefact — tested 2026-08-23, do not retry this.** The league is fully
+seated mid-season (1,696) and short only at the boundary the band samples (1,411…1,496), so the
+age-curve sample was moved in-season and measured. It came back 0.228, 0.228, 0.149, **0.056**,
+0.147 against 0.228, 0.196, 0.134, 0.067, 0.161 at the boundary — season 6 *worse*, because a full roster carries
+the 223 rookies the draft has just seated. Reverted. The model does not retain enough post-decline
+professionals on any sample point.
+
+**The pool fix did not move the age band — measured 2026-08-23, do not re-suspect it.** The
+figures above were recorded at `c5b9251` (03:20), and the pool fix `a86de6e` landed at 09:27, so
+every number in this file predated it and rating-cut pooling was a live suspect: a post-decline
+professional is by construction lower-rated than a 22-year-old intake, so cutting a 512-deep pool
+by rating is exactly the shape that would exclude the players this band counts. Re-run in release
+at seed 84,010 on the merged tree, the share reads **0.228, 0.196, 0.134, 0.067, 0.162** with means
+27.07, 26.81, 25.79, 25.59, 25.93 over n = 1696, 1411, 1475, 1459, 1471. Identical to three
+decimals except season 10, which moved 0.161 → 0.162. Ranking the pool by rating does not move the
+age curve, and `signFreeAgents` never reads age at all.
+
+**The mechanism, stated by construction rather than by sampling.** Professional intake has exactly
+two sites — `ProMarketSystem.makeDraftClass` and `SeasonLifecycleSystem`'s departure backfill — and
+both go through `RosterPopulationGenerator.replacement`, where
+
+    let age = tier == .college ? 18 : 22 + ordinal % 2
+
+The draft class is **synthesised, not promoted from the college world**, so no college player's age
+ever reaches the professional tier. Against `SharedRules.declineAgeByPosition` — running back 27,
+corner/receiver/edge 29, safety/linebacker/tackle/tight end 30, line 31, quarterback 34, kicker and
+punter 36 — nothing that enters can reach decline for five to twelve years, while the bootstrap's
+post-decline players decay at `retirementProbabilityPerYearAfterDecline` = 0.14 a year. The trough
+is that gap, and season 10's recovery is the first drafted cohorts ageing into it. `5db6c8cd`
+already tried to damp this with `ordinal % 2`; one year of spread against a five-to-twelve-year gap
+is not damping, and it was already in place when every figure above was measured.
+
+**Measured 2026-08-24 — the band's cause is the draft reserve, and it is arithmetic.**
+`--pro-movement-probe` reports `expired=257 returned=2` in season 2 and `expired=200 returned=2` in
+season 3. **Two players a season return to a professional roster, league-wide**; every other vacated
+seat is filled by a 22-year-old draftee (`drafted=223`, `218`) or by a move between clubs
+(`relocated=68`, `37`). That is the whole of "the model does not retain enough post-decline
+professionals", and the arithmetic behind it is exact:
+
+* `signFreeAgents` computes `signingLimit = ProRules.activeRosterLimit - remainingPicks`, which at
+  the start of an offseason is `53 - 7 = 46`;
+* the probe measures clubs `shortBy min=6 max=10` after expiry, so rosters sit at 43…47;
+* a club therefore signs only while `roster < 46` — only if it is **eight or more short**. Most are
+  six or seven short and can sign nobody at all;
+* league-wide the reserve is `32 * 7 = 224` seats against 200…257 vacancies, so the reserve alone
+  exceeds the whole free-agent opportunity before a single signing is attempted.
+
+The league is refreshed roughly ninety per cent by rookies every year, which is why the past-decline
+share must collapse until the drafted cohorts age in.
+
+This refines rather than contradicts the throughput entry above: that one measured **seat counts**,
+and the league genuinely is fully seated mid-season. On **who fills the seats**, throughput is two
+a season.
+
+**The fix has a canon dependency, so it is not made here.** The reserve exists because
+`makeDraftPicks` once treated a full roster as fatal — one full club ended the round for the other
+thirty-one. `a86de6e` changed an unseatable pick to pass instead. The two mechanisms are now
+redundant, and together they starve free agency; shrinking the reserve is the change. But `02`
+section 4.2 is cited at that line, and the doc-first rule says canon answers a gameplay question
+before code does. **What canon has to decide is how many seats a club reserves for picks it has not
+yet made, now that a pick it cannot seat is passed rather than fatal.**
+
+**The obvious fix is the wrong one, and that is the owner's decision.** Season 0 draws ages from
+`min(34, max(22, gaussian(mean: 27, sd: 3)))` — a different distribution from the one the process
+sustains, which is what 0.228 at season 0 against 0.162 at season 10 says. Re-seeding season 0 from
+the process would remove the transient and hold the band at every sample point. It would also be
+fitting the model to the test: 0.16 is low for the sport and 0.228 is the closer figure, so that
+change buys a green suite by making the league permanently too young. **The gap belongs to
+retention — how long a post-decline professional stays in the league — not to the seed
+distribution**, and moving `retirementProbabilityPerYearAfterDecline`, the post-decline rating
+decay, or a club's willingness to re-sign a veteran are three different design answers with three
+different consequences for the game. That is the decision `docs/STATUS.md` asks for, and it is
+still open.
+
+**The free-agent pool picked its members by coin toss — fixed 2026-08-23.** `openOffseason` capped
+the pool at `maximumFreeAgentIDs` (512) with `sorted { $0.uuidString < ... }.prefix(512)`, so once
+the unattached population passed 512 it kept the same arbitrary slice every season and everyone else
+was unsignable for the rest of the save. Cut by rating now, ties on identifier, same bound.
+
+---
+
+Checkpoint: **M7 is complete except conference realignment.** Continue from here; do not redo the
+green gates below.
+
+**`docs/STATUS.md` is the truth.** This file is a pointer, not a substitute — the previous version of
+it listed only focused gates and a reader reasonably took that as "the build is green". It was not:
+the full suite was red. Read STATUS before believing any summary, including this one.
+
+## Verified, on 2026-08-12
+
+`./scripts/verify.sh` — **663 tests / 747,584 checks, exit 0**, debug build and release suite. This
+is the whole default run, not a selection.
+
+Focused gates, each measured rather than estimated:
+
+- `--core-contracts` 152 / 980
+- `--news-feed` 8 / 14
+- `--programme-evolution` 7 / 275
+- `--architecture-only` 25 / 222
+- `--generation-only` 34 / 39,143
+- `--legal-only` 22 / 141
+- `--history-archive` 20 / 147
+- `--coaching-tree` 11 / 25
+- `--rivalry-order` 7 / 11
+- `--portal-scheduler` 9 / 27,823 (two-season byte-identical replay)
+- `--m7-gate` 1 / 65, in release, 30 seasons
+
+Root schema is **11**.
+
+## What this checkpoint added
+
+- **M7A** — rival lists reorder from the intensity their meetings earned, through the same ranking
+  that seeded them; `CoachingTreeReadModel` derives mentor-to-disciple from bounded staff careers,
+  rebuilt rather than persisted.
+- **M7B** — the historical aggregate archive. An event leaving the bounded hot journal folds into a
+  `SeasonHistoryDigest` for its own season: an archived count plus a bounded, *ranked* sample of
+  bodies. `digest(forSeason:)` surfaces a past season without reading the journal or the save.
+- **Save compression** — `03b` §4's reserved flags bit, claimed. **306.9 MB → 36.0 MB at season 30**,
+  8.5x, with season 1 inside the original 8 MB ceiling.
+- **The legal guardrail now refuses by name-kind**, after the owner permitted real locations.
+- **M7C, the news feed** — headlines rendered from typed payloads over the hot journal *and* the
+  archive's retained bodies, ranked by the same `historicalWeight` that decides what an archived
+  season keeps. Derived, never persisted. `02` §4.2b.
+- **M7D, programme evolution** — prestige was frozen at generation and now steps one point a season
+  toward a target set by the final table. `02` §8. The portal characterization moved with it
+  (385/210/94 entrant windows, transfers, returns became 409/217/112), which is the world evolving
+  rather than a regression: those are descriptive outputs, not pins.
+- **The personnel UI slice** with four proofs recaptured from current source.
+
+## Red on purpose — read these before touching the professional tier
+
+Neither is in the default run, so `verify.sh` is unaffected. Both name a real defect.
+
+- **`--pro-soak`** — the both-tier professional soak the last handoff listed as open. It had never
+  been written. It asserts cap and roster legality per season for all 32 teams and a byte-identical
+  replay, and it fails because **the professional tier is inert**: rosters bootstrap at 53/53 and
+  never turn over, and no professional holds a contract, so nothing expires and nobody reaches free
+  agency. The 224-prospect draft class generated every season can never be taken.
+- **`--pro-draft-probe`** — reaches the draft directly and reports the thrown reason in seconds
+  rather than twelve minutes.
+- **`--pro-week-walk`** — bisector: reports the exact week a professional step refuses.
+
+**The blocker is FSC-013, not a missing cut policy.** Giving bootstrap professionals contracts was
+tried and reverted. It works in isolation — 317 expire, cap legal, first draft pick succeeds — and
+fails in the scheduler at season 0 week 21, because whole-root integrity validates recorded game
+participants against *current* rosters. Releasing 315 players while that season's results are live
+invalidates every game they played in. FSC-013 named its own activation trigger as "no later than
+professional trades"; the real trigger is earlier — contract expiry at the final week of a live
+season — and the entry now says so. **Professional turnover needs dated roster-tenure history
+first.**
+
+The headless offseason driver is already built and waiting for it: `ProRosterAISystem` signs while
+signings are legal, begins the draft when a pass signs nobody, and picks in draft order, pausing only
+when the controlled professional team is on the clock (`02` §4.2, amended 2026-08-12).
+
+## Next work
+
+1. **Conference realignment — M7's last item.** `02` §8 already specifies the inputs: performance,
+   market and geography. It is not blocked on a decision; it is **milestone-sized**, because it
+   changes league *topology* and schedule generation, standings, tiebreaks and whole-root integrity
+   all read that topology. Budget it as a slice with its own plan, not as a rule.
+2. **Cross-season semantic narrative** — a story that spans seasons rather than reporting one event.
+   The feed reports; nothing yet narrates.
+3. **M8 production UI** — gated. Its entry gate needs Coaching HQ, Recruiting Board and Match Day
+   approved together as interactive native-size proofs at 31/40 or better against `04b`. A second
+   session owns the design work.
+4. **FSC-013 dated roster-tenure history** — unblocks the professional tier.
+5. **L-01 — run the suite against the near-miss name list, and re-pin.** The blocklist work on
+   `claude/game-name-equivalents-qczn9r` (PR #9) was written with no toolchain and is unverified.
+   The nickname pools lost eight real college nicknames to one-for-one replacements, so
+   `ArchitectureTests`' `pinnedRootFingerprint` and `pinnedAdvancedRootFingerprint` should both move
+   and need re-pinning — **and a pin that does not move is the finding**, because it would mean the
+   fingerprint never covered generated names. `docs/05-IMPLEMENTATION-PLAN.md`'s 2026-08-13
+   amendments carry L-01 to L-06; L-02, the nickname morpheme grammar, is the only other one that is
+   build work rather than a counsel or review action.
+6. **M9** — where `docs/roadmap/06` puts final calibration, save migrations, performance and the long
+   soak. **P4's match calibration is still failing at 5–6 of 24 bands**, and STATUS is explicit that
+   the gap is model thinness — no per-drive accounting, a thin run game — not constants, so more
+   search over the existing six will not move it.
+
+## Standing constraints
+
+Swift 5 language mode and TestKit. Preserve the actor-owned `CareerSession`, sealed portal
+transactions, copied-root validation, deterministic event ordering, and no SwiftUI access to
+`GameState`.
+
+**Two things that cost real time here.** A second session commits to this branch: stage by explicit
+path, never `git add -A`, and if its uncommitted work does not compile, build in a worktree rather
+than touching its files. And **run the full suite before claiming green** — focused gates missed a
+determinism pin that hashed the save envelope, so compression silently moved it; the full run is what
+caught it.
