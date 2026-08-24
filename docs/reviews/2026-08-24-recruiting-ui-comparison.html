@@ -1,0 +1,571 @@
+<title>Two Recruiting Desks</title>
+<!--
+  Recruiting UI comparison — bundle B (Screens 06) against bundle A (Recruiting).
+  Screenshots are referenced from assets/2026-08-24-recruiting-ui/ to keep this file diffable.
+  Before publishing as an Artifact, inline them first — external paths do not resolve there:
+      node docs/reviews/assets/2026-08-24-recruiting-ui/inline.js \
+           docs/reviews/2026-08-24-recruiting-ui-comparison.html /tmp/publish.html
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --ground:#F1F2EE;
+  --surface:#FBFBF9;
+  --sunk:#E7E9E3;
+  --ink:#14191A;
+  --muted:#5C6866;
+  --faint:#8A9491;
+  --rule:#DBDFD8;
+  --a:#1D6E5B;
+  --b:#B04E17;
+  --a-wash:rgba(29,110,91,.09);
+  --b-wash:rgba(176,78,23,.09);
+  --shadow:0 1px 2px rgba(20,25,26,.05),0 8px 24px rgba(20,25,26,.07);
+
+  --display:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Newsreader",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101413;
+    --surface:#171C1A;
+    --sunk:#0B0F0E;
+    --ink:#E7EDE9;
+    --muted:#91A09B;
+    --faint:#6D7B77;
+    --rule:#242D2A;
+    --a:#4CBA9C;
+    --b:#E8894A;
+    --a-wash:rgba(76,186,156,.12);
+    --b-wash:rgba(232,137,74,.12);
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101413;
+  --surface:#171C1A;
+  --sunk:#0B0F0E;
+  --ink:#E7EDE9;
+  --muted:#91A09B;
+  --faint:#6D7B77;
+  --rule:#242D2A;
+  --a:#4CBA9C;
+  --b:#E8894A;
+  --a-wash:rgba(76,186,156,.12);
+  --b-wash:rgba(232,137,74,.12);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:18px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.page{max-width:1180px;margin:0 auto;padding:0 28px 120px}
+.col{max-width:66ch;margin-inline:auto}
+
+/* ---- masthead ---- */
+.mast{padding:72px 0 40px;border-bottom:1px solid var(--rule)}
+.kicker{
+  font-family:var(--mono);font-size:11px;font-weight:600;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--faint);
+}
+h1{
+  font-family:var(--display);font-weight:700;font-size:clamp(38px,6.2vw,64px);
+  line-height:1.02;letter-spacing:-.022em;margin:18px 0 0;text-wrap:balance;
+}
+.standfirst{
+  font-size:21px;line-height:1.5;color:var(--muted);margin:20px 0 0;
+  max-width:56ch;text-wrap:pretty;
+}
+.contenders{
+  display:flex;flex-wrap:wrap;gap:12px;margin-top:34px;
+}
+.chip{
+  display:flex;align-items:baseline;gap:10px;
+  padding:11px 16px;border-radius:2px;background:var(--surface);
+  border:1px solid var(--rule);border-left-width:3px;
+  font-family:var(--mono);font-size:12px;letter-spacing:.02em;color:var(--muted);
+}
+.chip b{font-family:var(--display);font-size:14px;font-weight:600;letter-spacing:.04em;color:var(--ink)}
+.chip.a{border-left-color:var(--a)}
+.chip.b{border-left-color:var(--b)}
+
+/* ---- sections ---- */
+section{padding-top:74px}
+.eyebrow{
+  font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.19em;
+  text-transform:uppercase;color:var(--faint);margin-bottom:14px;
+}
+h2{
+  font-family:var(--display);font-weight:600;font-size:clamp(26px,3.4vw,36px);
+  line-height:1.12;letter-spacing:-.015em;margin:0 0 22px;text-wrap:balance;
+}
+h3{
+  font-family:var(--display);font-weight:600;font-size:20px;line-height:1.25;
+  letter-spacing:-.005em;margin:38px 0 10px;
+}
+p{margin:0 0 18px}
+p:last-child{margin-bottom:0}
+.lead{font-size:20px;color:var(--muted)}
+em{font-style:italic}
+strong{font-weight:500;color:var(--ink);background:linear-gradient(transparent 64%,var(--a-wash) 64%)}
+.q{
+  font-family:var(--mono);font-size:.87em;letter-spacing:-.01em;
+  color:var(--ink);background:var(--sunk);padding:1px 5px;border-radius:2px;
+  white-space:nowrap;
+  -webkit-box-decoration-break:clone;box-decoration-break:clone;
+}
+.qw{white-space:normal;-webkit-box-decoration-break:clone;box-decoration-break:clone}
+
+/* ---- face-off ---- */
+.faceoff{margin:34px 0 0}
+.faceoff-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:16px;
+  padding-bottom:10px;border-bottom:1px solid var(--rule);margin-bottom:20px;flex-wrap:wrap;
+}
+.faceoff-head h3{margin:0;font-size:22px}
+.faceoff-note{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--faint);text-transform:uppercase}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+@media (max-width:840px){.pair{grid-template-columns:1fr}}
+figure{margin:0;display:flex;flex-direction:column;gap:10px}
+figure img{
+  width:100%;height:auto;display:block;border-radius:3px;
+  border:1px solid var(--rule);box-shadow:var(--shadow);background:#060A12;
+}
+figcaption{
+  font-family:var(--mono);font-size:11px;line-height:1.5;letter-spacing:.02em;color:var(--muted);
+  padding-left:11px;border-left:3px solid var(--rule);
+}
+figure.a figcaption{border-left-color:var(--a)}
+figure.b figcaption{border-left-color:var(--b)}
+figcaption b{
+  display:block;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
+  font-size:10px;margin-bottom:3px;
+}
+figure.a figcaption b{color:var(--a)}
+figure.b figcaption b{color:var(--b)}
+.solo{max-width:620px;margin-inline:auto}
+
+/* ---- verdict split ---- */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:30px}
+@media (max-width:840px){.split{grid-template-columns:1fr}}
+.card{
+  background:var(--surface);border:1px solid var(--rule);border-top-width:3px;
+  border-radius:2px;padding:24px 24px 26px;
+}
+.card.a{border-top-color:var(--a)}
+.card.b{border-top-color:var(--b)}
+.card h4{
+  font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;margin:0 0 12px;
+}
+.card.a h4{color:var(--a)}
+.card.b h4{color:var(--b)}
+.card p{font-size:17px;line-height:1.55}
+.card p:last-child{margin-bottom:0}
+
+/* ---- lists ---- */
+ul.find{list-style:none;padding:0;margin:0}
+ul.find li{
+  padding:16px 0 16px 0;border-top:1px solid var(--rule);
+}
+ul.find li:first-child{border-top:none;padding-top:4px}
+ul.find .t{
+  font-family:var(--display);font-weight:600;font-size:17px;letter-spacing:-.004em;
+  display:block;margin-bottom:5px;
+}
+ul.find .d{color:var(--muted);font-size:17px;line-height:1.55;display:block}
+
+/* ---- table ---- */
+.tablewrap{overflow-x:auto;margin-top:26px;border:1px solid var(--rule);border-radius:2px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:520px;font-family:var(--mono);font-size:13px}
+th,td{padding:13px 18px;text-align:right;border-bottom:1px solid var(--rule)}
+th:first-child,td:first-child{text-align:left;font-family:var(--body);font-size:16px}
+thead th{
+  font-size:10px;font-weight:600;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--faint);background:var(--sunk);
+}
+thead th.hb{color:var(--b)}
+thead th.ha{color:var(--a)}
+tbody tr:last-child td{border-bottom:none}
+td{font-variant-numeric:tabular-nums}
+td.win{color:var(--a);font-weight:600}
+td.lose{color:var(--b);font-weight:600}
+.caveat{font-family:var(--mono);font-size:11.5px;line-height:1.65;color:var(--faint);margin-top:14px}
+
+/* ---- callout ---- */
+.callout{
+  margin:32px 0 0;padding:24px 26px;border-radius:2px;
+  background:var(--surface);border:1px solid var(--rule);
+  border-left:3px solid var(--ink);
+}
+.callout p{font-size:18px}
+.callout .lbl{
+  font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.17em;
+  text-transform:uppercase;color:var(--faint);display:block;margin-bottom:10px;
+}
+
+footer{
+  margin-top:88px;padding-top:26px;border-top:1px solid var(--rule);
+  font-family:var(--mono);font-size:11.5px;line-height:1.7;color:var(--faint);
+}
+</style>
+
+<div class="page">
+
+<header class="mast">
+  <div class="col">
+    <div class="kicker">Recruiting flow &middot; landscape iPhone &middot; product review</div>
+    <h1>Two Recruiting Desks</h1>
+    <p class="standfirst">Two designs for the same job: run a recruiting class on a phone, as a coach who never touches a player. They are not two skins of one idea. They disagree about what the coach controls &mdash; and that disagreement is the decision.</p>
+    <div class="contenders">
+      <div class="chip b"><b>B</b> Screens 06 &middot; Recruiting End to End &middot; 8 surfaces</div>
+      <div class="chip a"><b>A</b> Recruiting &middot; the ten remaining surfaces &middot; 10 surfaces</div>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="col">
+    <div class="eyebrow">The short version</div>
+    <h2>One designed the feeling. One designed the loop.</h2>
+    <p class="lead">B is the better argument about what recruiting <em>is</em>: uncertain, delegated, and mostly out of your hands. A is the better machine for actually playing it: every action priced before you take it, and a real before-and-after when you do.</p>
+    <p>Both are strong work at the same 844&nbsp;pt landscape frame, in the same floodlit visual world. Neither is a draft. But they are not interchangeable, and stitching them together is not a merge &mdash; one question has to be settled first.</p>
+  </div>
+
+  <div class="split col" style="max-width:none">
+    <div class="card b">
+      <h4>B &mdash; what it gets right</h4>
+      <p>Doubt is a value you can see. Your staff's week is drawn beside your own. Lists sort by the hole they fill and tell you what to do next. It teaches its own grammar before it uses it. And it refuses to let you act on screens where acting would cheapen the ceremony.</p>
+    </div>
+    <div class="card a">
+      <h4>A &mdash; what it gets right</h4>
+      <p>Every commit names its cost in the currency it actually spends, before you press it. Seven surfaces carry idle, committing and done, with undo and the consequence written in. Opportunity cost is spelled out in plain prose beside the number. And it covers the portal, where the roster is really built.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <div class="eyebrow">The disagreement</div>
+    <h2>Is the money weather, or is it your budget?</h2>
+    <p>This is the one place the two designs are not merely different but incompatible, and everything else is downstream of it.</p>
+    <p><strong>B says the money is weather.</strong> Its NIL screen is labelled <span class="q qw">a whole screen of numbers you may not move &middot; zero gold, zero controls</span>. The column headed <em>What you may do</em> reads <span class="q">READ IT</span> down every row, and <span class="q">NOT EVEN READ IT</span> against the unallocated slice. The collective that holds the money is marked <span class="q">not on the football account</span> and <span class="q">not answerable</span> to the coach. The screen states its own purpose: it exists so the player can see the size of what they do not control.</p>
+    <p><strong>A says the money is your budget.</strong> A single pool of $1.24M is named at the top of the portal hub, with the tension stated outright &mdash; keeping your own people and signing someone else's compete for the same pot. Then you spend it: <span class="q">MATCH BOYCE &middot; $300k / LEAVES $530k</span>, <span class="q">OFFER OKON $260k / LEAVES $270k</span>, with a running total drawn as a bar that reads <em>pool after this page</em>.</p>
+  </div>
+
+  <div class="faceoff">
+    <div class="faceoff-head">
+      <h3>The same money, two products</h3>
+      <div class="faceoff-note">B: read only &middot; A: spend it</div>
+    </div>
+    <div class="pair">
+      <figure class="b">
+        <img src="assets/2026-08-24-recruiting-ui/B6f.png" alt="B's NIL screen: five position groups with declared figures, a 'What you may do' column reading READ IT on every row, and a panel naming the collective that holds the money.">
+        <figcaption><b>B &middot; NIL, declared</b>Zero gold, zero controls. The player is shown the size of a number they cannot move, on purpose.</figcaption>
+      </figure>
+      <figure class="a">
+        <img src="assets/2026-08-24-recruiting-ui/A8i.png" alt="A's portal market: three transfer targets with ratings, years left and asking prices, one marked out of your pool, and a gold button reading OFFER OKON $260k, LEAVES $270k, HE HAS 48 HRS.">
+        <figcaption><b>A &middot; Portal market</b>The same money as a spendable pool, with one option greyed out and labelled <em>out of your pool</em>.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="callout">
+      <span class="lbl">Why it can't be split</span>
+      <p>A's recruiting is a resource-allocation game whose central tension is one pot, two claims on it. B's is a persuasion game where money is a constraint you read and route around. Both are coherent. Both are good. Only one can ship, because the moment the coach can move a dollar, B's whole thesis &mdash; and its best screen &mdash; stops being true.</p>
+      <p style="margin-top:14px">There is a version that keeps both: a modest pool the coach genuinely spends, sitting underneath a much larger declared figure they never touch. B's own screen already gestures at it &mdash; the unallocated slice it refuses to break out. But that is a design decision to take deliberately, not a compromise to arrive at by pasting the two sets together.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <div class="eyebrow">Where B is stronger</div>
+    <h2>It designed the uncertainty, and the staff.</h2>
+  </div>
+
+  <div class="faceoff">
+    <div class="faceoff-head">
+      <h3>The prospect</h3>
+      <div class="faceoff-note">Doubt as a value vs. levers you hold</div>
+    </div>
+    <div class="pair">
+      <figure class="b">
+        <img src="assets/2026-08-24-recruiting-ui/B6a.png" alt="B's prospect dossier: a ceiling of 72 to 84 labelled twelve points of doubt, eight traits drawn as ranges with three marked UNSEEN, competing schools, what the prospect has asked for, and holds-if-promised percentages.">
+        <figcaption><b>B &middot; Prospect profile</b>Ratings are ranges. Bar width is how sure the scout is, not how good the player is. Three of eight traits render as <em>unseen</em> rather than as a number.</figcaption>
+      </figure>
+      <figure class="a">
+        <img src="assets/2026-08-24-recruiting-ui/A8b.png" alt="A's prospect profile: a grade range of 82 floor, 91 likely, 96 ceiling, and a panel titled what he is weighing in his order, listing play as a freshman, NIL, close to home and coach stability.">
+        <figcaption><b>A &middot; Prospect profile</b>A range too &mdash; plus a ranked list of what the recruit is weighing, colour-coded by whether you control it.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="col">
+    <ul class="find">
+      <li>
+        <span class="t">B keeps the doubt in every view; A leaks it.</span>
+        <span class="d">A's profile shows a proper range &mdash; 82 floor, 91 likely, 96 ceiling, under the heading <em>scouts disagree</em>. But everywhere else A prints the single number: 91 on the board, 88 in the shortlist, 85 in the portal market. Once a hard value is on the list the player is choosing from, the range on the profile is decoration. B never prints a point value at all.</span>
+      </li>
+      <li>
+        <span class="t">A's lever map is the better dossier, though.</span>
+        <span class="d">Naming the four things the recruit is weighing <em>in his order</em>, and marking which ones you can promise, which cost money and which are working against you, is more decision-useful than B's single asked-for demand and pair of hold percentages. Both halves of the ideal profile exist here; they are in different files.</span>
+      </li>
+    </ul>
+  </div>
+
+  <div class="faceoff">
+    <div class="faceoff-head">
+      <h3>The week</h3>
+      <div class="faceoff-note">Delegation drawn vs. delegation described</div>
+    </div>
+    <div class="pair">
+      <figure class="b">
+        <img src="assets/2026-08-24-recruiting-ui/B6c.png" alt="B's contact and visits grid: four week columns against three rows labelled Your calls, Okonkwo and Vasquez, with a dead week marked, official visits below, and a note explaining that Okonkwo moved a visit while you were away.">
+        <figcaption><b>B &middot; Contact &amp; visits</b>Four weeks across, three actors down. The staff's week is a row you did not fill.</figcaption>
+      </figure>
+      <figure class="a">
+        <img src="assets/2026-08-24-recruiting-ui/A8d.png" alt="A's contact and visit planner: four week columns showing your own bookings, with the dead period drawn as a hatched red wall, and a gold button reading INVITE SAIN AND FRYE WK 10.">
+        <figcaption><b>A &middot; Contact &amp; visit planner</b>Your week only. The dead period is drawn as a wall &mdash; the better single idea on either grid.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="col">
+    <p>This is the most consequential craft difference in the set. The project's hard problem is what a coach does <em>instead of</em> playing, and delegation is one of the few real answers. B has designed that answer: your row, your coordinator's row, your scout's row, and a footnote that reads <span class="q qw">Okonkwo moved the Quist visit to 8 November while you were away, and booked the flights. That is what delegation costs and what it buys.</span> A has written the same idea into prose &mdash; <span class="q qw">Assistants only, and Ortiz is with the team</span> &mdash; where it cannot be inspected, compared or acted on.</p>
+    <p>A's dead-period wall is the better graphic device, and B should take it.</p>
+  </div>
+
+  <div class="faceoff">
+    <div class="faceoff-head">
+      <h3>The list</h3>
+      <div class="faceoff-note">Sorted by the hole vs. sorted by the race</div>
+    </div>
+    <div class="pair">
+      <figure class="b">
+        <img src="assets/2026-08-24-recruiting-ui/B6b.png" alt="B's shortlist: nine prospects with position, ceiling range, times seen, standing and a Next Move column reading instructions like YOU RING HIM and SEND VASQUEZ, with a note that ten more sit below the fold.">
+        <figcaption><b>B &middot; Shortlist</b>Nine of nineteen, sorted by what is missing, with a <em>next move</em> column that reads as instructions &mdash; and an honest note about the ten it is hiding.</figcaption>
+      </figure>
+      <figure class="a">
+        <img src="assets/2026-08-24-recruiting-ui/A8a.png" alt="A's recruiting board: four prospects with position, home town, grade, a Where You Stand column naming your position in the race, and a decision date.">
+        <figcaption><b>A &middot; Recruiting board</b>Four rows, sorted by who you can still win, each naming your position in the race. No indication of how many are hidden.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="col">
+    <ul class="find">
+      <li>
+        <span class="t">B turns a table into a to-do list.</span>
+        <span class="d">The <em>next move</em> column carries <span class="q">YOU RING HIM</span>, <span class="q">SEND VASQUEZ</span>, <span class="q">DROP AFTER NOV</span>, <span class="q">NOTHING TO DO</span>. A player who opens this screen cold knows what to do in about two seconds. A's <em>where you stand</em> column is excellent context but stops short of a prescription.</span>
+      </li>
+      <li>
+        <span class="t">A's rows are thin, and it does not say so.</span>
+        <span class="d">Four names on the board, three in retention, three in the portal market, two or three per shortlist column. B shows nine and states plainly that ten more sit below the fold. A real class is eighteen signees off a board of nineteen tracked names; only B's layout has visibly been asked what it does at that density. A proves it knows how &mdash; <span class="q qw">412 in the portal &middot; 6 who would take your call</span> is the best framing of noise in either set &mdash; it just does not apply it to its own boards.</span>
+      </li>
+      <li>
+        <span class="t">B ships a first run; A ships none.</span>
+        <span class="d">B opens with a three-card overlay teaching the three kinds of screen &mdash; you are being told something, you are working something out, you have met someone and are studying them &mdash; dismissible, and it does not come back. For a dense information game on a phone, an unonboarded player is a churned player. A has no equivalent surface anywhere in its recruiting set.</span>
+      </li>
+      <li>
+        <span class="t">B refuses actions on purpose, and says why.</span>
+        <span class="d">Its class overview is marked <span class="q">zero gold</span> and states <span class="q qw">Nothing on this screen signs anybody. February does that, on a Broadcast surface, in front of everyone.</span> Its offseason hub disables its own button with the reason on the face of it: <span class="q">OPEN THE OFFSEASON &mdash; AFTER WEEK 12</span>. That discipline is what makes a signing ceremony worth watching.</span>
+      </li>
+    </ul>
+  </div>
+
+
+  <div class="faceoff">
+    <div class="faceoff-head">
+      <h3>The first hour</h3>
+      <div class="faceoff-note">B only &mdash; A has no equivalent</div>
+    </div>
+    <div class="solo">
+      <figure class="b">
+        <img src="assets/2026-08-24-recruiting-ui/B6h.png" alt="B's first-run overlay: a headline reading three kinds of screen and you can tell them apart at a glance, over three example cards labelled Broadcast, Desk and Dossier, with buttons to skip all three or start year one.">
+        <figcaption><b>B &middot; First run</b>Three cards, shown once, over the first surface they describe. It teaches the visual grammar rather than the controls &mdash; and then never comes back.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="faceoff">
+    <div class="faceoff-head">
+      <h3>The class</h3>
+      <div class="faceoff-note">The 85 vs. the ranking</div>
+    </div>
+    <div class="pair">
+      <figure class="b">
+        <img src="assets/2026-08-24-recruiting-ui/B6d.png" alt="B's class overview: positional needs against commitments, a scholarships panel reading 73 of 85 on books with six seniors out and twelve in, and a class rank panel noting rank is committed ceiling not committed count.">
+        <figcaption><b>B &middot; Class overview</b>73 of 85 on books, six seniors out, twelve in, <em>79 if nobody transfers</em>. The ceiling that actually binds a programme.</figcaption>
+      </figure>
+      <figure class="a">
+        <img src="assets/2026-08-24-recruiting-ui/A8e.png" alt="A's class overview: class rank 31, a bar chart of filled against needed by position with two positions hatched red at zero, and a note that rank moves with volume.">
+        <figcaption><b>A &middot; Class overview</b>Positional fill drawn as tracks, with the two empty ones hatched red &mdash; and a warning not to trust the rank.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="col">
+    <p>A's chart is the better picture and its warning is the better writing &mdash; <span class="q qw">Rank moves with volume, so it will climb whoever you sign. What it will not tell you is that both safeties on the roster are seniors and the class has none.</span> Teaching the player to distrust the vanity metric on the screen that displays it is a genuinely sophisticated move.</p>
+    <p>But A never shows the 85-scholarship ceiling anywhere in the class flow. It surfaces late, as <span class="q">three scholarships unused</span> on an offseason index. In a college game the roster limit is the constraint every other decision is measured against; B puts it on screen with its arithmetic worked out, and A does not.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <div class="eyebrow">Where A is stronger</div>
+    <h2>It designed what happens after you press the button.</h2>
+    <p>This is the largest single gap between the two sets, and it is not a matter of polish. <strong>Every B surface is one static state.</strong> <span class="q">RING PETTIBONE</span>, <span class="q">COMMIT THE LIST</span>, <span class="q">START YEAR ONE</span> &mdash; none of them has an after. Confirmation, cost deduction, undo, the disabled state and the error state are all simply undesigned.</p>
+    <p>A carries three states on seven of its ten surfaces: idle, committing, and done.</p>
+  </div>
+
+  <div class="faceoff">
+    <div class="faceoff-head">
+      <h3>A commit, start to finish</h3>
+      <div class="faceoff-note">A &middot; idle &rarr; done, with undo</div>
+    </div>
+    <div class="pair">
+      <figure class="a">
+        <img src="assets/2026-08-24-recruiting-ui/A8a.png" alt="A's recruiting board in its resting state, with a gold button reading SPEND 2 ON PRYOR, LEAVES 12, CALL TONIGHT.">
+        <figcaption><b>Idle</b>The button carries the price before you press it: two contacts spent, twelve left, and the call goes tonight.</figcaption>
+      </figure>
+      <figure class="a">
+        <img src="assets/2026-08-24-recruiting-ui/A8aDone.png" alt="The same board after committing: a green confirmation band reading Two contacts spent on Pryor, 12 left, the call goes out tonight, with an UNDO button, and the gold button replaced by a spent readout.">
+        <figcaption><b>Done</b>A confirmation band states what happened and what remains, with <em>undo</em>. The gold button becomes a spent readout, so it cannot fire twice.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+
+  <div class="faceoff">
+    <div class="faceoff-head">
+      <h3>Keeping your own</h3>
+      <div class="faceoff-note">A batch call vs. a priced one</div>
+    </div>
+    <div class="pair">
+      <figure class="b">
+        <img src="assets/2026-08-24-recruiting-ui/B6g.png" alt="B's retention decisions: eight players with year, a risk-of-leaving range, a reason, and a draft call column reading ask to stay, undecided or let go, with a gold button reading COMMIT THE LIST.">
+        <figcaption><b>B &middot; Retention decisions</b>Eight conversations as one draft list, risk drawn as a range, committed in a single act. No money appears anywhere.</figcaption>
+      </figure>
+      <figure class="a">
+        <img src="assets/2026-08-24-recruiting-ui/A8h.png" alt="A's retention decisions: three players with why he might go, what keeps him, a cost and a consequence if he goes, plus a running pool of 530k left for the portal and a gold button reading MATCH BOYCE 300k, LEAVES 530k.">
+        <figcaption><b>A &middot; Retention decisions</b>Three named decisions, each with a price, a consequence if he leaves, and a running total of what is left for the portal.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <div class="col">
+    <ul class="find">
+      <li>
+        <span class="t">Every action is priced in the currency it actually costs.</span>
+        <span class="d"><span class="q">SPEND 2 ON PRYOR &middot; LEAVES 12</span>. <span class="q qw">INVITE SAIN AND FRYE &middot; USES BOTH VISITS &middot; 1 LEFT AFTER</span>. <span class="q qw">MATCH BOYCE &middot; $300k &middot; LEAVES $530k</span>. Contacts, visit slots, scholarships and dollars are each spent in their own units, and the remainder is on the button. This is the best single pattern in either set, and B has nothing like it &mdash; B's buttons name the act but never its cost.</span>
+      </li>
+      <li>
+        <span class="t">Commits state their reversibility.</span>
+        <span class="d">The confirmations read <span class="q qw">This binds you in spring whoever else signs &mdash; it cannot be walked back</span>, <span class="q qw">binding, and the promise outlives the class</span>, <span class="q qw">he has 48 hours to answer</span>. A player is told not just what changed but how permanent it is, which is exactly the information a career-mode decision needs.</span>
+      </li>
+      <li>
+        <span class="t">Opportunity cost is written out in prose, next to the number.</span>
+        <span class="d"><span class="q qw">Okon, the safety you need, is asking $260k. Keeping Boyce leaves exactly enough for him and nothing for a second lineman.</span> And on signing day: <span class="q qw">Refusing keeps the money for the portal in January.</span> Most sports games make the player compute this. A hands it over and lets them disagree with it.</span>
+      </li>
+      <li>
+        <span class="t">It covers the transactional core.</span>
+        <span class="d">A designs the portal hub, the portal market and signing day. B designs none of the three &mdash; it lists the portal windows on its offseason hub as dated rows and hands signing day to a different screen set. Whatever the scope reasons, the modern college roster is largely built in the portal, and only one of these two has drawn it.</span>
+      </li>
+      <li>
+        <span class="t">You can walk it.</span>
+        <span class="d">A's ten surfaces also exist as a navigable prototype at the real device frame, one screen at a time behind routes. B is a wall of stills. For judging whether a flow actually holds together under a thumb, that difference matters more than any individual screen.</span>
+      </li>
+    </ul>
+
+    <h3>And where A slips</h3>
+    <ul class="find">
+      <li>
+        <span class="t">The confirmation covers the thing it just changed.</span>
+        <span class="d">On the recruiting board, the done band sits directly over <span class="q qw">CLASS OF 2027 &middot; 4 COMMITTED OF 18 &middot; Needs: 2 EDGE, 1 S, 2 OL</span> &mdash; the running total the commit moved. It is transient, so it is a small thing, but it hides the feedback at the exact moment feedback is worth most.</span>
+      </li>
+      <li>
+        <span class="t">Long buttons break their pill.</span>
+        <span class="d"><span class="q">INVITE SAIN AND FRYE, WK 10</span> wraps to two lines and overruns its gold capsule on both sides. A label that carries a name, a date and a price needs a width rule or a shorter form; this one has neither, and it is the most-used component in the set.</span>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <div class="eyebrow">Measured</div>
+    <h2>On legibility, A is the safer build.</h2>
+    <p>Both sets target the same 844&nbsp;pt landscape frame, so type size is a product fact rather than a taste question. Measured across every text run on every recruiting surface in each set:</p>
+  </div>
+
+  <div class="col" style="max-width:none">
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th>Across all recruiting surfaces</th><th class="hb">B &middot; 8 boards</th><th class="ha">A &middot; 10 boards</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Text runs measured</td><td>389</td><td>387</td></tr>
+          <tr><td>Smallest type</td><td class="lose">8 px</td><td class="win">9 px</td></tr>
+          <tr><td>Runs under 10 px</td><td class="lose">112</td><td class="win">49</td></tr>
+          <tr><td>Runs under 9 px</td><td class="lose">38</td><td class="win">0</td></tr>
+          <tr><td>Median size</td><td class="lose">10 px</td><td class="win">12 px</td></tr>
+          <tr><td>Runs below WCAG AA contrast</td><td class="lose">16</td><td class="win">1</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="caveat">Measured on static renders at the target frame. Gradient-filled backgrounds are approximated by averaging their opaque stops, so values on B's green navigation bar and its split-gold badge are indicative rather than exact.</p>
+  </div>
+
+  <div class="col">
+    <p>B's density is deliberate &mdash; the mono annotation voice is part of how its screens read, and a great deal of what it says well, it says in 9&nbsp;px capitals. But 38 runs below 9&nbsp;px on a phone held at arm's length is a real accessibility exposure, and it lands hardest on exactly the material B is proudest of: the qualifying notes that explain what a bar means.</p>
+    <p>Its worst contrast case is the split-gold <em>Dossier</em> badge &mdash; white text over a background that is gold across half its width, so the first half of the word sits near 1.5:1. The remaining failures cluster on the navigation bar's dimmed labels and its right-hand status readout, all at 10&nbsp;px. A's single failure is one 9&nbsp;px annotation label reading <span class="q">TRACK TOP = NEED</span>.</p>
+  </div>
+</section>
+
+<section>
+  <div class="col">
+    <div class="eyebrow">What to do with them</div>
+    <h2>Settle the money, then take the best of each.</h2>
+    <p>Neither set should win whole. The pieces worth keeping are unusually easy to name, because in almost every case each design's weakness is the other's strongest screen.</p>
+  </div>
+
+  <div class="split col" style="max-width:none">
+    <div class="card b">
+      <h4>Take from B</h4>
+      <p>Ranges everywhere, never a point value in a list. <em>Unseen</em> as a legal value with its own treatment. The staff grid, so delegation is a row and not a sentence. Needs-first sorting with a next-move column. The honest note about what is below the fold. The first-run overlay. The 85 with its arithmetic shown. And the refusal to put a commit on screens where the ceremony belongs elsewhere.</p>
+    </div>
+    <div class="card a">
+      <h4>Take from A</h4>
+      <p>The priced button, above everything &mdash; act, cost and remainder on one control. The three-state commit with undo and a stated reversibility. Opportunity cost written in prose beside the figure. The lever-map profile: what the recruit is weighing, in his order, marked by whether you control it. The dead-period wall. The portal surfaces. And the warning that teaches the player to distrust the class ranking.</p>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="callout">
+      <span class="lbl">The one decision that gates the rest</span>
+      <p>Does the coach spend NIL money, or only read it? Everything above assumes that question gets answered first. If the money is weather, A's portal market, retention screen and priced dollar buttons all have to be rebuilt around a currency the player does not hold. If the money is a budget, B's best screen stops being true and its NIL surface has to become a control panel. There is no order of work that avoids choosing.</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  Both sets rendered statically at the 844&nbsp;pt landscape frame from the supplied project files.<br>
+  A's shared navigation bar is reconstructed from its own markup and the properties passed on each surface; where team and record were not supplied, the component defaults are shown.<br>
+  A's interaction states were captured by driving its own idle, committing and done conditions.
+</footer>
+
+</div>
