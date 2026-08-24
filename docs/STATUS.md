@@ -4,6 +4,14 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — release-gate traceability is awaiting the D1 owner measurement.** The current
+> `PRODUCT.md` unverified-target row for a 6–8-hour season remains uninstrumented because
+> `AgencyBudgetTests` requires an owner-recorded, timestamped D1 timing protocol result (duration,
+> hardware, app build and protocol count). No inferred timing may substitute for that observation,
+> so the row remains unverified and outside the commitment gate table. The current worktree's
+> `--catalog` and `--commitment-coverage` release-mode runs are **not run**: another worktree was
+> already running a full Swift verification, so this pass did not start a concurrent release build.
+
 > **2026-08-22 — Match Day moves like football now, and one engine defect is escalated.** The owner
 > watched the 2D animation on a booted iPhone 17e and rejected it: players stopped moving after the
 > play, did not follow it to the end, and tackles did not read as tackles. Measured over 200
