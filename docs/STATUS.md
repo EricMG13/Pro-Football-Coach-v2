@@ -4,6 +4,8 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Owner-gate D1 season-length timing evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-09-d1-season-length-timing-evidence-pack.md` is ready for the owner; no build, install, launch, career, timing interval, season completion, capture, or observation ran.
+
 > **2026-08-24 — Owner-gate Reduce Motion full-match evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-08-reduce-motion-full-match-evidence-pack.md` is ready for the owner; no setting change, build, simulator or device launch, full-match walkthrough, capture, or observation ran.
 
 > **2026-08-24 — Owner-gate VoiceOver week-loop and Match Day evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-06-voiceover-week-and-match-evidence-pack.md` is ready for the owner; no physical-device run, build, launch, VoiceOver interaction, capture, or observation ran.
