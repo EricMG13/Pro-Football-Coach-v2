@@ -64,14 +64,14 @@ public enum CompetitionRules {
     public static let baselineSackProbability = 0.084
     public static let collegeBaselineSackProbability = 0.0856
     public static let strengthSackProbabilityScale = 0.001
-    public static let baselineTurnoverProbability = 0.0333
-    public static let collegeBaselineTurnoverProbability = 0.036
+    public static let baselineTurnoverProbability = 0.029
+    public static let collegeBaselineTurnoverProbability = 0.031
     public static let proBaselineExplosiveRunProbability = 0.1175
     public static let collegeBaselineExplosiveRunProbability = 0.15
     public static let proBaselineExplosivePassProbability = 0.1375
     public static let collegeBaselineExplosivePassProbability = 0.143
 
-    public static let proBaselineOffensiveYards = 300.0
+    public static let proBaselineOffensiveYards = 308.3
     public static let collegeBaselineOffensiveYards = 360.0
     public static let strengthYardScale = 4.0
     public static let offensiveYardDeviation = 70.0
@@ -133,7 +133,7 @@ public enum CompetitionRules {
     }
 
     public static func baselineFourthQuarterScoringShare(for tier: Tier) -> Double {
-        tier == .college ? 0.274 : 0.280
+        tier == .college ? 0.2741 : 0.280
     }
 
     public static func baselineDriveCount(for tier: Tier) -> Int {

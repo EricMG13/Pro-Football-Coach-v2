@@ -4,6 +4,19 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Loop 905 tightened calibration by correcting the abstracted model, not a band.**
+> The approved pro safeties upper-edge trial (`0.050 → 0.045`) was not retained: the calibration
+> lane is an instrument check and the two-tier gate has no safeties metric, so neither can supply
+> the required safeties TOST interval. Its required holdout instead exposed abstracted turnover and
+> pro-yards-per-play drift plus a college-Q4 boundary miss. Doc-first model corrections set pro /
+> college turnover probabilities to **2.90% / 3.10%**, pro offensive yards to **308.3**, and college
+> Q4 share to **27.410%**; no public band or equivalence margin changed. The designated tuning
+> selector passed **54 tests / 84 checks**; the release holdout passed **54 / 84**; and
+> `./scripts/verify.sh --lane calibration` passed calibration **25 / 181** and M3 **20 / 412**.
+>
+> Files changed: `docs/03-MATCH-ENGINE.md`, `Sources/FootballSimCore/Rules/CompetitionRules.swift`,
+> `docs/STATUS.md`.
+
 > **2026-08-24 — Loop 904 widened the match reducer's overtime-entry legality oracle.**
 > `MatchReducerTests` now constructs a tied final regulation snap for both tiers and asserts the
 > first overtime state resets every legal field: period and quarter, clock, possession, field

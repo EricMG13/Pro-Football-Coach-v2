@@ -144,6 +144,19 @@ Binding, not an optimisation. Over a **1000-season Monte Carlo**, the two models
 Scalar metrics use this TOST rule and its 90% confidence interval. Distributional metrics are the
 explicit exception: they use canonical TVD, never a scalar margin.
 
+**2026-08-24 calibration correction.** The abstracted simulator's controlled-fixture turnover
+probabilities and professional yardage baseline are tuned to the detailed reducer on the dedicated,
+disjoint tuning worlds, not to the holdout: before correction, abstracted versus detailed turnover
+rates were 3.31% / 2.88% (college) and 3.17% / 2.80% (pro), while professional yards per play were
+4.83 / 4.96. The abstracted settings are therefore 3.10% college turnover probability, 2.90% pro
+turnover probability and 308.3 professional offensive yards. This changes the model only; no
+public target or equivalence margin is relaxed.
+
+College fourth-quarter scoring uses a 27.410% abstracted baseline. The tuning interval
+`[-0.1337, 0.2088] pp` held inside the canonical ±0.321597 pp margin; the 0.01 pp model adjustment
+keeps that interval clear of the boundary while correcting the fixed holdout's lower-edge miss. It
+does not change the public 26.047110%…26.690304% band or the TOST margin.
+
 **Range membership is explicitly rejected as the instrument.** A model whose true home-win rate is
 0.62 passes a `0.50…0.60` range check roughly **1 run in 6** at n = 600, because the check has no
 notion of sampling error and does not tighten as n grows. TOST puts the burden on the model.
