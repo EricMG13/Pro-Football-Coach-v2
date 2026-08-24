@@ -735,6 +735,7 @@ func runPeopleLifecycleTests() {
                 checkProAgeCurve(state, season: season, settled: season == measured.max())
                 guard measured.contains(season) else { continue }
                 checkRatingSpread(state, season: season, assertTierGap: false)
+                checkCoachTenure(state, season: season)
                 checkDisciplineFrequency(
                     incidents: seasonSuspensions,
                     playerWeeks: seasonPlayerWeeks,
@@ -746,6 +747,28 @@ func runPeopleLifecycleTests() {
             checkIronmanShortensInjuries(injuries)
         }
     }
+}
+
+// Staff careers record only hires, moves, and vacancy replacements; an incumbent's last assignment
+// therefore remains its original season. The seeded reference walk (84_010) measured min/median/max
+// tenure of 1/2/2, 1/4/4, 1/7/7, and 1/11/11 at seasons 1/3/6/10. This is deliberately a
+// project-local model band: introduce a staff-carousel system before relaxing it.
+private func checkCoachTenure(_ state: GameState, season: Int) {
+    let tenures = state.staff.values.compactMap { staff in
+        state.people.staffCareers[staff.id]?.assignments.last.map {
+            season - $0.season + 1
+        }
+    }.sorted()
+    guard let first = tenures.first, let last = tenures.last else {
+        expect(false, "season \(season): no staff careers to measure tenure over")
+        return
+    }
+    let median = tenures[tenures.count / 2]
+    print("coach tenure: season \(season), n \(tenures.count), min \(first), "
+        + "median \(median), max \(last)")
+    expectEqual(first, 1, "season \(season): vacancy replacements disappeared")
+    expectEqual(median, season + 1, "season \(season): incumbent staff did not retain tenure")
+    expectEqual(last, season + 1, "season \(season): an assignment predates the world")
 }
 
 // MARK: - The professional age curve band
