@@ -4,6 +4,12 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — release is routed in CI with a retained one-runner cap.** The `release` job runs
+> after `full` (including after a `full` failure), uses `macos-15`, has its own 180-minute ceiling,
+> and invokes only `./scripts/verify.sh --lane release`. Its command has locally printed catalog,
+> commitment-coverage and save-document summaries; the GitHub job has not run on this isolated
+> commit and remains pending integration-triggered CI evidence.
+
 > **2026-08-24 — commitment coverage is potent; the D1 observation remains owner-only.** A
 > temporary, non-legal `PRODUCT.md` commitment naming `UnregisteredPotencyGate` made
 > `--commitment-coverage` fail with “unregistered commitment test”; removing that fixture restored
