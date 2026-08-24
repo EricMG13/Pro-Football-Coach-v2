@@ -4,6 +4,12 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Owner-gate simulator walkthrough evidence pack is prepared.**
+> `docs/plans/2026-08-24-owner-gate-01-simulator-walkthrough-evidence-pack.md` is ready for the
+> owner. It preserves the retained protocol, specifies a disposable resolved simulator UDID, and
+> records the predictions, captures, and blind spots. No build, simulator, or walkthrough ran; the
+> first owner box remains unchecked.
+
 > **2026-08-22 — Match Day moves like football now, and one engine defect is escalated.** The owner
 > watched the 2D animation on a booted iPhone 17e and rejected it: players stopped moving after the
 > play, did not follow it to the end, and tackles did not read as tackles. Measured over 200
