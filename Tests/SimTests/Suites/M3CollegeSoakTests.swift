@@ -182,6 +182,7 @@ func runM3CollegeSoakTests() {
                 expectEqual(Set(state.people.staffCareers.keys), Set(state.staff.ids))
                 expect(state.people.staffCareers.values.allSatisfy {
                     $0.assignments.count <= PeopleRules.careerSeasonHistoryLimit
+                        && $0.seasonRecords.count <= PeopleRules.careerSeasonHistoryLimit
                 })
                 expectEqual(Set(state.college.archivedProspects.keys), archivedProspectIDs)
                 expect(state.career.mandatoryDecisionResolutions.count
