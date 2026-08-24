@@ -4,6 +4,18 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Loop 904 widened the match reducer's overtime-entry legality oracle.**
+> `MatchReducerTests` now constructs a tied final regulation snap for both tiers and asserts the
+> first overtime state resets every legal field: period and quarter, clock, possession, field
+> position, down and distance, overtime possessions, timeouts, and the tier's clock-running
+> policy. This is a test-only widening; no production engine, calibration constant, threshold,
+> band, fingerprint, identity, name, colour, or legal surface changed. Verification passed:
+> `--match-reducer` **19 tests / 104 checks**, `--engine` **63 / 32,502**, and `--snap-anchors`
+> **34 / 2,887**. `./scripts/verify.sh --lane calibration` also passed unchanged — calibration
+> **25 / 181**, M3 recruiting calibration **20 / 412**, terminal summary **2 passed, 0 failed**.
+> Files changed: `Tests/SimTests/Suites/MatchReducerTests.swift`, `docs/STATUS.md`,
+> `.superpowers/sdd/task-904-report.md`.
+
 > **2026-08-24 — Loop 901 widened the determinism pin to the non-empty mandatory-decision queue.**
 > `ArchitectureTests` now starts a controlled college career, constructs two recruiting decisions
 > from that generated programme and its generated prospects, inserts them in reverse UUID order,

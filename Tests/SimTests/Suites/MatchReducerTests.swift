@@ -438,6 +438,44 @@ func runMatchReducerTests() {
             }
         }
 
+        test("a tied regulation finale resets every overtime legality field") {
+            let personnel = testPersonnel(offenseSkill: 50, defenseSkill: 50)
+            let regulationEnd = Situation(
+                possession: .home,
+                quarter: 4,
+                secondsRemainingInQuarter: 1,
+                timeoutsRemaining: [.home: 3, .away: 3]
+            )
+
+            for tier in Tier.allCases {
+                var state = MatchReducer.start(
+                    tier: tier,
+                    home: personnel,
+                    away: personnel,
+                    seed: 8_110,
+                    initialSituation: regulationEnd
+                )
+                let receipt = try! MatchReducer.reduce(
+                    .advance,
+                    state: &state,
+                    callerOverride: PuntOnlyCaller()
+                )
+
+                expectEqual(receipt.boundary, .overtime)
+                expectEqual(state.overtimePeriod, 1)
+                expect(state.overtimePossessions.isEmpty)
+                expectEqual(state.situation.quarter, tier.clockRules.quarters + 1)
+                expectEqual(state.situation.secondsRemainingInQuarter,
+                            CompetitionRules.overtimePeriodSeconds)
+                expectEqual(state.situation.possession, .home)
+                expectEqual(state.situation.yardLine, CompetitionRules.overtimePossessionYardLine)
+                expectEqual(state.situation.down, 1)
+                expectEqual(state.situation.distance, MatchupRules.yardsForFirstDown)
+                expectEqual(state.situation.timeoutsRemaining, [.home: 1, .away: 1])
+                expectEqual(state.clockRunning, tier.clockRules.overtime == .timedPeriod)
+            }
+        }
+
         test("a drive ending preserves the snap's clock state") {
             let personnel = testPersonnel(offenseSkill: 70, defenseSkill: 70)
             var state = MatchReducer.start(
