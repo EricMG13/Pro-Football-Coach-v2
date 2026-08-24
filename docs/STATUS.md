@@ -4,6 +4,8 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Owner-gate Reduce Motion full-match evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-08-reduce-motion-full-match-evidence-pack.md` is ready for the owner; no setting change, build, simulator or device launch, full-match walkthrough, capture, or observation ran.
+
 > **2026-08-24 — Owner-gate VoiceOver week-loop and Match Day evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-06-voiceover-week-and-match-evidence-pack.md` is ready for the owner; no physical-device run, build, launch, VoiceOver interaction, capture, or observation ran.
 
 > **2026-08-24 — Owner-gate Dynamic Type AX5 every-screen evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-07-dynamic-type-ax5-evidence-pack.md` is ready for the owner; no manifest generation, build, simulator, launch, Dynamic Type change, capture, or AX5 observation ran.
