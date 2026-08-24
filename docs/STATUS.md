@@ -19,6 +19,8 @@ The honest picture: what exists, what is verified, what is not.
 
 > **2026-08-24 — Owner-gate physical iPhone 15 and later e-class evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-04-physical-iphone15-and-eclass-evidence-pack.md` is ready for the owner; no physical-device run, simulator run, build, launch, appearance change, or observation ran.
 
+> **2026-08-24 — Owner-gate iOS Simulator Skill evidence bundle is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-05-ios-simulator-skill-evidence-bundle-evidence-pack.md` is ready for the owner; it retains the SHA- and UDID-bound semantic-tree, AX5 screenshot, visual-diff, and hang/trace capture protocol. No build, simulator, capture, or observation ran.
+
 > **2026-08-22 — Match Day moves like football now, and one engine defect is escalated.** The owner
 > watched the 2D animation on a booted iPhone 17e and rejected it: players stopped moving after the
 > play, did not follow it to the end, and tackles did not read as tackles. Measured over 200
