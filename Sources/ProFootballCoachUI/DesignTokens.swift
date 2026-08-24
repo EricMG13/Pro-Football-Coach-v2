@@ -298,9 +298,6 @@ public enum CoachWorldTokens {
         public let actionDestructive: ColorValue
         public let stateLive: ColorValue
         public let statePositive: ColorValue
-        /// `04` section 6.1a. The heat scale's fourth band — `state.positive` lightened, stated as
-        /// a measured value so no view has to invent the lightening.
-        public let statePositiveLight: ColorValue
         public let stateWarning: ColorValue
         public let stateNegative: ColorValue
         public let stateInfo: ColorValue
@@ -530,7 +527,7 @@ public enum CoachWorldTokens {
             contrast: ColorSchemeContrast = .standard,
             reduceTransparency: Bool = false
         ) -> Color {
-            if self == .glass && reduceTransparency && contrast != .increased {
+            if self == .glass && (reduceTransparency || contrast == .increased) {
                 return Rule.legible.color(palette: palette, contrast: contrast)
             }
             let alpha = contrast == .increased ? increasedAlpha : standardAlpha
@@ -558,27 +555,27 @@ public enum CoachWorldTokens {
         public var to: Color { Self.stop(toHex, alpha: 0.97) }
         public var edge: Color { Self.stop(edgeHex, alpha: edgeAlpha) }
 
-        private var fromHex: UInt32 {
+        private var fromHex: ColorValue {
             switch self {
-            case .info: 0x12203A
-            case .good: 0x0F5637
-            case .bad: 0x4A1420
+            case .info: CoachWorldTokens.dark.raised
+            case .good: Floodlit.clubField
+            case .bad: ColorValue(hex: 0x4A1420)
             }
         }
 
-        private var toHex: UInt32 {
+        private var toHex: ColorValue {
             switch self {
-            case .info: 0x0B0D14
-            case .good: 0x091410
-            case .bad: 0x110A0E
+            case .info: Floodlit.glassFlatDeep
+            case .good: ColorValue(hex: 0x091410)
+            case .bad: ColorValue(hex: 0x110A0E)
             }
         }
 
-        private var edgeHex: UInt32 {
+        private var edgeHex: ColorValue {
             switch self {
-            case .info: 0x7A8A9E
-            case .good: 0x4FD08C
-            case .bad: 0xFF3B54
+            case .info: CoachWorldTokens.dark.contentQuiet
+            case .good: CoachWorldTokens.dark.statePositive
+            case .bad: CoachWorldTokens.dark.stateNegative
             }
         }
 
@@ -590,8 +587,8 @@ public enum CoachWorldTokens {
             }
         }
 
-        private static func stop(_ hex: UInt32, alpha: Double) -> Color {
-            ColorValue(hex: hex).color.opacity(alpha)
+        private static func stop(_ hex: ColorValue, alpha: Double) -> Color {
+            hex.color.opacity(alpha)
         }
     }
 

@@ -332,6 +332,43 @@ func runDesignContractTests() {
                    "a planted duplicate colour literal must be caught")
         }
 
+        test("glass rules become legible for both contrast branches") {
+            let palette = CoachWorldTokens.dark
+            let glass = CoachWorldTokens.Rule.glass
+            let legible = CoachWorldTokens.Rule.legible
+
+            expectEqual(glass.color(palette: palette),
+                        palette.contentPrimary.color.opacity(0.13),
+                        "standard glass keeps its content-primary hairline")
+            expectEqual(glass.color(palette: palette, contrast: .increased),
+                        legible.color(palette: palette, contrast: .increased),
+                        "Increase Contrast must make glass fully legible")
+            expectEqual(glass.color(palette: palette, reduceTransparency: true),
+                        legible.color(palette: palette),
+                        "Reduce Transparency must make standard glass legible")
+            expectEqual(glass.color(palette: palette,
+                                    contrast: .increased,
+                                    reduceTransparency: true),
+                        legible.color(palette: palette, contrast: .increased),
+                        "combined accessibility settings must keep glass legible")
+        }
+
+        test("banner stops alias existing token values without changing their measurements") {
+            let palette = CoachWorldTokens.dark
+            expectEqual(CoachWorldTokens.Banner.info.from,
+                        palette.raised.color.opacity(0.97))
+            expectEqual(CoachWorldTokens.Banner.info.to,
+                        CoachWorldTokens.Floodlit.glassFlatDeep.color.opacity(0.97))
+            expectEqual(CoachWorldTokens.Banner.info.edge,
+                        palette.contentQuiet.color.opacity(0.42))
+            expectEqual(CoachWorldTokens.Banner.good.from,
+                        CoachWorldTokens.Floodlit.clubField.color.opacity(0.97))
+            expectEqual(CoachWorldTokens.Banner.good.edge,
+                        palette.statePositive.color.opacity(0.50))
+            expectEqual(CoachWorldTokens.Banner.bad.edge,
+                        palette.stateNegative.color.opacity(0.45))
+        }
+
         test("the scan would notice a colour that canon does not hold") {
             let canonValues = canonHexValues(canon)
             let planted = "public static let rogue = ColorValue(hex: 0xABCDEF)"
