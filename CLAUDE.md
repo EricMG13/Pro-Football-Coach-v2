@@ -62,7 +62,7 @@ at. **There is no archive as of 2026-08-10** — the superseded documents were d
 | `docs/03-MATCH-ENGINE.md` | Play resolution, seeding contract, off-screen model, calibration harness, soak |
 | `docs/03b-ARCHITECTURE.md` | Module layout, engine/UI boundary, save architecture, test architecture |
 | `docs/04-UX-AND-DESIGN-SYSTEM.md` | Design system, screens, match view, the accessibility contract |
-| `*-v3.dc.html` (8 root sheets) | **The definitive design references** (owner-approved 2026-08-12): composition and states for the `04` §6.5 registry. Renders and index in `docs/proofs/design-references/`. Five first-example screen mockups (HQ, Roster, Player Profile, Recruiting Board, Match Day): `docs/proofs/screen-mockups/` (not canon, not a ninth sheet, not the full 62). A rendering — `04` still owns every value |
+| `*-v3.dc.html` (8 root sheets) | **a visual shell and hierarchy prompt, never a source of facts** (owner-approved 2026-08-12). Renders and index in `docs/proofs/design-references/`. Five first-example screen mockups (HQ, Roster, Player Profile, Recruiting Board, Match Day): `docs/proofs/screen-mockups/` (not canon, not a ninth sheet, not the full 62). `04` owns every value and Press Box is the design standard |
 | `docs/04b-AUDIT-RUBRIC.md` | The audit rubric: five dimensions, 0–4 anchors, P0–P3 severities |
 | `docs/05-IMPLEMENTATION-PLAN.md` | Phased build with per-phase gates |
 | `docs/roadmap/` | The Master Build Documentation. `06-BUILD-ROADMAP-AND-GATES.md` defines the M0–M9 milestones the rest of the repo names, and is the build ordering `05` defers to |
@@ -84,23 +84,26 @@ Plan → build small → adversarial review → verify → commit.
 1. **One phase at a time.** Before starting a phase, run `superpowers:writing-plans` against that
    phase's section of `docs/05-IMPLEMENTATION-PLAN.md` to produce a bite-sized task plan. Save it to
    `docs/plans/`. Execute one phase, then stop.
-2. **TDD for all engine code** (`superpowers:test-driven-development`). The engine is pure Swift with
+2. **Frontend change flow.** **Press Box → `04` → Swift.** A frontend change lands in the Press Box
+   design standard first, then in canon, then in code. An agent that cannot write the standard
+   escalates rather than deciding the change or working around it.
+3. **TDD for all engine code** (`superpowers:test-driven-development`). The engine is pure Swift with
    no UI dependency — every mechanic gets a failing test first. Views need not have unit tests but
    must compile.
-3. **Frequent small commits.** One task = one commit, Conventional Commits format.
-4. **Adversarial review at phase end.** Run `adversarial-reviewer` (or `/code-review`) on the phase
+4. **Frequent small commits.** One task = one commit, Conventional Commits format.
+5. **Adversarial review at phase end.** Run `adversarial-reviewer` (or `/code-review`) on the phase
    diff before declaring the phase done. Fix confirmed findings first. An adversarial review is
    **not** a build and must never be reported as one.
-5. **Verification before completion** (`superpowers:verification-before-completion`). The agent
+6. **Verification before completion** (`superpowers:verification-before-completion`). The agent
    asserts the machine gates: build green, tests green, calibration bands, cross-process
    determinism, the soak, the two legal tests, touched surfaces **≥31/40 with zero P0/P1** against
    `04b` (eight dimensions, 0–5 each — the older ≥17/20 five-dimension frame was replaced by the
    owner on 2026-08-11 and the two bars are not equivalent: 31/40 is 77.5%, 17/20 is 85%). Simulator demonstration is an **owner** action — hand off a written walkthrough script,
    never claim it happened.
-6. **Debugging:** `superpowers:systematic-debugging`. No guess-fixes.
-7. **Scope guard.** Build what the plan specifies. No unrequested refactors, no opportunistic
+7. **Debugging:** `superpowers:systematic-debugging`. No guess-fixes.
+8. **Scope guard.** Build what the plan specifies. No unrequested refactors, no opportunistic
    rewrites of code the phase does not touch.
-8. **Delegation cap.** At most 6 concurrent subagents, no nested delegation, and no subagent is the
+9. **Delegation cap.** At most 6 concurrent subagents, no nested delegation, and no subagent is the
    sole verifier of its own work.
 
 ### When there is no Swift toolchain

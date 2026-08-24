@@ -114,6 +114,13 @@ plan — the first plan in this directory that belongs to the rebuild rather tha
 |---|---|---|---|
 | `docs/reviews/2026-08-09-spec-prompt-v4.md` | `RETAINED` | **The governing brief.** Owner parameters P1–P5, authority tiers, gate zero, the decision register and the deliverable list all live here. Where any other document disagrees with it, the other document is wrong. | `docs/reviews/2026-08-09-spec-prompt-v4.md` |
 | `docs/reviews/2026-08-09-spec-prompt-v3-adversarial-review.md` | `RETAINED` | The review that produced v4. Retained so the reasoning behind v4's constraints is recoverable instead of looking arbitrary. Historical: it critiques v3, not the current brief. | `docs/reviews/2026-08-09-spec-prompt-v3-adversarial-review.md` |
+| `docs/reviews/2026-08-22-all-screen-presentation-contract.md` | `RETAINED` | The per-screen presentation contract: what each read model holds, which actions exist, and which facts each surface must omit. It outranks visual standards on facts. | `docs/reviews/2026-08-22-all-screen-presentation-contract.md` |
+
+### External design standard — added 2026-08-24
+
+| Reference | Classification | Reason | Where its role lives now |
+|---|---|---|---|
+| **Press Box**, Claude Design project `3e8bedda-4c56-4be1-8f3a-98f9c2e82d9d` | `RETAINED` | Owner-approved 2026-08-23 as the design standard. Its own `AUTHORITY.md` is the boundary of what it overrides and what it does not. | Press Box decides how a frontend is drawn; `docs/04-UX-AND-DESIGN-SYSTEM.md` remains the canon a repository builder implements against because this repository cannot open the design tool. Changes flow Press Box → `04` → Swift. |
 
 ### UI-reference correction, 2026-08-11
 
@@ -214,10 +221,10 @@ ordering `05` defers to. The pack's internal `00`–`09` numbering is its own an
 | `docs/roadmap/08-UI-ADVERSARIAL-AUDIT.md` | UI adversarial audit (pack edition) |
 | `docs/roadmap/09-UI-BACKEND-SURFACE-CONTRACT.md` | UI/backend surface contract |
 
-## 4a. The definitive design references, approved 2026-08-12
+## 4a. Retained composition references, approved 2026-08-12
 
-Eight self-contained sheets at the repository root, owner-approved as **the** design reference
-library. Every `04` §8 screen family is built against them; the M8 production-UI work consumes them.
+Eight self-contained sheets at the repository root, owner-approved 2026-08-12 as **a visual shell
+and hierarchy prompt, never a source of facts**. Press Box supersedes them as the design standard.
 
 | Path | Renders |
 |---|---|
@@ -240,10 +247,9 @@ the table above, they must not be named `*-v3.dc.html`, and they carry no author
 **Their authority is bounded, and the bound is the point.** The sheets are a *rendering*:
 `docs/04-UX-AND-DESIGN-SYSTEM.md` is the only canonical home for values, and a value appearing only
 in a sheet has not shipped. Where a sheet and `04` disagree, `04` wins and the sheet is the defect.
-What the sheets *do* settle is composition, states and the density model applied — and on that they
-supersede every earlier rendered library, mockup set and design pass in this repository. Those
-earlier artefacts are historical evidence only; a document describing one is a record of what was
-done, never direction for what to build.
+They remain a composition and hierarchy prompt where Press Box and `04` have not superseded them;
+they do not settle facts. Earlier artefacts are historical evidence only; a document describing one
+is a record of what was done, never direction for what to build.
 
 ## 5. Required edits inside retained documents
 
@@ -325,3 +331,4 @@ hand-maintained list becomes the coverage boundary.
 | `docs/superpowers/specs/` | Nine design specs, several marked superseded in their own headers | **None.** Read the `Status:` line before believing any of them |
 | `docs/refs/` | The surface-reference generator's baseline, decisions and gap manifest. `Tools/refs/build.py` writes here; the rendered HTML is gitignored because the deliverable is a published artifact | **None.** Generated output plus the notes explaining a pinned commit |
 | `docs/proofs/figma-pool-2026-08-13/`, `docs/proofs/stitch-2026-08-13/` | Dated proof artefacts beneath the already-listed `docs/proofs/` | **None.** Evidence of what was tried on a date. Note that `CLAUDE.md` records the Stitch references as rejected on 2026-08-11; this directory postdates that and is the proof, not a revival |
+| `docs/loops/` | Repeatable agent-loop records and machine-readable catalogs for hunting faults outside existing assertions | **None, by its own words.** `docs/loops/README.md` says nothing there amends a design decision; a loop that needs one stops and escalates |
