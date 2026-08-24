@@ -27,3 +27,6 @@ FM Screenshots/
 # Python bytecode from the Tools scripts; committed once by accident.
 __pycache__/
 *.pyc
+
+# Generated design-canvas payload: re-seed from the .dc.html sources instead.
+docs/proofs/hybrid-recruiting/hybrid-recruiting-desk.html

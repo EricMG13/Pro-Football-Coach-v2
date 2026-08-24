@@ -1,0 +1,38 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",      "x": 0,    "y": 0,    "w": 844, "h": 390, "title": "Board" },
+    { "file": "Prospect.dc.html",  "x": 944,  "y": 0,    "w": 844, "h": 390, "title": "Prospect" },
+    { "file": "Week.dc.html",      "x": 1888, "y": 0,    "w": 844, "h": 390, "title": "The week" },
+
+    { "file": "Money.dc.html",     "x": 0,    "y": 530,  "w": 844, "h": 390, "title": "Money" },
+    { "file": "Class.dc.html",     "x": 944,  "y": 530,  "w": 844, "h": 390, "title": "Class" },
+    { "file": "Portal.dc.html",    "x": 1888, "y": 530,  "w": 844, "h": 390, "title": "Portal" },
+
+    { "file": "Committed.dc.html", "x": 0,    "y": 1060, "w": 844, "h": 390, "title": "Board, committed" },
+    { "file": "FirstRun.dc.html",  "x": 944,  "y": 1060, "w": 844, "h": 390, "title": "First run" }
+  ],
+  "annotations": [
+    {
+      "id": "the-hybrid",
+      "x": 2832,
+      "y": 0,
+      "w": 340,
+      "text": "THE HYBRID\n\nTop row is the weekly loop, middle row the constraints, bottom row a committed state and the first hour.\n\nFrom B: ranges everywhere and never a point value, Unseen as a real value, the staff grid, needs-first sorting with a next-move column, the honest note about what is below the fold, the first run, and the 85 with its arithmetic shown.\n\nFrom A: the priced button, the commit loop with undo, opportunity cost in prose, the lever-map profile, the dead-period wall, and the portal."
+    },
+    {
+      "id": "money-decision",
+      "x": 2832,
+      "y": 430,
+      "w": 340,
+      "text": "THE MONEY, DECIDED\n\nThe two designs disagreed irreconcilably here, so this takes a position rather than splitting the difference.\n\nA program fund of $340k the coach genuinely spends, sitting under a declared $1.1M they may only read. The rule is drawn on the screen: WHERE YOUR AUTHORITY ENDS.\n\nThis keeps A's resource game and B's thesis about powerlessness, and it makes the portal sharper: the safety you need costs $100k more than you hold."
+    },
+    {
+      "id": "two-fixes",
+      "x": 2832,
+      "y": 900,
+      "w": 340,
+      "text": "TWO DEFECTS FIXED\n\nA's confirmation band covered the running total it had just moved. Here the confirmation lives in the footer, so the table and the class totals stay readable while you read it.\n\nB ran type down to 8px. The Floodlit system sets a 12px authored floor, with 9 and 10.5 allowed only for tracked uppercase micro-labels. Nothing here breaks that: no prose under 13px, and no text of any kind under 9px."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

@@ -1,0 +1,93 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+  <style>
+    body { margin: 0; background: #060A12; }
+    a { color: #FFC53D; text-decoration: none; }
+    a:hover { color: #FFE196; }
+  </style>
+</helmet>
+
+<div style="position: relative; width: 844px; height: 390px; background: #060A12; font-family: 'Archivo Narrow', 'SF Pro Condensed', system-ui, sans-serif; overflow: hidden;">
+
+  <!-- the surface it explains, still visible underneath -->
+  <div style="position: absolute; left: 63px; top: 12px; width: 761px; height: 34px; border-radius: 3px 14px 3px 14px; background: linear-gradient(90deg, rgba(15,86,55,.55), rgba(15,86,55,.20) 54%, rgba(15,86,55,.04)); box-shadow: inset 0 0 0 1px rgba(122,138,158,.12);"></div>
+  <div style="position: absolute; left: 63px; top: 56px; width: 761px; height: 309px; box-sizing: border-box; border-radius: 4px 22px 4px 22px; background: #100E16; box-shadow: inset 0 0 0 1px rgba(122,138,158,.12); display: flex; flex-direction: column; padding: 34px 15px 0; gap: 14px;">
+    <div style="height: 9px; width: 42%; border-radius: 3px; background: rgba(122,138,158,.16);"></div>
+    <div style="height: 9px; width: 63%; border-radius: 3px; background: rgba(122,138,158,.13);"></div>
+    <div style="height: 9px; width: 51%; border-radius: 3px; background: rgba(122,138,158,.10);"></div>
+    <div style="height: 9px; width: 58%; border-radius: 3px; background: rgba(122,138,158,.08);"></div>
+  </div>
+
+  <!-- scrim -->
+  <div style="position: absolute; inset: 0; background: rgba(6,10,18,.80);"></div>
+
+  <!-- the overlay -->
+  <div style="position: absolute; left: 63px; top: 12px; width: 761px; height: 353px; box-sizing: border-box; border-radius: 4px 22px 4px 22px; background: rgba(16,14,22,.97); box-shadow: 0 24px 60px rgba(0,0,0,.7), inset 0 0 0 1px rgba(255,176,58,.30); display: flex; flex-direction: column; padding: 14px 20px 15px; overflow: hidden;">
+
+    <div style="flex: none; display: flex; align-items: center; gap: 9px;">
+      <span style="flex: none; width: 6px; height: 6px; border-radius: 50%; background: #FFB03A;"></span>
+      <span style="font-size: 9px; font-weight: 600; letter-spacing: .2em; color: #FFB03A;">FIRST RUN &middot; SHOWN ONCE, OVER THE SURFACE IT DESCRIBES &middot; IT DOES NOT COME BACK</span>
+      <div style="flex: 1 1 auto;"></div>
+      <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .08em; color: #7A8A9E;">1 OF 3</span>
+    </div>
+
+    <div style="flex: none; font-size: 30px; font-weight: 700; letter-spacing: -.015em; line-height: 1.1; color: #F6FAFF; margin-top: 9px; max-width: 30ch;">Three kinds of screen, and you can tell them apart at a glance.</div>
+
+    <div style="flex: 1 1 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: 13px; margin-top: 12px; min-height: 0;">
+
+      <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 13px; border-radius: 4px 18px 4px 18px; background: linear-gradient(150deg, rgba(18,86,26,.85), rgba(4,16,10,.9)); box-shadow: inset 0 0 0 1px rgba(79,208,140,.30);">
+        <span style="font-size: 9px; font-weight: 600; letter-spacing: .2em; color: #7DF0B6;">BROADCAST</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 30px; font-weight: 600; color: #fff; line-height: .95;">06</span>
+        <span style="font-size: 14px; font-weight: 700; color: #F6FAFF; line-height: 1.2;">You are being told something.</span>
+        <span style="font-size: 12px; line-height: 1.35; color: #A9BACE; margin-top: auto;">Ceremonies and results. Twelve figures at most, and no controls.</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 7px; padding: 11px 13px; border-radius: 4px 18px 4px 18px; background: #100E16; box-shadow: inset 0 0 0 1px rgba(122,138,158,.26);">
+        <span style="font-size: 9px; font-weight: 600; letter-spacing: .2em; color: #7A8A9E;">DESK</span>
+        <div style="display: flex; flex-direction: column; gap: 4px; padding: 3px 0 1px;">
+          <div style="height: 5px; width: 88%; border-radius: 3px; background: rgba(122,138,158,.30);"></div>
+          <div style="height: 5px; width: 70%; border-radius: 3px; background: rgba(122,138,158,.24);"></div>
+          <div style="height: 5px; width: 80%; border-radius: 3px; background: rgba(122,138,158,.18);"></div>
+        </div>
+        <span style="font-size: 14px; font-weight: 700; color: #F6FAFF; line-height: 1.2;">You are working something out.</span>
+        <span style="font-size: 12px; line-height: 1.35; color: #A9BACE; margin-top: auto;">Hairlines and no bloom. One gold control at most, and often none.</span>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 7px; border-radius: 4px 18px 4px 18px; background: #100E16; box-shadow: inset 0 0 0 1px rgba(122,138,158,.26); overflow: hidden;">
+        <div style="flex: none; padding: 9px 13px 8px; background: linear-gradient(118deg, #12561A, #07200C 70%); border-bottom: 2px solid #FFC53D;">
+          <span style="display: block; font-size: 9px; font-weight: 600; letter-spacing: .2em; color: #C6E2B8;">DOSSIER</span>
+          <span style="display: block; font-size: 17px; font-weight: 700; color: #fff; line-height: 1.15; margin-top: 2px;">One subject</span>
+        </div>
+        <div style="flex: 1 1 auto; display: flex; flex-direction: column; gap: 7px; padding: 2px 13px 11px;">
+          <span style="font-size: 14px; font-weight: 700; color: #F6FAFF; line-height: 1.2;">Met, then studied.</span>
+          <span style="font-size: 12px; line-height: 1.35; color: #A9BACE; margin-top: auto;">A head that introduces a person, and a body you read.</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div style="flex: none; display: flex; align-items: center; gap: 14px; margin-top: 12px;">
+      <span style="flex: 1 1 auto; font-size: 13px; line-height: 1.35; color: #A9BACE;">Two more cards follow: every rating is a range, and <span style="color: #FF8E9C;">Unseen</span> is a real value rather than a zero. Then who on your staff owns what.</span>
+      <div style="flex: none; display: flex; align-items: center; justify-content: center; min-width: 132px; min-height: 44px; padding: 5px 18px; border-radius: 22px 22px 22px 5px; box-shadow: inset 0 0 0 1px rgba(122,138,158,.38);">
+        <span style="font-size: 13px; font-weight: 600; letter-spacing: .06em; color: #A9BACE; white-space: nowrap;">SKIP ALL THREE</span>
+      </div>
+      <div style="flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-width: 186px; min-height: 44px; padding: 5px 18px; border-radius: 22px 22px 22px 5px; background: linear-gradient(180deg, #FFE196, #FFC53D 62%, #D89713); box-shadow: 0 6px 18px rgba(255,197,61,.22);">
+        <span style="font-size: 14px; font-weight: 700; letter-spacing: .04em; color: #150F02; white-space: nowrap;">START YEAR ONE</span>
+        <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 600; letter-spacing: .04em; color: rgba(21,15,2,.74); white-space: nowrap;">73 ON BOOKS &middot; 4 CALLS A WEEK</span>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>
