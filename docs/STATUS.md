@@ -4,6 +4,14 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Loop 913 covered the interrupted-save body boundary.**
+> A complete current-schema header with no stored body is now required to refuse with the envelope's
+> precise decompression failure instead of reaching a payload decode. Required save-document and
+> archive suites passed **22 / 67** and **20 / 147**. `--core-contracts` completed all save-envelope
+> checks (**22**) and ended **236 / 3,449** with the pre-existing `DOC-MANIFEST` omission for
+> `docs/loops/`; this pass changes neither that manifest nor its contract. Files changed:
+> `Tests/SimTests/Suites/SaveEnvelopeTests.swift`, `docs/STATUS.md`.
+
 > **2026-08-24 — Loop 911 preserved job-security rationale across promotion.**
 > The career-arc promotion fixture now carries both stakeholder support and each stakeholder's last
 > movement from the college job into the professional one, so a promotion cannot preserve the score
