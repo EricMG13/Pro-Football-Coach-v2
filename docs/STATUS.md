@@ -4,6 +4,17 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Loop 907 widened the live season-transition slate invariant.**
+> `SeasonRolloverTests` now walks four independent worlds (seeds **97,020–97,023**) through each
+> of their first three actual season boundaries and checks the slate installed by the live scheduler:
+> calendar, league, and slate seasons agree at week one; the existing exact college/pro game and
+> bye-shape helper accepts the post-realignment membership; and `WorldIntegrity` remains valid.
+> This is test-only; it changes no scheduler, calendar rule, identity, or colour surface.
+> Verification passed: `--season-rollover` **15 tests / 10,838 checks**,
+> `--competition-only` **37 / 8,331**, `--realignment` **8 / 154**, and
+> `--rivalry-order` **8 / 34**. Files changed: `Tests/SimTests/Suites/SeasonRolloverTests.swift`,
+> `docs/STATUS.md`.
+
 > **2026-08-24 — Loop 905 tightened calibration by correcting the abstracted model, not a band.**
 > The approved pro safeties upper-edge trial (`0.050 → 0.045`) was not retained: the calibration
 > lane is an instrument check and the two-tier gate has no safeties metric, so neither can supply
