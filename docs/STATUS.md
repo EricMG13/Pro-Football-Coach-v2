@@ -4,6 +4,8 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Owner-gate VoiceOver week-loop and Match Day evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-06-voiceover-week-and-match-evidence-pack.md` is ready for the owner; no physical-device run, build, launch, VoiceOver interaction, capture, or observation ran.
+
 > **2026-08-24 — Owner-gate simulator walkthrough evidence pack is prepared.**
 > `docs/plans/2026-08-24-owner-gate-01-simulator-walkthrough-evidence-pack.md` is ready for the
 > owner. It preserves the retained protocol, specifies a disposable resolved simulator UDID, and
