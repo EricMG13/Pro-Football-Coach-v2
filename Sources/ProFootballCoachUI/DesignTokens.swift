@@ -24,24 +24,25 @@ public enum CoachWorldTokens {
     }
 
     /// The management stage's geometry, `04` section 6.1c. Absolute positions at the install
-    /// floor: the icon rail sits against the sensor housing, the content column is what is left
-    /// after the rail and the trailing gutter, and the header spans that same column.
+    /// floor: the content column starts at the leading inset and runs to the trailing gutter, and
+    /// the header spans that same column.
+    ///
+    /// **The 44 pt icon rail was removed on 2026-08-23** (`04` section 6.1c). Navigation lives
+    /// entirely in the identity band — family on the left, jump-to on the right — so a column of
+    /// glyphs beside it was a second navigation for the same set of places. Removing it
+    /// generalises the exception the section already carried: Title, Job Board and Offer started
+    /// at the rail-free leading edge because they sit outside the coaching week, and every
+    /// management surface now uses that geometry. The content column gains 52 pt.
     public enum Stage {
-        public static let railLeading: CGFloat = 59
-        public static let railWidth: CGFloat = 44
-        public static let railTop: CGFloat = 46
-        public static let railGap: CGFloat = 2
-        public static let contentLeading: CGFloat = 115
+        public static let contentLeading: CGFloat = Frame.leadingInset
         public static let contentTop: CGFloat = 46
         public static let headerTop: CGFloat = 3
         public static let headerPrimaryRow: CGFloat = 22
         public static let headerSecondaryRow: CGFloat = 16
-        /// `844 - 115 - 20`: the frame minus the rail column and the trailing gutter. Derived, not
-        /// chosen, so it stays right if the floor ever moves.
+        /// `844 - 63 - 20`: the frame minus the leading inset and the trailing gutter. Derived,
+        /// not chosen, so it stays right if the floor ever moves.
         public static let contentWidth: CGFloat =
             Frame.floorWidth - contentLeading - Frame.gutter
-        /// Title, Job Board and Offer carry no icon rail — they sit outside the coaching week.
-        public static let railFreeLeading: CGFloat = 63
         /// How far the world backdrop bleeds past the bottom edge.
         public static let worldBottomBleed: CGFloat = 0.55
     }
@@ -297,6 +298,9 @@ public enum CoachWorldTokens {
         public let actionDestructive: ColorValue
         public let stateLive: ColorValue
         public let statePositive: ColorValue
+        /// `04` section 6.1a. The heat scale's fourth band — `state.positive` lightened, stated as
+        /// a measured value so no view has to invent the lightening.
+        public let statePositiveLight: ColorValue
         public let stateWarning: ColorValue
         public let stateNegative: ColorValue
         public let stateInfo: ColorValue

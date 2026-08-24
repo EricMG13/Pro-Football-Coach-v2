@@ -467,6 +467,15 @@ is deleted. Ratios below are the same WCAG 2.2 relative-luminance method as §6.
 | `field.annotation` (on turf) | `#FFCE6A` | 11.01 |
 | `field.live` (on turf) | `#4FD08C` | 8.27 |
 
+**Two corrections to this table, 2026-08-23.** `state.warning` read `#FFB03A` here for a week after
+the amendment below retired it — the prose said the value had to go and the table it governs kept
+serving it, which is how a retired colour stays in a product. Its replacement's ratios are computed
+from the same three grounds as every other row, and the computation reproduces the 24.1° and 5.57
+this document already states, which is what makes them checkable rather than asserted.
+`state.positive.light` is **new**: §6.4's five-band heat scale calls its fourth band
+*"`state.positive`, lightened"*, and a lightening nothing states is a colour a view has to invent.
+It is stated here so it can be a token instead.
+
 Measured constraints, binding on every consumer:
 
 - **`content.quiet` clears 4.5:1 on all three grounds** (4.61 on `raised`, its lowest), so unlike
@@ -514,7 +523,7 @@ The palette above carries four role collisions, measured in HSL from the shipped
 
 | Colliding roles | Values | Separation |
 |---|---|---|
-| `action.primary` / `state.warning` | `#FFC53D` / `#FFB03A` | **6.1°** hue, identical saturation, 0.6% luminance |
+| `action.primary` / `state.warning` (retired) | `#FFC53D` / `#FFB03A` | **6.1°** hue, identical saturation, 0.6% luminance |
 | `state.negative` / `action.destructive` | `#FF3B54` / `#FF3B54` | identical |
 | `state.info` / `pro.identity` | `#6FA8DC` / `#6FA8DC` | identical |
 | `state.live` / `state.positive` | `#37E08A` / `#4FD08C` | **1.1°** hue |
