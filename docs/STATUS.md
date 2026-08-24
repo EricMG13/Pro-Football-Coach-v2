@@ -29,6 +29,8 @@ The honest picture: what exists, what is verified, what is not.
 
 > **2026-08-24 — Owner-gate device and appearance matrix evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-03-device-appearance-matrix-evidence-pack.md` is ready for the owner; no simulator, build, launch, appearance change, or observation ran.
 
+> **2026-08-24 — Corrective note for owner-gate device and appearance matrix.** The checklist still requires both system appearances, but `04` §6.1a/§7 makes Floodlit dark-only. Pack 03's Light rows now predict only that the system setting is Light and require the owner to record whether the app intentionally remains dark or exposes a conflict. This correction is unrun and does not change either protocol or metric.
+
 > **2026-08-24 — Owner-gate physical iPhone 15 and later e-class evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-04-physical-iphone15-and-eclass-evidence-pack.md` is ready for the owner; no physical-device run, simulator run, build, launch, appearance change, or observation ran.
 
 > **2026-08-24 — Owner-gate iOS Simulator Skill evidence bundle is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-05-ios-simulator-skill-evidence-bundle-evidence-pack.md` is ready for the owner; it retains the SHA- and UDID-bound semantic-tree, AX5 screenshot, visual-diff, and hang/trace capture protocol. No build, simulator, capture, or observation ran.

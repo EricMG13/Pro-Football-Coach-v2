@@ -15,13 +15,17 @@ endpoints are `iPhone 17e` (844 × 390) and `iPhone 17 Pro Max` (956 × 440).
 Both runs use an installed iOS 26 runtime in landscape. The owner must retain
 the `simctl` device record that proves each selected UDID still has that class,
 runtime, and size; if a later available Plus/Pro Max class is larger, stop and
-replace the second row with that class before beginning.
+replace the second row with that class before beginning. The checklist retains
+both **system** appearances, while `04` §6.1a and §7 say Floodlit is dark-only:
+there is no production light palette and the app keeps its appearance when the
+system setting changes. The Light rows therefore observe the system setting and
+the rendered result; they do not predict that the app becomes light.
 
 | Run | Device class and landscape size | Appearance | Expected owner observation |
 |---|---|---|---|
-| 01 | iPhone 17e — 844 × 390 install floor | Light | **Prediction:** the release candidate launches and every inspected surface remains usable, with no visible clipping, overlap, unreachable control, or incorrect safe-area ownership. |
+| 01 | iPhone 17e — 844 × 390 install floor | Light | **Prediction:** the system appearance is set to Light. Record whether the app intentionally remains dark, as `04` §6.1a/§7 specify, or exposes a conflict. |
 | 02 | iPhone 17e — 844 × 390 install floor | Dark | **Prediction:** the same inspected route remains usable with no appearance-specific clipping, overlap, unreachable control, or incorrect safe-area ownership. |
-| 03 | iPhone 17 Pro Max — 956 × 440 largest current Plus/Pro Max class | Light | **Prediction:** the release candidate launches and every inspected surface remains usable, with no visible clipping, overlap, unreachable control, or incorrect safe-area ownership. |
+| 03 | iPhone 17 Pro Max — 956 × 440 largest current Plus/Pro Max class | Light | **Prediction:** the system appearance is set to Light. Record whether the app intentionally remains dark, as `04` §6.1a/§7 specify, or exposes a conflict. |
 | 04 | iPhone 17 Pro Max — 956 × 440 largest current Plus/Pro Max class | Dark | **Prediction:** the same inspected route remains usable with no appearance-specific clipping, overlap, unreachable control, or incorrect safe-area ownership. |
 
 The table is an owner-observation matrix. It does not claim that a light or dark
@@ -90,11 +94,13 @@ record and restart from the new SHA.
 2. Set the specified system appearance, relaunch the app if needed, and record
    the system setting and app state before the first capture. Do not infer the
    app's rendered appearance from the system setting; record what the native
-   capture actually shows.
+   capture actually shows. For each Light row, record whether the app
+   intentionally remains dark under `04` §6.1a/§7 or exposes a conflict.
 
-   **Prediction:** the specified system appearance is selected and the native
-   capture records the app's resulting rendered state. This is an observation
-   to record, not an inference from a setting command.
+   **Prediction:** the specified system appearance is selected. For a Light
+   row, that is the only appearance prediction; the native capture records
+   whether the app intentionally remains dark or exposes a conflict. This is
+   an observation to record, not an inference from a setting command.
 
 3. Execute `docs/OWNER-WALKTHROUGH.md` §3 exactly as written. Capture every
    numbered retained walkthrough surface and every deliberate unavailable-route
@@ -146,6 +152,11 @@ matrix row:
   clipping, visual overlap, reachability, safe-area ownership, contrast, or
   whether the intended appearance was actually displayed. The owner must make
   and record those visual observations from the native captures.
+- The checklist's both-appearance wording is a requirement to observe both
+  system settings; it does not override `04` §6.1a/§7's dark-only Floodlit
+  policy. For each Light row, hand off the native capture and record whether
+  the app intentionally remains dark or exposes a conflict. This pack neither
+  resolves that conflict nor changes either governing text.
 - This matrix does not close the physical-iPhone, AX5, VoiceOver, Dynamic Type,
   Reduce Motion, performance, signing, archive, or fresh-install/full-season/
   resume gates. Pack 02 remains the source for the latter journey.
