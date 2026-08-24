@@ -24,49 +24,28 @@ decisions. What the player does instead of pressing buttons is the project's cen
 Distribution is TestFlight then paid premium. No IAP, ads, subscriptions, analytics, accounts, or
 network of any kind.
 
-## Legal guardrail (absolute)
+## Legal: deferred to a final phase (owner decision, 2026-08-24)
 
-All schools, teams, conferences, stadiums, players, coaches, marks, logos, colours, fight songs,
-traditions and broadcast identities are **fictional and original**. Never use real
-school/team/player/conference names or logos. Reference titles are mechanics research only — never
-copy protected expression, art, text, audio or UI.
+**This is not a constraint on the current work.** The owner has sequenced original-identity and
+trade-dress compliance as a final phase, to be done deliberately in one pass rather than enforced
+continuously while the game is being built. Until that phase begins:
 
-**Real location names are permitted — owner decision 2026-08-12, generator included.** Cities and
-regions may be real, in generated worlds as well as in hand-written copy, so a programme can sit in
-a real city. This does not extend to venues: "Rose Bowl", "Lambeau" and "Death Valley" are marks
-that happen to read as places, and they stay refused.
+- **Nothing here blocks a change, gates a build, or needs escalating.** A session that notices a
+  name or colour that would once have been refused should note it and carry on.
+- **Do not spend effort on compliance work that is not asked for.** No blocklist curation, no
+  near-miss review, no counsel questions.
 
-The line is **what kind of name it is**, not what the string says, because eight real cities are
-also refused as institution names — Buffalo, Cincinnati, Houston, Kansas City, Miami, Pittsburgh,
-Tulsa, Washington — each because it either is a real programme or contains one. Each is refused as
-the name of a *school* and permitted as the name of the *city it plays in*. `Blocklist.blocks` is the institution-kind check and `Blocklist.blocksPlaceName` the
-place-kind one; a caller picks by what it holds. Note the risk this leaves standing, which the
-blocklist cannot see: a fictional programme in a real city, wearing that city's programme's
-colours, can *jointly* identify the real one. The trade-dress test catches the colours; the
-combination is a review obligation and a counsel question.
+**What is deliberately still in the tree, and must not be deleted as "dead":**
 
-College football raises this bar: school identity, trade dress and player NIL are among the most
-aggressively enforced IP in sport. Any route around it — bundled "community" real-name files, a
-roster importer pointed at a scraped source, a wink in the store listing — is out of scope and must
-not be proposed. If a feature only works with real identities, say so and propose an original
-substitute. Flag anything borderline for the owner to take to counsel; never resolve it yourself.
+| Thing | Why it stays |
+|---|---|
+| `Sources/FootballSimCore/Generation/Blocklist.swift` | `NameGrammar` and `ColourGenerator` both call it. Removing it breaks generation, and rebuilding it in the final phase would be redoing solved work. |
+| `Tests/SimTests/Suites/LegalTests.swift` | Still runnable on demand with `--legal-only`. It is off the default gate, not deleted. |
+| `docs/briefs/2026-08-13-name-equivalents.md` | The near-miss reasoning the final phase will need. |
 
-**Two of these are tests, and they must stay green:**
-
-1. **Name collision test** — no generated school, team, conference, stadium, player or coach name
-   matches an entry in the maintained blocklist, at any seed, across N generated leagues. Most
-   entries are real names. Some are **near-miss coinages nobody registered**, kept because the name
-   that gets a project sued is the one a careful person reaches for while trying to be safe — see
-   `02` §11.3.5's near-miss rule, and `docs/briefs/2026-08-13-name-equivalents.md` for the review
-   that produced it. Generated **place** names are swept too, against the venue and person limbs only, so a
-   city called Rose Bowl or Nick Saban is still refused while a city called Columbus is not. The two
-   sweeps must partition every generated name between them: a name that belongs to neither kind is
-   a name nothing checks, and the suite asserts the partition.
-2. **Trade dress test** — no generated primary/secondary colour pair falls within the stated ΔE of a
-   real programme's known pair.
-
-Everything else in this guardrail is a review checklist item, not an assertion. Do not describe
-prose as if it were a test.
+**What the deferral does not change.** The exposure is a fact about what ships, not about what the
+documentation says — moving the check later moves when it is done, not whether it is needed. The
+final phase is where that gets settled, and `--legal-only` is how it gets measured when it does.
 
 ## Documents
 

@@ -50,7 +50,11 @@ struct SuiteCatalog: Sendable {
         .commitmentCoverage, .contrastByConstruction, .dynamicType, .reduceMotion,
         .voiceOver, .touchTarget, .determinism, .reachability,
         .errorSurface, .accessibility, .saveOffMainActor, .saveCoalescing,
-        .saveWriteBudget, .saveOpenReadOnly, .legal
+        .saveWriteBudget, .saveOpenReadOnly
+        // `.legal` deliberately absent: the owner deferred legal compliance to a final phase on
+        // 2026-08-24, so the two identity tests no longer gate the default run. The gate, its lane
+        // and its runner all still exist -- `--legal-only` runs them unchanged -- because deferring
+        // when a check happens is not the same as deleting the check.
     ]
 
     static func lane(for gate: ReleaseGateID) -> String {

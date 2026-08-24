@@ -44,7 +44,14 @@ owner-checked ones are owner-checked because no agent in this project's environm
 - [ ] Performance budgets met on a physical **iPhone 15/A16 baseline**: week advance, full season
       sim, frame budget, cold launch, save write.
 
-## 2. Legal gates — non-negotiable
+## 2. Legal gates — DEFERRED to a final phase (owner, 2026-08-24)
+
+> These are not gates on current work. The owner has sequenced compliance as a final phase, done in
+> one deliberate pass. The list below is retained verbatim as the checklist that phase will work
+> through — and because this is a pre-*deployment* checklist, it is still what has to be true before
+> anything ships. Run the tests with `--legal-only`.
+
+### Retained for the final phase
 
 - [ ] **Name-collision test** green: no generated programme, team, city, conference, stadium, player
       or coach name matches the blocklist, across N generated leagues at many seeds.
