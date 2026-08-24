@@ -4259,3 +4259,14 @@ salted per launch), and bounded save growth (8.3 MB → 2.3 MB). Its UI scored 9
 week contained one mandatory decision.
 
 Full detail in `docs/AUDIT.md` and `docs/01-RESEARCH.md` §6.0.
+
+---
+
+### 2026-08-24 — Loop 902 roster-template invariant widening
+
+`runRosterPopulationTests` now sweeps bootstrap seeds **80,001...80,200**. For every generated
+college programme and professional team at every seed, its position-count shape is asserted directly
+against `CollegeRules.initialRosterByPosition` or `ProRules.initialRosterByPosition`; no independent
+position list is maintained by the test. The pass changed only the roster-population test and this
+status record. Verification passed: `--roster-population` (**8 tests / 246,852 checks**),
+`--generation-only` (**35 / 42,346**), and `--trait-population` (**8 / 610**).

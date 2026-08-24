@@ -3,29 +3,31 @@ import FootballSimCore
 
 func runRosterPopulationTests() {
     suite("Initial roster population") {
-        test("bootstrap fills every roster to its rules-owned target") {
-            let state = GameState.bootstrap(seed: 80_001)
+        test("bootstrap fills every roster to its rules-owned target across 200 seeds") {
             let expectedCollege = CollegeRules.programmeCount * CollegeRules.rosterLimit
             let expectedPro = ProRules.teamCount * ProRules.activeRosterLimit
-            expectEqual(state.players.count, expectedCollege + expectedPro)
+            for seed in UInt64(80_001)...80_200 {
+                let state = GameState.bootstrap(seed: seed)
+                expectEqual(state.players.count, expectedCollege + expectedPro)
 
-            for programme in state.programmes.values {
-                expectEqual(programme.rosterIDs.count, CollegeRules.rosterLimit)
-                expectEqual(programme.scholarshipCount, CollegeRules.scholarshipLimit)
-                assertPositionTemplate(
-                    rosterIDs: programme.rosterIDs,
-                    state: state,
-                    expected: CollegeRules.initialRosterByPosition
-                )
-            }
-            for team in state.proTeams.values {
-                expectEqual(team.rosterIDs.count, ProRules.activeRosterLimit)
-                expectEqual(team.practiceSquadIDs.count, 0)
-                assertPositionTemplate(
-                    rosterIDs: team.rosterIDs,
-                    state: state,
-                    expected: ProRules.initialRosterByPosition
-                )
+                for programme in state.programmes.values {
+                    expectEqual(programme.rosterIDs.count, CollegeRules.rosterLimit)
+                    expectEqual(programme.scholarshipCount, CollegeRules.scholarshipLimit)
+                    assertPositionTemplate(
+                        rosterIDs: programme.rosterIDs,
+                        state: state,
+                        expected: CollegeRules.initialRosterByPosition
+                    )
+                }
+                for team in state.proTeams.values {
+                    expectEqual(team.rosterIDs.count, ProRules.activeRosterLimit)
+                    expectEqual(team.practiceSquadIDs.count, 0)
+                    assertPositionTemplate(
+                        rosterIDs: team.rosterIDs,
+                        state: state,
+                        expected: ProRules.initialRosterByPosition
+                    )
+                }
             }
         }
 
