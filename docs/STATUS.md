@@ -4,6 +4,14 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — commitment coverage is potent; the D1 observation remains owner-only.** A
+> temporary, non-legal `PRODUCT.md` commitment naming `UnregisteredPotencyGate` made
+> `--commitment-coverage` fail with “unregistered commitment test”; removing that fixture restored
+> the release lane: catalog 0/0, commitment coverage 4/26 and save document 22/67. This proves
+> `CommitmentCoverageTest` is potent for an unregistered commitment row. The 6–8-hour season target
+> remains unverified pending the owner-recorded D1 timing protocol result; no inferred measurement
+> was added.
+
 > **2026-08-24 — release-gate traceability is awaiting the D1 owner measurement.** The current
 > `PRODUCT.md` unverified-target row for a 6–8-hour season remains uninstrumented because
 > `AgencyBudgetTests` requires an owner-recorded, timestamped D1 timing protocol result (duration,
