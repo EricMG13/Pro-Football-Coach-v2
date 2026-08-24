@@ -63,6 +63,19 @@ private let acquisitionRules: [AcquisitionRule] = [
         }
     ),
     AcquisitionRule(
+        name: "commitment position coverage",
+        population: { $0.programmes.ids.count },
+        breaches: { state in
+            state.programmes.ids.compactMap { programmeID in
+                let capacity = CollegeCommitmentCapacitySystem.capacity(
+                    programmeID: programmeID, in: state, college: state.college
+                )
+                return capacity?.preservesMinimumPositionCoverage == true
+                    ? nil : "minimum coverage at programme \(programmeID)"
+            }
+        }
+    ),
+    AcquisitionRule(
         name: "portal window",
         population: { $0.college.portal.summaries.count + $0.college.portal.entries.count },
         breaches: { state in

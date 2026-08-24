@@ -4,6 +4,16 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-24 — Loop 908 widened the transaction-time college capacity sweep.**
+> The existing scheduler observer now also checks each programme's projected commitments preserve
+> enough openings to meet every minimum position, using the existing capacity predicate. The
+> focused observer walk passed **3 tests / 50 checks**. Required regressions also passed:
+> commitments **25 / 124**, state **39 / 4,082**, redshirts **33 / 104**, portal policy **13 / 716**,
+> transactions **17 / 133**, and scheduler **13 / 27,861**. `--core-contracts` completed with
+> **235 / 3,448** and one unrelated document-manifest failure: the pre-pass tree already contained
+> `docs/loops/`, which `DOC-MANIFEST` does not classify; the 908 diff touches neither. Files
+> changed: `Tests/SimTests/Suites/CollegeAcquisitionInvariantTests.swift`, `docs/STATUS.md`.
+
 > **2026-08-24 — Loop 907 widened the live season-transition slate invariant.**
 > `SeasonRolloverTests` now walks four independent worlds (seeds **97,020–97,023**) through each
 > of their first three actual season boundaries and checks the slate installed by the live scheduler:
