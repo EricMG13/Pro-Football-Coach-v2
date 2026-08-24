@@ -551,19 +551,22 @@ public enum CoachWorldTokens {
         case good
         case bad
 
-        public var from: Color { Self.stop(fromHex, alpha: 0.97) }
-        public var to: Color { Self.stop(toHex, alpha: 0.97) }
-        public var edge: Color { Self.stop(edgeHex, alpha: edgeAlpha) }
+        public var from: Color { fromValue.color.opacity(0.97) }
+        public var to: Color { toValue.color.opacity(0.97) }
+        public var edge: Color { edgeValue.color.opacity(edgeAlpha) }
 
-        private var fromHex: ColorValue {
+        // Each stop that coincides with an existing role reuses that role's value rather than
+        // repeating its literal — `04` section 6.1a(ii)'s uniqueness rule applies file-wide, not
+        // just within `Palette`.
+        private var fromValue: ColorValue {
             switch self {
-            case .info: CoachWorldTokens.dark.raised
+            case .info: dark.raised
             case .good: Floodlit.clubField
             case .bad: ColorValue(hex: 0x4A1420)
             }
         }
 
-        private var toHex: ColorValue {
+        private var toValue: ColorValue {
             switch self {
             case .info: Floodlit.glassFlatDeep
             case .good: ColorValue(hex: 0x091410)
@@ -571,11 +574,11 @@ public enum CoachWorldTokens {
             }
         }
 
-        private var edgeHex: ColorValue {
+        private var edgeValue: ColorValue {
             switch self {
-            case .info: CoachWorldTokens.dark.contentQuiet
-            case .good: CoachWorldTokens.dark.statePositive
-            case .bad: CoachWorldTokens.dark.stateNegative
+            case .info: dark.contentQuiet
+            case .good: FloodlitValue.go
+            case .bad: FloodlitValue.alarm
             }
         }
 
@@ -585,10 +588,6 @@ public enum CoachWorldTokens {
             case .good: 0.50
             case .bad: 0.45
             }
-        }
-
-        private static func stop(_ hex: ColorValue, alpha: Double) -> Color {
-            hex.color.opacity(alpha)
         }
     }
 

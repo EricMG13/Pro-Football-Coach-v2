@@ -106,7 +106,7 @@ Required: **five bands around a neutral centre**, warm band *below* the median.
 | well below | 40–59 | `stateNegative` |
 | below | 60–69 | `stateWarning` |
 | **average** | **70–79** | **`contentSecondary` — neutral ink, not a colour** |
-| above | 80–84 | `#7FCB9E` — **ADD**, no existing role holds it |
+| above | 80–84 | `statePositive` mixed 30% toward `contentPrimary` — derived, `#81DDAE` today |
 | well above | 85–99 | `statePositive` |
 
 Two defects in the three-band version, and the second is the serious one:
@@ -116,7 +116,8 @@ Two defects in the three-band version, and the second is the serious one:
    rating in every dense table. `Heat.color(for:palette:)` no longer returns gold, but the shape that
    allowed it is still there.
 
-`04` §6.4 was amended to the five-band scale on 2026-08-22. This code is behind its own canon.
+`04` §6.4 was amended to the five-band scale on 2026-08-22. The implementation derives the fourth
+band rather than adding a second positive token, so re-valuing either role moves it deliberately.
 
 ### A3 · `DesignTokens.swift` — `stateWarning` is a refused value — LANDED `3bd44a58`
 
