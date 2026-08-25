@@ -133,6 +133,16 @@ calibration or archive run cannot contaminate another: `--lane core`, `determini
 ./scripts/verify.sh --lane core
 ```
 
+For the development loop, build once into a persistent cache and run the core-contract, engine,
+generation and read-model groups as separate processes (two workers by default):
+
+```bash
+./scripts/verify.sh --fast --jobs 2
+```
+
+`--fast` is not a release gate. It deliberately excludes lifecycle, soaks, calibration and
+performance evidence; run their named lanes, and the default full lane, before release claims.
+
 Both library targets — engine *and* SwiftUI — build for macOS as well as iOS, so the codebase is
 compile-verified from the command line without full Xcode. Neither XCTest nor swift-testing ships
 with the Swift Command Line Tools, so the suite is an **executable target** with a hand-rolled
