@@ -73,9 +73,12 @@ if CommandLine.arguments.contains("--catalog") {
 } else if let index = CommandLine.arguments.firstIndex(of: "--team-logo-specimen"),
           CommandLine.arguments.indices.contains(index + 1) {
     try writeTeamLogoSpecimen(family: CommandLine.arguments[index + 1])
+} else if CommandLine.arguments.contains("--e2e-journey-child") {
+    runE2EJourneyChild()
 } else if CommandLine.arguments.contains("--screen-read-models") {
     runReadModelProviderTests()
     runAvailabilityProviderTests()
+    runE2EJourneyTests()
 } else if CommandLine.arguments.contains("--history-read-model") {
     runHistoryReadModelTests()
 } else if CommandLine.arguments.contains("--career-portal-decisions") {

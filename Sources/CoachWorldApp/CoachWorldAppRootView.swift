@@ -1429,6 +1429,12 @@ public struct CoachWorldAppRootView: View {
 
     private func acceptCareerOpportunity(_ stableID: String, in store: CoachWorldStore) async {
         await store.acceptCareerOpportunity(stableID)
+        // The offer card is the mutation boundary. Once it is consumed, the promotion route is
+        // no longer reachable; move the glass and the durable presentation state to the career
+        // hub before autosave, or a reload would restore an empty promotion surface.
+        if !store.availableScreens.contains(.promotionDecision) {
+            navigate(.careerHub, in: store)
+        }
         await persistOrReport(store)
     }
 
