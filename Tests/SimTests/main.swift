@@ -55,6 +55,8 @@ if CommandLine.arguments.contains("--catalog") {
     runWeekAdvanceTimingProbe()
 } else if CommandLine.arguments.contains("--performance-budget") {
     runPerformanceBudgetTests()
+} else if CommandLine.arguments.contains("--agency-budget") {
+    runAgencyBudgetTests()
 } else if CommandLine.arguments.contains("--pro-movement-probe") {
     runProMovementProbe()
 } else if CommandLine.arguments.contains("--pro-draft-stall-probe") {
@@ -73,9 +75,16 @@ if CommandLine.arguments.contains("--catalog") {
 } else if let index = CommandLine.arguments.firstIndex(of: "--team-logo-specimen"),
           CommandLine.arguments.indices.contains(index + 1) {
     try writeTeamLogoSpecimen(family: CommandLine.arguments[index + 1])
+} else if CommandLine.arguments.contains("--e2e-journey-child") {
+    runE2EJourneyChild()
+} else if CommandLine.arguments.contains("--e2e-h-durability") {
+    runE2EHDurabilityTests()
+} else if CommandLine.arguments.contains("--e2e-h-durability-child") {
+    runE2EHDurabilityChild()
 } else if CommandLine.arguments.contains("--screen-read-models") {
     runReadModelProviderTests()
     runAvailabilityProviderTests()
+    runE2EJourneyTests()
 } else if CommandLine.arguments.contains("--history-read-model") {
     runHistoryReadModelTests()
 } else if CommandLine.arguments.contains("--career-portal-decisions") {

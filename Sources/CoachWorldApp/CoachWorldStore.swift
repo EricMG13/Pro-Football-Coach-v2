@@ -388,6 +388,7 @@ public final class CoachWorldStore {
             statusMessage = "That opportunity is no longer available"
             return
         }
+        let hadOffer = careerHub?.opportunities.contains { $0.id == stableID } == true
         let teamName = careerHub?.opportunities.first { $0.id == stableID }?.team.name
         await run(
             {
@@ -398,6 +399,10 @@ public final class CoachWorldStore {
             successMessage: teamName.map { "Accepted \($0). Appointment updated." }
                 ?? "Career appointment updated."
         )
+        if hadOffer && !availableScreens.contains(.promotionDecision) {
+            presentationRoute = String(CoachWorldScreenID.careerHub.rawValue)
+            presentation.route = presentationRoute
+        }
     }
 
     public func resignCareer() async {

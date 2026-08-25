@@ -735,6 +735,7 @@ func runPeopleLifecycleTests() {
                 checkProAgeCurve(state, season: season, settled: season == measured.max())
                 guard measured.contains(season) else { continue }
                 checkRatingSpread(state, season: season, assertTierGap: false)
+                checkCoachTenure(state, season: season)
                 checkDisciplineFrequency(
                     incidents: seasonSuspensions,
                     playerWeeks: seasonPlayerWeeks,
@@ -746,6 +747,30 @@ func runPeopleLifecycleTests() {
             checkIronmanShortensInjuries(injuries)
         }
     }
+}
+
+// Staff careers record only hires, moves, and vacancy replacements; an incumbent's last assignment
+// therefore remains its original season. The seeded reference walk (84_010) measured min/median/max
+// tenure of 1/2/2, 1/4/4, 1/7/7, and 1/11/11 at seasons 1/3/6/10. This is deliberately a
+// project-local model band: introduce a staff-carousel system before relaxing it.
+private func checkCoachTenure(_ state: GameState, season: Int) {
+    let tenures = state.staff.values.compactMap { staff in
+        state.people.staffCareers[staff.id]?.assignments.last.map {
+            season - $0.season + 1
+        }
+    }.sorted()
+    expectEqual(tenures.count, state.staff.count,
+                "season \(season): an active staff member lacks a career assignment")
+    guard let first = tenures.first, let last = tenures.last else {
+        expect(false, "season \(season): no staff careers to measure tenure over")
+        return
+    }
+    let median = tenures[tenures.count / 2]
+    print("coach tenure: season \(season), n \(tenures.count), min \(first), "
+        + "median \(median), max \(last)")
+    expectEqual(first, 1, "season \(season): vacancy replacements disappeared")
+    expectEqual(median, season + 1, "season \(season): incumbent staff did not retain tenure")
+    expectEqual(last, season + 1, "season \(season): an assignment predates the world")
 }
 
 // MARK: - The professional age curve band
@@ -1432,6 +1457,7 @@ func runM2SoakTests(seasons: Int) {
                     let encoded = try SaveEnvelope.encode(state)
                     saveSizes[season] = encoded.count
                     expectEqual(try SaveEnvelope.decode(GameState.self, from: encoded), state)
+                    print("M2 save components season \(season): \(try saveComponentSizes(state))")
                 }
             }
 
@@ -1460,6 +1486,38 @@ func runM2SoakTests(seasons: Int) {
             print("M2 soak: \(seasons) seasons in \(elapsed); save checkpoints \(saveSizes)")
         }
     }
+}
+
+private struct AnySaveComponent: Encodable {
+    private let encodeValue: (Encoder) throws -> Void
+
+    init(_ value: any Encodable) {
+        encodeValue = { encoder in try value.encode(to: encoder) }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        try encodeValue(encoder)
+    }
+}
+
+/// Encodes every stored root field independently, so a new `GameState` field is included without
+/// maintaining a hand-written diagnostic list. Values are framed individually to rank contributors;
+/// their total is intentionally not compared with the compressed whole-save size.
+private func saveComponentSizes(_ state: GameState) throws -> String {
+    let components = try Mirror(reflecting: state).children.map { child -> (String, Int) in
+        guard let label = child.label, let value = child.value as? any Encodable else {
+            throw NSError(
+                domain: "SaveComponentDiagnostic",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "GameState has a non-encodable stored field"]
+            )
+        }
+        return (label, try SaveEnvelope.encode(AnySaveComponent(value)).count)
+    }
+    return components
+        .sorted { $0.1 == $1.1 ? $0.0 < $1.0 : $0.1 > $1.1 }
+        .map { "\($0.0)=\($0.1)B" }
+        .joined(separator: " ")
 }
 
 

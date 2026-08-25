@@ -110,6 +110,16 @@ func runSaveEnvelopeTests() {
             }
         }
 
+        test("a complete header with no body is refused without a partial open") {
+            let headerOnly = Data(try SaveEnvelope.encode(payload).prefix(SaveEnvelope.headerLength))
+            do {
+                _ = try SaveEnvelope.decode(Payload.self, from: headerOnly)
+                expect(false, "an interrupted save with no body was opened")
+            } catch let error as SaveEnvelopeError {
+                expectEqual(error, .decompressionFailed)
+            }
+        }
+
         test("a save from a future version is refused, never partially opened") {
             var data = try SaveEnvelope.encode(payload)
             let future = SaveEnvelope.currentSchemaVersion + 1

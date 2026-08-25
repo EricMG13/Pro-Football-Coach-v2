@@ -10,6 +10,7 @@ enum ReleaseGateID: String, CaseIterable, Sendable {
     case touchTarget = "TouchTargetTest"
     case determinism = "DeterminismTests"
     case performanceBudget = "PerformanceBudgetTests"
+    case agencyBudget = "AgencyBudgetTests"
     case twoTierConsistency = "TwoTierConsistencyTests"
     case reachability = "ReachabilityTest"
     case errorSurface = "ErrorSurfaceTest"
@@ -63,7 +64,7 @@ struct SuiteCatalog: Sendable {
              .voiceOver, .touchTarget, .reachability, .errorSurface,
              .accessibility: return "accessibility"
         case .determinism: return "determinism"
-        case .performanceBudget: return "performance"
+        case .performanceBudget, .agencyBudget: return "performance"
         case .saveOffMainActor, .saveCoalescing, .saveWriteBudget, .saveOpenReadOnly: return "persistence"
         // Not "calibration": the lane column names the `verify.sh` lane that runs a gate, and no
         // lane runs this one. `verify.sh --lane calibration` is the instrument suite. Labelling it
@@ -88,6 +89,8 @@ struct SuiteCatalog: Sendable {
             return Runner(command: "--architecture-only", function: "runArchitectureTests")
         case .performanceBudget:
             return Runner(command: "--performance-budget", function: "runPerformanceBudgetTests")
+        case .agencyBudget:
+            return Runner(command: "--agency-budget", function: "runAgencyBudgetTests")
         case .twoTierConsistency:
             return Runner(command: "--two-tier-consistency", function: "runTwoTierConsistencyTests")
         case .accessibility:

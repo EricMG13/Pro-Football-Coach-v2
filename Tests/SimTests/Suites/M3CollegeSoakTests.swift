@@ -158,12 +158,15 @@ func runM3CollegeSoakTests() {
                 expectEqual(Set(state.people.playerLifecycle.keys), Set(state.players.ids))
                 let departedPlayerIDs = Set(state.people.departedPlayers.keys)
                 let exceptionalDepartedPlayerIDs = departedPlayerIDs.intersection(retainedPlayerIDs)
+                // `maximumRetainedDepartedPlayers` bounds the separate `compacted` recent-list
+                // projection; the authoritative season pruner uses this collection's own limit.
+                // Comparing the two made a legal 8,192-entry departed store fail at season three.
                 expect(exceptionalDepartedPlayerIDs.subtracting(durablePlayerIDs).count
                     <= state.history.recent.count * 6
                         + state.competition.archives.count * Tier.allCases.count)
                 expect(departedPlayerIDs.subtracting(exceptionalDepartedPlayerIDs).count
-                    <= PeopleRules.maximumRetainedDepartedPlayers)
-                expect(departedPlayerIDs.count <= PeopleRules.maximumRetainedDepartedPlayers
+                    <= PeopleRules.departedPlayerRetentionLimit)
+                expect(departedPlayerIDs.count <= PeopleRules.departedPlayerRetentionLimit
                     + exceptionalDepartedPlayerIDs.count)
                 expectEqual(Set(state.people.playerCareers.keys),
                             Set(state.players.ids).union(departedPlayerIDs))
@@ -182,6 +185,7 @@ func runM3CollegeSoakTests() {
                 expectEqual(Set(state.people.staffCareers.keys), Set(state.staff.ids))
                 expect(state.people.staffCareers.values.allSatisfy {
                     $0.assignments.count <= PeopleRules.careerSeasonHistoryLimit
+                        && $0.seasonRecords.count <= PeopleRules.careerSeasonHistoryLimit
                 })
                 expectEqual(Set(state.college.archivedProspects.keys), archivedProspectIDs)
                 expect(state.career.mandatoryDecisionResolutions.count

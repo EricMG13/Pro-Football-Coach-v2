@@ -4,6 +4,149 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-25 — Loop 920 closed the app-layer promotion route.** Accepting a professional offer
+> now consumes the pending opportunity, seats the coach in the pro tier, routes the live root back to
+> Career Hub, and persists that destination before autosave. A child-process E2E-F walk proves the
+> unapplied offer survives a save/reload, the mutation is applied once, and the professional
+> destination/history survive a second save/reload. `--screen-read-models` passed **75 tests / 9,999
+> checks** including the new journey. After classifying the existing `docs/loops/` records in the
+> manifest, `--core-contracts` passes **239 tests / 3,496 checks**. At that earlier commit the E2E-H
+> companion was **blocked / unimplemented**; the exact runner is now present below and its required
+> long report-only run is in progress. Commit for that earlier E2E-F fix: `e686f5a`.
+
+> **2026-08-25 — canonical college intake scale decided.** The approved model decision is to keep
+> the bootstrap college scale, `50 + (strength - 40) * 25 / 59`, as canonical. The current source
+> already routes `ProspectPopulationGenerator` through `RosterPopulationGenerator.baseRating` for
+> regional talent density, so no CRITICAL-impact symbol edit was needed. The remaining long-horizon
+> tier-gap failures are therefore post-intake drift (including walk-on replacement and development),
+> not permission to widen the `1…12` band.
+
+> **2026-08-25 — Loop 914 completed its widened M3 terminal run.** The target-scale app-layer soak
+> ran **20 seasons / 421 weeks / 9,187 checks** and ended red with **26 failures**. The eight
+> departed-retention failures were in the test's comparison of the authoritative 8,192-entry
+> pruner against the separate 4,096-entry compacted projection; the assertion now uses the
+> authoritative limit. The remaining 18 failures are the canonical 8 MB save ceiling from season 3
+> onward (season 1 **6,682,833 B**, season 5 **9,463,839 B**, season 20 **10,618,616 B**) and the
+> existing post-intake tier-gap drift. Neither ceiling nor the `1…12` rating band was widened.
+> Save-size/model ownership remains open for the owner; no external measurement was invented.
+
+> **2026-08-25 — Loop 915 rebuilt the AgencyBudget instrument.** `AgencyBudgetTests` is now a
+> registered `--agency-budget` runner that fails closed until the owner supplies an observed season
+> duration plus hardware, build, and date through the documented protocol. The catalog and
+> commitment-coverage checks passed (**4 tests / 26 checks**); no estimate was promoted to evidence.
+> The host week-advance gate remains red at the previously recorded 8.019 s, and the physical-device
+> budget remains an owner gate.
+
+> **2026-08-25 — Loop 920 added the exact E2E-H durability runner.** `--e2e-h-durability` now
+> executes a 21-season child-process walk through `CoachWorldStore`, checkpoints app saves and reloads
+> at each season boundary, reports compressed save bytes plus write/load time, compares authoritative
+> state after a second reload, checks bounded collections and verifies the active tier's screen
+> families. The journey injects and accepts one professional opportunity through the app layer so both
+> tiers are exercised; the long report-only run is queued after this stable commit. A demotion control
+> is not present in canon or the app surface, so none was invented.
+
+> **2026-08-25 — Loop 915 made the shipping college week-advance ceiling a host gate.**
+> With owner approval, `PerformanceBudgetTests` now asserts the documented **2.000 s** hard ceiling
+> at 134 programmes. The unmodified Release host run measured **8.019 s** and failed the gate; a
+> temporary +10 s regression measured **17.680 s** and failed the same named assertion, then was
+> removed. These are host figures only: MacBookPro18,2, 10 cores, 64 GB, macOS 26.5.1. The device
+> gate remains open. Files changed: `Tests/SimTests/Suites/PerformanceBudgetTests.swift`,
+> `docs/STATUS.md`.
+
+> **2026-08-24 — Loop 913 covered the interrupted-save body boundary.**
+> A complete current-schema header with no stored body is now required to refuse with the envelope's
+> precise decompression failure instead of reaching a payload decode. Required save-document and
+> archive suites passed **22 / 67** and **20 / 147**. `--core-contracts` completed all save-envelope
+> checks (**22**) and ended **236 / 3,449** with the pre-existing `DOC-MANIFEST` omission for
+> `docs/loops/`; this pass changes neither that manifest nor its contract. Files changed:
+> `Tests/SimTests/Suites/SaveEnvelopeTests.swift`, `docs/STATUS.md`.
+
+> **2026-08-24 — Loop 911 preserved job-security rationale across promotion.**
+> The career-arc promotion fixture now carries both stakeholder support and each stakeholder's last
+> movement from the college job into the professional one, so a promotion cannot preserve the score
+> while discarding why it moved. Required suites passed: career arc **23 / 369**, career control
+> **14 / 99**, coaching tree **11 / 25**, professional career session **1 / 7**, and history archive
+> **20 / 147**. Files changed: `Tests/SimTests/Suites/CareerArcTests.swift`, `docs/STATUS.md`.
+
+> **2026-08-24 — Loop 910 added a project-local staff-tenure distribution check.**
+> Active staff tenure is derived from the final `StaffCareerAssignment`: that record changes only
+> for a hire, move, or vacancy replacement, so an incumbent retains its original assignment season.
+> The existing deterministic lifecycle walk (seed **84,010**) established the narrow model band at
+> seasons **1 / 3 / 6 / 10**: minimum **1** year and median / maximum **season + 1** years
+> (**2 / 4 / 7 / 11**). The assertion also requires every active staff member to carry such a
+> record. This is model evidence, not an external football measurement; revisit it only when a
+> staff-carousel mechanism is introduced. Required suites passed: people lifecycle **24 / 520,279**,
+> discipline **9 / 36**, roster tenure **4 / 5**, injury evidence **1 / 34**, and programme
+> evolution **7 / 275**. Files changed: `Tests/SimTests/Suites/PeopleLifecycleTests.swift`,
+> `docs/STATUS.md`.
+
+> **2026-08-24 — Loop 909 widened the acquire-to-release professional transition.**
+> `ProManagementTests` now validates the complete world immediately after a successful acquisition,
+> before the following release can conceal an intermediate cap, contract, roster, or depth state.
+> Required regressions passed: management **9 / 27**, cap **8 / 29**, market **15 / 109**, draft
+> probe **2 / 70**, and depth chart **7 / 253**. `--core-contracts` completed with **235 / 3,448**
+> and the same pre-existing unclassified-`docs/loops/` manifest failure recorded above; this pass
+> touches no document-manifest source. Files changed: `Tests/SimTests/Suites/ProManagementTests.swift`,
+> `docs/STATUS.md`.
+
+> **2026-08-24 — Loop 908 widened the transaction-time college capacity sweep.**
+> The existing scheduler observer now also checks each programme's projected commitments preserve
+> enough openings to meet every minimum position, using the existing capacity predicate. The
+> focused observer walk passed **3 tests / 50 checks**. Required regressions also passed:
+> commitments **25 / 124**, state **39 / 4,082**, redshirts **33 / 104**, portal policy **13 / 716**,
+> transactions **17 / 133**, and scheduler **13 / 27,861**. `--core-contracts` completed with
+> **235 / 3,448** and one unrelated document-manifest failure: the pre-pass tree already contained
+> `docs/loops/`, which `DOC-MANIFEST` does not classify; the 908 diff touches neither. Files
+> changed: `Tests/SimTests/Suites/CollegeAcquisitionInvariantTests.swift`, `docs/STATUS.md`.
+
+> **2026-08-24 — Loop 907 widened the live season-transition slate invariant.**
+> `SeasonRolloverTests` now walks four independent worlds (seeds **97,020–97,023**) through each
+> of their first three actual season boundaries and checks the slate installed by the live scheduler:
+> calendar, league, and slate seasons agree at week one; the existing exact college/pro game and
+> bye-shape helper accepts the post-realignment membership; and `WorldIntegrity` remains valid.
+> This is test-only; it changes no scheduler, calendar rule, identity, or colour surface.
+> Verification passed: `--season-rollover` **15 tests / 10,838 checks**,
+> `--competition-only` **37 / 8,331**, `--realignment` **8 / 154**, and
+> `--rivalry-order` **8 / 34**. Files changed: `Tests/SimTests/Suites/SeasonRolloverTests.swift`,
+> `docs/STATUS.md`.
+
+> **2026-08-24 — Loop 905 tightened calibration by correcting the abstracted model, not a band.**
+> The approved pro safeties upper-edge trial (`0.050 → 0.045`) was not retained: the calibration
+> lane is an instrument check and the two-tier gate has no safeties metric, so neither can supply
+> the required safeties TOST interval. Its required holdout instead exposed abstracted turnover and
+> pro-yards-per-play drift plus a college-Q4 boundary miss. Doc-first model corrections set pro /
+> college turnover probabilities to **2.90% / 3.10%**, pro offensive yards to **308.3**, and college
+> Q4 share to **27.410%**; no public band or equivalence margin changed. The designated tuning
+> selector passed **54 tests / 84 checks**; the release holdout passed **54 / 84**; and
+> `./scripts/verify.sh --lane calibration` passed calibration **25 / 181** and M3 **20 / 412**.
+>
+> Files changed: `docs/03-MATCH-ENGINE.md`, `Sources/FootballSimCore/Rules/CompetitionRules.swift`,
+> `docs/STATUS.md`.
+
+> **2026-08-24 — Loop 904 widened the match reducer's overtime-entry legality oracle.**
+> `MatchReducerTests` now constructs a tied final regulation snap for both tiers and asserts the
+> first overtime state resets every legal field: period and quarter, clock, possession, field
+> position, down and distance, overtime possessions, timeouts, and the tier's clock-running
+> policy. This is a test-only widening; no production engine, calibration constant, threshold,
+> band, fingerprint, identity, name, colour, or legal surface changed. Verification passed:
+> `--match-reducer` **19 tests / 104 checks**, `--engine` **63 / 32,502**, and `--snap-anchors`
+> **34 / 2,887**. `./scripts/verify.sh --lane calibration` also passed unchanged — calibration
+> **25 / 181**, M3 recruiting calibration **20 / 412**, terminal summary **2 passed, 0 failed**.
+> Files changed: `Tests/SimTests/Suites/MatchReducerTests.swift`, `docs/STATUS.md`,
+> `.superpowers/sdd/task-904-report.md`.
+
+> **2026-08-24 — Loop 901 widened the determinism pin to the non-empty mandatory-decision queue.**
+> `ArchitectureTests` now starts a controlled college career, constructs two recruiting decisions
+> from that generated programme and its generated prospects, inserts them in reverse UUID order,
+> and fingerprints the persisted `PendingQueues.mandatoryDecisions` payload. The check covers the
+> queue's canonical ordering and each durable decision field (subject, calendar, owner, options,
+> recommendation and reasons); it leaves every existing fingerprint literal unchanged. The new pin
+> is `9_411_499_220_108_685_895`. Two separate `./scripts/verify.sh --lane determinism` release
+> invocations both passed identically: architecture **30 tests / 248 checks**, competition **37
+> tests / 8,331 checks**, and terminal lane summary **2 passed, 0 failed**. Files changed:
+> `Tests/SimTests/Suites/ArchitectureTests.swift`, `docs/STATUS.md`,
+> `.superpowers/sdd/task-901-report.md`.
+
 > **2026-08-22 — Match Day moves like football now, and one engine defect is escalated.** The owner
 > watched the 2D animation on a booted iPhone 17e and rejected it: players stopped moving after the
 > play, did not follow it to the end, and tackles did not read as tackles. Measured over 200
@@ -4247,3 +4390,14 @@ salted per launch), and bounded save growth (8.3 MB → 2.3 MB). Its UI scored 9
 week contained one mandatory decision.
 
 Full detail in `docs/AUDIT.md` and `docs/01-RESEARCH.md` §6.0.
+
+---
+
+### 2026-08-24 — Loop 902 roster-template invariant widening
+
+`runRosterPopulationTests` now sweeps bootstrap seeds **80,001...80,200**. For every generated
+college programme and professional team at every seed, its position-count shape is asserted directly
+against `CollegeRules.initialRosterByPosition` or `ProRules.initialRosterByPosition`; no independent
+position list is maintained by the test. The pass changed only the roster-population test and this
+status record. Verification passed: `--roster-population` (**8 tests / 246,852 checks**),
+`--generation-only` (**35 / 42,346**), and `--trait-population` (**8 / 610**).
