@@ -332,6 +332,43 @@ func runDesignContractTests() {
                    "a planted duplicate colour literal must be caught")
         }
 
+        test("glass rules become legible for both contrast branches") {
+            let palette = CoachWorldTokens.dark
+            let glass = CoachWorldTokens.Rule.glass
+            let legible = CoachWorldTokens.Rule.legible
+
+            expectEqual(glass.color(palette: palette),
+                        palette.contentPrimary.color.opacity(0.13),
+                        "standard glass keeps its content-primary hairline")
+            expectEqual(glass.color(palette: palette, contrast: .increased),
+                        legible.color(palette: palette, contrast: .increased),
+                        "Increase Contrast must make glass fully legible")
+            expectEqual(glass.color(palette: palette, reduceTransparency: true),
+                        legible.color(palette: palette),
+                        "Reduce Transparency must make standard glass legible")
+            expectEqual(glass.color(palette: palette,
+                                    contrast: .increased,
+                                    reduceTransparency: true),
+                        legible.color(palette: palette, contrast: .increased),
+                        "combined accessibility settings must keep glass legible")
+        }
+
+        test("banner stops alias existing token values without changing their measurements") {
+            let palette = CoachWorldTokens.dark
+            expectEqual(CoachWorldTokens.Banner.info.from,
+                        palette.raised.color.opacity(0.97))
+            expectEqual(CoachWorldTokens.Banner.info.to,
+                        CoachWorldTokens.Floodlit.glassFlatDeep.color.opacity(0.97))
+            expectEqual(CoachWorldTokens.Banner.info.edge,
+                        palette.contentQuiet.color.opacity(0.42))
+            expectEqual(CoachWorldTokens.Banner.good.from,
+                        CoachWorldTokens.Floodlit.clubField.color.opacity(0.97))
+            expectEqual(CoachWorldTokens.Banner.good.edge,
+                        palette.statePositive.color.opacity(0.50))
+            expectEqual(CoachWorldTokens.Banner.bad.edge,
+                        palette.stateNegative.color.opacity(0.45))
+        }
+
         test("the scan would notice a colour that canon does not hold") {
             let canonValues = canonHexValues(canon)
             let planted = "public static let rogue = ColorValue(hex: 0xABCDEF)"
@@ -427,6 +464,13 @@ func runDesignContractTests() {
                                     + "describes")
                 }
             }
+
+            // The centre band is ink, not a colour, and that is the whole point of the amendment:
+            // an ordinary starter is not a caution.
+            expectEqual(CoachWorldTokens.Heat.color(for: 74, palette: palette),
+                        palette.contentSecondary.color,
+                        "the average band must be neutral ink — colouring it makes every dense "
+                            + "table read as a verdict")
         }
 
         // 04 section 6.4 states two constraints on the scale in the same breath as the table, and
@@ -582,7 +626,10 @@ func runDesignContractTests() {
             // CoachWorldStatusChip.Symbol, CoachWorldDeltaMark and MatchDayControlSymbol prove that
             // for their own sites with a dedicated canon-sync test; the rest were checked by hand
             // when this pin was set and must be re-checked by hand when it moves.
-            let knownNonLiteralSites = 9
+            // 9 until 2026-08-23. The icon rail's `Image(systemName: entry.symbol)` was the
+            // ninth; removing the rail removed the site, and the pin shrinks with it. The jump-to
+            // control that replaced the rail's registry entry draws a literal, so it adds none.
+            let knownNonLiteralSites = 8
             var found = 0
             var byFile: [String] = []
             for file in swiftFilesImportingUIFramework() {
@@ -790,6 +837,63 @@ func runDesignContractTests() {
             let action = CoachWorldCutCorner.action
             expectEqual(action.topLeading, 22); expectEqual(action.topTrailing, 22)
             expectEqual(action.bottomTrailing, 22); expectEqual(action.bottomLeading, 5)
+        }
+    }
+
+    suite("Retired symbols (06.1c)") {
+        // Deleting a symbol is not the same as preventing its return. The 44 pt icon rail was
+        // removed on 2026-08-23 because it named the same places the identity band already
+        // reaches; nothing about the codebase stops someone re-adding it in six weeks, having
+        // read a reference sheet that still draws one. This is that stop.
+        //
+        // The set is deliberately the *names*, not the geometry: a rail rebuilt under a new name
+        // is a different design decision and gets argued on its merits, while a rail rebuilt under
+        // the old one is a regression.
+        let retired = ["FloodlitIconRail", "RailEntry", "showsIconRail", "railFreeLeading"]
+
+        test("no production file names a symbol the icon-rail removal retired") {
+            let production = swiftFiles(under: "Sources")
+            expect(!production.isEmpty, "the production scan found no files to read")
+            for file in production {
+                let body = strippingLineComments(file.text)
+                for name in retired where body.contains(name) {
+                    expect(false, "\(file.path) still names the retired symbol \(name)")
+                }
+            }
+        }
+
+        test("the scan would notice a retired symbol coming back") {
+            // A scan that has never failed is not known to be a scan.
+            let planted = """
+                struct Example: View {
+                    var body: some View { FloodlitIconRail(entries: []) }
+                }
+                """
+            let body = strippingLineComments(planted)
+            expect(retired.contains { body.contains($0) },
+                   "the retired-symbol scan did not catch a planted icon rail")
+
+            // And it must not fire on a file that only mentions the removal in prose, or the
+            // comment explaining why the rail is gone becomes the thing that fails the build.
+            let prose = "// The icon rail (FloodlitIconRail) was removed on 2026-08-23.\nlet x = 1\n"
+            let stripped = strippingLineComments(prose)
+            expect(!retired.contains { stripped.contains($0) },
+                   "the scan fired on a line comment, which would forbid explaining the removal")
+        }
+
+        // The removal's whole point, asserted as arithmetic rather than as a number: the content
+        // column is the frame minus the leading inset and the trailing gutter, with no rail in it.
+        test("the content column derives from the leading inset, not from a rail") {
+            expectEqual(CoachWorldTokens.Stage.contentLeading,
+                        CoachWorldTokens.Frame.leadingInset,
+                        "every management surface starts at the rail-free leading edge now")
+            expectEqual(CoachWorldTokens.Stage.contentWidth, 761,
+                        "844 - 63 - 20; the rail's 52 pt went back to the content column")
+            expectEqual(CoachWorldTokens.Stage.contentLeading
+                            + CoachWorldTokens.Stage.contentWidth
+                            + CoachWorldTokens.Frame.gutter,
+                        CoachWorldTokens.Frame.floorWidth,
+                        "the three parts must still tile the install floor exactly")
         }
     }
 }
