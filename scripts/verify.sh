@@ -125,6 +125,29 @@ run_command() {
     fi
 }
 
+verify_app_bundle() {
+    local bundle="$1"
+    local source_manifest="$2"
+    local manifest="$bundle/PrivacyInfo.xcprivacy"
+    local expected actual api_type reason collected tracking
+    expected=$'Info.plist\nPkgInfo\nPrivacyInfo.xcprivacy\nProFootballCoach\nProFootballCoach.debug.dylib\nProFootballCoach_ProFootballCoachUI.bundle\n__preview.dylib'
+    actual="$(find "$bundle" -maxdepth 1 -mindepth 1 -exec basename {} \; | LC_ALL=C sort)"
+    if [ "$actual" != "$expected" ]; then
+        printf 'unexpected app bundle contents:\n%s\n' "$actual" >&2
+        return 1
+    fi
+    api_type="$(plutil -extract 'NSPrivacyAccessedAPITypes.0.NSPrivacyAccessedAPIType' raw -o - "$manifest")"
+    reason="$(plutil -extract 'NSPrivacyAccessedAPITypes.0.NSPrivacyAccessedAPITypeReasons.0' raw -o - "$manifest")"
+    collected="$(plutil -extract 'NSPrivacyCollectedDataTypes' json -o - "$source_manifest")"
+    tracking="$(plutil -extract 'NSPrivacyTracking' raw -o - "$source_manifest")"
+    [ "$api_type" = "NSPrivacyAccessedAPICategoryFileTimestamp" ] &&
+        [ "$reason" = "C617.1" ] &&
+        [ "$collected" = "[]" ] &&
+        [ "$tracking" = "false" ] &&
+        ! plutil -extract 'NSPrivacyAccessedAPITypes.1' raw -o - "$manifest" >/dev/null 2>&1 &&
+        ! plutil -extract 'NSPrivacyAccessedAPITypes.0.NSPrivacyAccessedAPITypeReasons.1' raw -o - "$manifest" >/dev/null 2>&1
+}
+
 run_sim() {
     local label="$1"
     shift
@@ -260,11 +283,13 @@ case "$lane" in
         }
         package_root="$verify_root/pro-football-coach"
         project_root="$package_root/App"
-        mkdir -p "$project_root"
+        mkdir -p "$package_root"
         cp Package.swift "$package_root/Package.swift"
         cp -R Sources "$package_root/Sources"
+        cp -R Tests "$package_root/Tests"
+        cp -R App "$project_root"
         project="$project_root/ProFootballCoach.xcodeproj"
-        run_command xcodegen xcodegen generate --spec App/project.yml --project "$project_root"
+        run_command xcodegen xcodegen generate --spec "$project_root/project.yml" --project "$project_root"
         run_command xcodebuild xcodebuild \
             -project "$project" \
             -scheme ProFootballCoach \
@@ -274,6 +299,9 @@ case "$lane" in
             CODE_SIGNING_ALLOWED=NO \
             CODE_SIGNING_REQUIRED=NO \
             build
+        run_command bundle-allowlist verify_app_bundle \
+            "$lane_root/derived-data/Build/Products/Debug-iphoneos/ProFootballCoach.app" \
+            "$project_root/PrivacyInfo.xcprivacy"
         ;;
     full)
         # -enable-testing for the same reason run_sim needs it: an unfiltered `swift build` also

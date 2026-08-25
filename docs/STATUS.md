@@ -176,6 +176,35 @@ The honest picture: what exists, what is verified, what is not.
 > tests / 8,331 checks**, and terminal lane summary **2 passed, 0 failed**. Files changed:
 > `Tests/SimTests/Suites/ArchitectureTests.swift`, `docs/STATUS.md`,
 > `.superpowers/sdd/task-901-report.md`.
+> **2026-08-24 — the clean app lane now asserts its privacy manifest and bundle boundary.**
+> `PrivacyInfo.xcprivacy` declares only the observed app-container file-metadata access
+> (`NSPrivacyAccessedAPICategoryFileTimestamp` / `C617.1`), no collection and no tracking. The app
+> lane builds a copied clean checkout, verifies the bundled API/reason, checks the manifest source's
+> empty collection/tracking declarations, and allowlists the shallow unsigned Debug bundle. It passed
+> xcodegen, xcodebuild and the allowlist; an injected temporary top-level file made the allowlist fail.
+> Export-compliance selection and the signed archive remain owner-only.
+
+> **2026-08-24 — release is routed in CI with a retained one-runner cap.** The `release` job runs
+> after `full` (including after a `full` failure), uses `macos-15`, has its own 180-minute ceiling,
+> and invokes only `./scripts/verify.sh --lane release`. Its command has locally printed catalog,
+> commitment-coverage and save-document summaries; the GitHub job has not run on this isolated
+> commit and remains pending integration-triggered CI evidence.
+
+> **2026-08-24 — commitment coverage is potent; the D1 observation remains owner-only.** A
+> temporary, non-legal `PRODUCT.md` commitment naming `UnregisteredPotencyGate` made
+> `--commitment-coverage` fail with “unregistered commitment test”; removing that fixture restored
+> the release lane: catalog 0/0, commitment coverage 4/26 and save document 22/67. This proves
+> `CommitmentCoverageTest` is potent for an unregistered commitment row. The 6–8-hour season target
+> remains unverified pending the owner-recorded D1 timing protocol result; no inferred measurement
+> was added.
+
+> **2026-08-24 — release-gate traceability is awaiting the D1 owner measurement.** The current
+> `PRODUCT.md` unverified-target row for a 6–8-hour season remains uninstrumented because
+> `AgencyBudgetTests` requires an owner-recorded, timestamped D1 timing protocol result (duration,
+> hardware, app build and protocol count). No inferred timing may substitute for that observation,
+> so the row remains unverified and outside the commitment gate table. The current worktree's
+> `--catalog` and `--commitment-coverage` release-mode runs are **not run**: another worktree was
+> already running a full Swift verification, so this pass did not start a concurrent release build.
 
 > **2026-08-22 — Match Day moves like football now, and one engine defect is escalated.** The owner
 > watched the 2D animation on a booted iPhone 17e and rejected it: players stopped moving after the

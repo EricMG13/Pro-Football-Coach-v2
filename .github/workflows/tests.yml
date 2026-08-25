@@ -12,3 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: ./scripts/verify.sh
+  release:
+    needs: full
+    if: ${{ always() }}
+    runs-on: macos-15
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/verify.sh --lane release

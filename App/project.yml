@@ -10,7 +10,7 @@ targets:
   ProFootballCoach:
     type: application
     platform: iOS
-    sources: [ProFootballCoachApp.swift]
+    sources: [ProFootballCoachApp.swift, PrivacyInfo.xcprivacy]
     dependencies:
       - package: ProFootballCoach
         product: FootballSimCore
