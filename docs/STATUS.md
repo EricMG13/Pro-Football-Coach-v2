@@ -4,6 +4,13 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-25 — canonical college intake scale decided.** The approved model decision is to keep
+> the bootstrap college scale, `50 + (strength - 40) * 25 / 59`, as canonical. The current source
+> already routes `ProspectPopulationGenerator` through `RosterPopulationGenerator.baseRating` for
+> regional talent density, so no CRITICAL-impact symbol edit was needed. The remaining long-horizon
+> tier-gap failures are therefore post-intake drift (including walk-on replacement and development),
+> not permission to widen the `1…12` band.
+
 > **2026-08-25 — Loop 915 made the shipping college week-advance ceiling a host gate.**
 > With owner approval, `PerformanceBudgetTests` now asserts the documented **2.000 s** hard ceiling
 > at 134 programmes. The unmodified Release host run measured **8.019 s** and failed the gate; a
