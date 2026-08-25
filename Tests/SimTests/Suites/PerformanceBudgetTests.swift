@@ -1,7 +1,8 @@
 import Foundation
 import FootballSimCore
 
-/// Host-only evidence for the two D4 operations. Device release gates live outside this suite.
+/// Host-only evidence for the two D4 operations. This asserts the documented host ceiling; device
+/// release gates remain outside this suite.
 func runPerformanceBudgetTests() {
     suite("Performance budgets — host evidence") {
         let state = GameState.bootstrap(seed: 20_260_820)
@@ -21,12 +22,20 @@ func runPerformanceBudgetTests() {
                 let weekStarted = clock.now
                 _ = try WorldScheduler.advanceWeek(state)
                 let weekSeconds = seconds(weekStarted.duration(to: clock.now))
+                expect(
+                    weekSeconds <= 2.0,
+                    String(
+                        format: "shipping college week advance %.3f s exceeds the 2.000 s hard ceiling "
+                            + "(host measurement; device gate remains open)",
+                        weekSeconds
+                    )
+                )
                 print(String(
-                    format: "PERFORMANCE EVIDENCE ONLY: shipping college %d programmes; "
+                    format: "PERFORMANCE GATE: shipping college %d programmes; "
                         + "recruiting AI %.3f s; "
                         + "week advance %.3f s; target 1.200 s (%+.3f s); "
-                        + "hard ceiling 2.000 s (%+.3f s) "
-                        + "(host measurement; no pass/fail threshold)",
+                        + "hard ceiling 2.000 s (%+.3f s) (host measurement; threshold asserted; "
+                        + "device gate remains open)",
                     state.programmes.count,
                     recruitingSeconds,
                     weekSeconds,

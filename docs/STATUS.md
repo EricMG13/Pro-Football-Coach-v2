@@ -4,6 +4,14 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-25 — Loop 915 made the shipping college week-advance ceiling a host gate.**
+> With owner approval, `PerformanceBudgetTests` now asserts the documented **2.000 s** hard ceiling
+> at 134 programmes. The unmodified Release host run measured **8.019 s** and failed the gate; a
+> temporary +10 s regression measured **17.680 s** and failed the same named assertion, then was
+> removed. These are host figures only: MacBookPro18,2, 10 cores, 64 GB, macOS 26.5.1. The device
+> gate remains open. Files changed: `Tests/SimTests/Suites/PerformanceBudgetTests.swift`,
+> `docs/STATUS.md`.
+
 > **2026-08-24 — Loop 913 covered the interrupted-save body boundary.**
 > A complete current-schema header with no stored body is now required to refuse with the envelope's
 > precise decompression failure instead of reaching a payload decode. Required save-document and
