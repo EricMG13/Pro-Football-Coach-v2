@@ -5,6 +5,7 @@
 #   ./scripts/verify.sh --lane core     core contracts
 #   ./scripts/verify.sh --lane app      XcodeGen + generic iOS build
 #   ./scripts/verify.sh --build         full package build only
+#   ./scripts/verify.sh --fast --jobs 2 cached parallel development checks
 #
 # The default lane remains the historical build + complete SimTests run. Named lanes keep their
 # own logs and scratch paths so a failed calibration or archive cannot contaminate another run.
@@ -14,10 +15,24 @@ cd "$(dirname "$0")/.."
 
 lane="full"
 build_only=false
+fast=false
+jobs=2
+jobs_set=false
 keep_scratch="${PFC_VERIFY_KEEP_SCRATCH:-0}"
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --build) build_only=true; shift ;;
+        --fast) fast=true; shift ;;
+        --jobs=*) jobs="${1#*=}"; jobs_set=true; shift ;;
+        --jobs)
+            if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+                printf '%s\n' "--jobs requires a value" >&2
+                exit 2
+            fi
+            jobs="$2"
+            jobs_set=true
+            shift 2
+            ;;
         --lane=*) lane="${1#*=}"; shift ;;
         --lane)
             if [ "$#" -lt 2 ] || [ -z "$2" ]; then
@@ -29,15 +44,33 @@ while [ "$#" -gt 0 ]; do
             ;;
         --keep-scratch) keep_scratch=1; shift ;;
         -h|--help)
-            sed -n '1,18p' "$0"
+            sed -n '2,/^$/p' "$0"
             exit 0
             ;;
         *) printf 'unknown argument: %s\n' "$1" >&2; exit 2 ;;
     esac
 done
 
+case "$jobs" in
+    ''|*[!0-9]*) printf '%s\n' "--jobs requires an integer from 1 to 8" >&2; exit 2 ;;
+esac
+if [ "$jobs" -lt 1 ] || [ "$jobs" -gt 8 ]; then
+    printf '%s\n' "--jobs requires an integer from 1 to 8" >&2
+    exit 2
+fi
+if [ "$fast" = true ]; then
+    if [ "$lane" != "full" ]; then
+        printf '%s\n' "--fast cannot be combined with --lane" >&2
+        exit 2
+    fi
+    lane="fast"
+elif [ "$jobs_set" = true ]; then
+    printf '%s\n' "--jobs requires --fast" >&2
+    exit 2
+fi
+
 case "$lane" in
-    accessibility|app|archive|calibration|core|determinism|full|release|soaks) ;;
+    accessibility|app|archive|calibration|core|determinism|fast|full|release|soaks) ;;
     *) printf 'unknown lane: %s\n' "$lane" >&2; exit 2 ;;
 esac
 
@@ -65,7 +98,15 @@ cleanup() {
 trap cleanup EXIT
 
 lane_root="$verify_root/$lane"
-mkdir -p "$lane_root/scratch" "$lane_root/logs"
+if [ "$fast" = true ]; then
+    fast_scratch="${PFC_VERIFY_FAST_SCRATCH:-$PWD/.build/pfc-verify-fast}"
+    log_root="$fast_scratch/logs"
+    status_root="$lane_root/status"
+    mkdir -p "$fast_scratch" "$log_root" "$status_root"
+else
+    log_root="$lane_root/logs"
+    mkdir -p "$lane_root/scratch" "$log_root"
+fi
 pass=0
 fail=0
 note() { printf '\n=== %s ===\n' "$1"; }
@@ -75,7 +116,7 @@ bad() { printf 'FAIL  %s\n' "$1"; fail=$((fail + 1)); }
 run_command() {
     local label="$1"
     shift
-    local log="$lane_root/logs/$label.log"
+    local log="$log_root/$label.log"
     if "$@" 2>&1 | tee "$log"; then
         ok "$label"
     else
@@ -87,7 +128,7 @@ run_command() {
 run_sim() {
     local label="$1"
     shift
-    local log="$lane_root/logs/$label.log"
+    local log="$log_root/$label.log"
     local status=0
     # SimTests is a plain executable target that @testable imports ProFootballCoachUI (03b section
     # 5: "the ported TestKit harness, run as an executable target" -- not a recognised .testTarget,
@@ -115,10 +156,70 @@ never ran (see $log)"
     return "$status"
 }
 
+run_fast_shard() {
+    local label="$1"
+    local selector="$2"
+    local log="$PFC_FAST_LOG_ROOT/$label.log"
+    local status=0
+    "$PFC_FAST_BINARY" "$selector" >"$log" 2>&1 || status=$?
+    if ! grep -qE '^[0-9]+ tests, [0-9]+ checks$' "$log"; then
+        status=1
+    fi
+    printf '%s\n' "$status" > "$PFC_FAST_STATUS_ROOT/$label"
+    return 0
+}
+
+run_fast_sims() {
+    local shard label status status_file
+    local shards=(
+        'core-contracts --core-contracts'
+        'engine --engine'
+        'generation --generation-only'
+        'read-models --screen-read-models'
+    )
+
+    export PFC_FAST_BINARY="$1"
+    export PFC_FAST_LOG_ROOT="$log_root"
+    export PFC_FAST_STATUS_ROOT="$status_root"
+    export -f run_fast_shard
+
+    printf '%s\n' "${shards[@]}" \
+        | xargs -n 2 -P "$jobs" bash -c 'run_fast_shard "$@"' _ \
+        || true
+
+    for shard in "${shards[@]}"; do
+        label="${shard%% *}"
+        status_file="$status_root/$label"
+        if [ ! -f "$status_file" ] || ! read -r status < "$status_file"; then
+            bad "$label — worker did not report (see $log_root/$label.log)"
+            continue
+        fi
+        case "$status" in
+            0) ok "$label" ;;
+            *) bad "$label — see $log_root/$label.log" ;;
+        esac
+    done
+}
+
 note "toolchain"
 swift --version 2>&1 | head -2
 
 case "$lane" in
+    fast)
+        run_command build swift build --scratch-path "$fast_scratch" -c release \
+            -Xswiftc -enable-testing
+        if [ "$build_only" = true ]; then
+            printf '\n%s passed, %s failed\n' "$pass" "$fail"
+            exit "$((fail > 0))"
+        fi
+        sim_tests="$(swift build --scratch-path "$fast_scratch" -c release --show-bin-path)/SimTests"
+        if [ ! -x "$sim_tests" ]; then
+            bad "SimTests binary missing at $sim_tests"
+        else
+            run_fast_sims "$sim_tests"
+        fi
+        printf 'verification logs: %s\n' "$log_root"
+        ;;
     core)
         run_sim core-contracts --core-contracts
         ;;
