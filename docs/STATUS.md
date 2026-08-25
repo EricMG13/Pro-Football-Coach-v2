@@ -10,9 +10,9 @@ The honest picture: what exists, what is verified, what is not.
 > unapplied offer survives a save/reload, the mutation is applied once, and the professional
 > destination/history survive a second save/reload. `--screen-read-models` passed **75 tests / 9,999
 > checks** including the new journey. `--core-contracts` ran **239 / 3,495** and remains red only on
-> the pre-existing DOC-MANIFEST omission for `docs/loops/`. The E2E-H companion is **blocked /
-> unimplemented**: no exact 20+ season app-layer durability runner exists, and no substitute history
-> lane was claimed. Commit: `e686f5a`.
+> the pre-existing DOC-MANIFEST omission for `docs/loops/`. At that commit the E2E-H companion was
+> **blocked / unimplemented**; the exact runner is now present below but has not yet had its required
+> long report-only run. Commit for that earlier E2E-F fix: `e686f5a`.
 
 > **2026-08-25 — canonical college intake scale decided.** The approved model decision is to keep
 > the bootstrap college scale, `50 + (strength - 40) * 25 / 59`, as canonical. The current source
@@ -36,6 +36,14 @@ The honest picture: what exists, what is verified, what is not.
 > commitment-coverage checks passed (**4 tests / 26 checks**); no estimate was promoted to evidence.
 > The host week-advance gate remains red at the previously recorded 8.019 s, and the physical-device
 > budget remains an owner gate.
+
+> **2026-08-25 — Loop 920 added the exact E2E-H durability runner.** `--e2e-h-durability` now
+> executes a 21-season child-process walk through `CoachWorldStore`, checkpoints app saves and reloads
+> at each season boundary, reports compressed save bytes plus write/load time, compares authoritative
+> state after a second reload, checks bounded collections and verifies the active tier's screen
+> families. The journey injects and accepts one professional opportunity through the app layer so both
+> tiers are exercised; the long report-only run is queued after this stable commit. A demotion control
+> is not present in canon or the app surface, so none was invented.
 
 > **2026-08-25 — Loop 915 made the shipping college week-advance ceiling a host gate.**
 > With owner approval, `PerformanceBudgetTests` now asserts the documented **2.000 s** hard ceiling
