@@ -21,6 +21,15 @@ The honest picture: what exists, what is verified, what is not.
 > tier-gap failures are therefore post-intake drift (including walk-on replacement and development),
 > not permission to widen the `1…12` band.
 
+> **2026-08-25 — Loop 914 completed its widened M3 terminal run.** The target-scale app-layer soak
+> ran **20 seasons / 421 weeks / 9,187 checks** and ended red with **26 failures**. The eight
+> departed-retention failures were in the test's comparison of the authoritative 8,192-entry
+> pruner against the separate 4,096-entry compacted projection; the assertion now uses the
+> authoritative limit. The remaining 18 failures are the canonical 8 MB save ceiling from season 3
+> onward (season 1 **6,682,833 B**, season 5 **9,463,839 B**, season 20 **10,618,616 B**) and the
+> existing post-intake tier-gap drift. Neither ceiling nor the `1…12` rating band was widened.
+> Save-size/model ownership remains open for the owner; no external measurement was invented.
+
 > **2026-08-25 — Loop 915 made the shipping college week-advance ceiling a host gate.**
 > With owner approval, `PerformanceBudgetTests` now asserts the documented **2.000 s** hard ceiling
 > at 134 programmes. The unmodified Release host run measured **8.019 s** and failed the gate; a
