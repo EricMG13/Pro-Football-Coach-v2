@@ -4,6 +4,16 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-25 — Loop 920 closed the app-layer promotion route.** Accepting a professional offer
+> now consumes the pending opportunity, seats the coach in the pro tier, routes the live root back to
+> Career Hub, and persists that destination before autosave. A child-process E2E-F walk proves the
+> unapplied offer survives a save/reload, the mutation is applied once, and the professional
+> destination/history survive a second save/reload. `--screen-read-models` passed **75 tests / 9,999
+> checks** including the new journey. `--core-contracts` ran **239 / 3,495** and remains red only on
+> the pre-existing DOC-MANIFEST omission for `docs/loops/`. The E2E-H companion is **blocked /
+> unimplemented**: no exact 20+ season app-layer durability runner exists, and no substitute history
+> lane was claimed. Commit: `e686f5a`.
+
 > **2026-08-25 — canonical college intake scale decided.** The approved model decision is to keep
 > the bootstrap college scale, `50 + (strength - 40) * 25 / 59`, as canonical. The current source
 > already routes `ProspectPopulationGenerator` through `RosterPopulationGenerator.baseRating` for
