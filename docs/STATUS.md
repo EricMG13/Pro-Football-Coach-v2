@@ -30,6 +30,13 @@ The honest picture: what exists, what is verified, what is not.
 > existing post-intake tier-gap drift. Neither ceiling nor the `1…12` rating band was widened.
 > Save-size/model ownership remains open for the owner; no external measurement was invented.
 
+> **2026-08-25 — Loop 915 rebuilt the AgencyBudget instrument.** `AgencyBudgetTests` is now a
+> registered `--agency-budget` runner that fails closed until the owner supplies an observed season
+> duration plus hardware, build, and date through the documented protocol. The catalog and
+> commitment-coverage checks passed (**4 tests / 26 checks**); no estimate was promoted to evidence.
+> The host week-advance gate remains red at the previously recorded 8.019 s, and the physical-device
+> budget remains an owner gate.
+
 > **2026-08-25 — Loop 915 made the shipping college week-advance ceiling a host gate.**
 > With owner approval, `PerformanceBudgetTests` now asserts the documented **2.000 s** hard ceiling
 > at 134 programmes. The unmodified Release host run measured **8.019 s** and failed the gate; a
