@@ -324,4 +324,5 @@ hand-maintained list becomes the coverage boundary.
 | `docs/superpowers/plans/` | Sixteen skill-generated task plans | **None.** Dated records of intended work, exactly as `docs/plans/` |
 | `docs/superpowers/specs/` | Nine design specs, several marked superseded in their own headers | **None.** Read the `Status:` line before believing any of them |
 | `docs/refs/` | The surface-reference generator's baseline, decisions and gap manifest. `Tools/refs/build.py` writes here; the rendered HTML is gitignored because the deliverable is a published artifact | **None.** Generated output plus the notes explaining a pinned commit |
+| `docs/loops/` | Loop-library catalog and per-loop execution records used to widen detectors before each pass | **Supporting.** It records verification work and does not amend gameplay, engine, or legal canon |
 | `docs/proofs/figma-pool-2026-08-13/`, `docs/proofs/stitch-2026-08-13/` | Dated proof artefacts beneath the already-listed `docs/proofs/` | **None.** Evidence of what was tried on a date. Note that `CLAUDE.md` records the Stitch references as rejected on 2026-08-11; this directory postdates that and is the proof, not a revival |
