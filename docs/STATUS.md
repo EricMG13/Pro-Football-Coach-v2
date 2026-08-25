@@ -80,6 +80,36 @@ The honest picture: what exists, what is verified, what is not.
 > evolution **7 / 275**. Files changed: `Tests/SimTests/Suites/PeopleLifecycleTests.swift`,
 > `docs/STATUS.md`.
 
+> **2026-08-24 — Owner-gate D1 season-length timing evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-09-d1-season-length-timing-evidence-pack.md` is ready for the owner; no build, install, launch, career, timing interval, season completion, capture, or observation ran.
+
+> **2026-08-24 — Owner-gate D9 onboarding evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-10-d9-onboarding-evidence-pack.md` preserves the five canonical first-session beats and D9's fixed 2-of-3 falsifier for the owner; no candidate preflight, participant recruitment or consent, build, launch, timing, capture, onboarding attempt, or observation ran.
+
+> **2026-08-24 — Loop 925 branch inventory is recorded read-only.** `docs/plans/2026-08-24-loop-925-branch-inventory.md` confirms the named refs are already converged; detached `0c3d` is the sole clean integrate-pending candidate, while `3f0e`, `e0c0`, and this worktree are not stable. No branch was integrated, rejected, or altered; scheduling remains pending stable engine, UI, and release commits.
+
+> **2026-08-24 — Owner-gate Reduce Motion full-match evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-08-reduce-motion-full-match-evidence-pack.md` is ready for the owner; no setting change, build, simulator or device launch, full-match walkthrough, capture, or observation ran.
+
+> **2026-08-24 — Owner-gate VoiceOver week-loop and Match Day evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-06-voiceover-week-and-match-evidence-pack.md` is ready for the owner; no physical-device run, build, launch, VoiceOver interaction, capture, or observation ran.
+
+> **2026-08-24 — Owner-gate Dynamic Type AX5 every-screen evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-07-dynamic-type-ax5-evidence-pack.md` is ready for the owner; no manifest generation, build, simulator, launch, Dynamic Type change, capture, or AX5 observation ran.
+
+> **2026-08-24 — Owner-gate simulator walkthrough evidence pack is prepared.**
+> `docs/plans/2026-08-24-owner-gate-01-simulator-walkthrough-evidence-pack.md` is ready for the
+> owner. It preserves the retained protocol, specifies a disposable resolved simulator UDID, and
+> records the predictions, captures, and blind spots. No build, simulator, or walkthrough ran; the
+> first owner box remains unchecked.
+
+> **2026-08-24 — Owner-gate fresh-install, season, and resume evidence pack is prepared.**
+> `docs/plans/2026-08-24-owner-gate-02-fresh-install-season-resume-evidence-pack.md` is ready for
+> fresh-install, new-career, full-season, quit, relaunch, and resume. It is unrun, every outcome is
+> a prediction, and the owner box remains unchecked.
+
+> **2026-08-24 — Owner-gate device and appearance matrix evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-03-device-appearance-matrix-evidence-pack.md` is ready for the owner; no simulator, build, launch, appearance change, or observation ran.
+
+> **2026-08-24 — Corrective note for owner-gate device and appearance matrix.** The checklist still requires both system appearances, but `04` §6.1a/§7 makes Floodlit dark-only. Pack 03's Light rows now predict only that the system setting is Light and require the owner to record whether the app intentionally remains dark or exposes a conflict. This correction is unrun and does not change either protocol or metric.
+
+> **2026-08-24 — Owner-gate physical iPhone 15 and later e-class evidence pack is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-04-physical-iphone15-and-eclass-evidence-pack.md` is ready for the owner; no physical-device run, simulator run, build, launch, appearance change, or observation ran.
+
+> **2026-08-24 — Owner-gate iOS Simulator Skill evidence bundle is prepared, unrun, predicted, and unchecked.** `docs/plans/2026-08-24-owner-gate-05-ios-simulator-skill-evidence-bundle-evidence-pack.md` is ready for the owner; it retains the SHA- and UDID-bound semantic-tree, AX5 screenshot, visual-diff, and hang/trace capture protocol. No build, simulator, capture, or observation ran.
 > **2026-08-24 — Loop 909 widened the acquire-to-release professional transition.**
 > `ProManagementTests` now validates the complete world immediately after a successful acquisition,
 > before the following release can conceal an intermediate cap, contract, roster, or depth state.
@@ -4401,3 +4431,12 @@ against `CollegeRules.initialRosterByPosition` or `ProRules.initialRosterByPosit
 position list is maintained by the test. The pass changed only the roster-population test and this
 status record. Verification passed: `--roster-population` (**8 tests / 246,852 checks**),
 `--generation-only` (**35 / 42,346**), and `--trait-population` (**8 / 610**).
+
+### 2026-08-24 — Loop 925 exclusive integration blocked
+
+Release/evidence `91b54f4` is the candidate baseline. Engine `fc8fa415` was integrated as
+`ad22f2f`; UI `0b8a1c2` was deliberately not merged. No default lane or legal validation ran.
+
+The pass is blocked: `03` says constants tune on disjoint tuning worlds, while the Q4 adjustment
+uses the known fixed-holdout lower-edge miss; the resulting holdout release evidence is therefore
+not independent. No band, margin, commitment, or existing pin was relaxed or re-pinned.
