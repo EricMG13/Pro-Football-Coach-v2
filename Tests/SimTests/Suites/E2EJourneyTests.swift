@@ -79,9 +79,16 @@ func runE2EHDurabilityChild() {
 
 @MainActor
 private func exerciseDurabilityJourney() async throws {
-    let horizon = 10
+    let horizon = ProcessInfo.processInfo.environment["E2E_HORIZON"].flatMap(Int.init) ?? 10
+    precondition((1...10).contains(horizon), "E2E_HORIZON must be in 1...10.")
     let promotionSeason = max(1, horizon / 2)
-    var store = try await CoachWorldStore.newCareer(seed: 92_020)
+    let start = GameState.bootstrap(seed: 92_020)
+    let programmeID = start.programmes.values.max { lhs, rhs in
+        lhs.prestige.value == rhs.prestige.value
+            ? lhs.id.uuidString < rhs.id.uuidString
+            : lhs.prestige.value < rhs.prestige.value
+    }!.id
+    var store = try await CoachWorldStore.newCareer(seed: 92_020, programmeID: programmeID)
     var expected = try await store.saveDocument().gameState.calendar
     var promoted = false
 
@@ -91,6 +98,7 @@ private func exerciseDurabilityJourney() async throws {
             await store.prepareWeek()
             await store.delegateCurrentDecision()
             await store.advanceWeek()
+            try await finishControlledMatch(in: store)
             let snapshot = try await store.saveDocument()
             if snapshot.gameState.calendar == expected.advancedWeek() {
                 expected = snapshot.gameState.calendar
@@ -120,6 +128,34 @@ private func exerciseDurabilityJourney() async throws {
     }
 
     guard promoted else { throw JourneyError("durability horizon never exercised promotion") }
+}
+
+/// Durability advances use the public match controls to hand the game back to the coordinator
+/// and record each snap; a controlled fixture intentionally cannot be skipped by week advance.
+@MainActor
+private func finishControlledMatch(in store: CoachWorldStore) async throws {
+    let document = try await store.saveDocument()
+    guard let initial = document.gameState.matchSession else { return }
+    guard let fixtureID = initial.fixtureID else {
+        throw JourneyError("controlled match has no fixture identity")
+    }
+    var revision = initial.revision
+    if initial.isTakeover, initial.pendingCallIn == nil {
+        await store.matchControl(.init(rawValue: "match|\(fixtureID.uuidString)|\(revision)|takeover"))
+        revision += 1
+    }
+    for snap in 1...MatchupRules.maximumDrivesPerGame * MatchupRules.maximumPlaysPerDrive {
+        await store.matchControl(.init(rawValue: "match|\(fixtureID.uuidString)|\(revision)|advance"))
+        revision += 1
+        guard snap.isMultiple(of: 16) else { continue }
+        let document = try await store.saveDocument()
+        guard let match = document.gameState.matchSession else { return }
+        guard match.fixtureID == fixtureID else {
+            throw JourneyError("controlled match has no fixture identity")
+        }
+        revision = match.revision
+    }
+    throw JourneyError("controlled match exceeded its bounded snap budget")
 }
 
 @MainActor

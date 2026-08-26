@@ -715,6 +715,115 @@ func runCareerControlTests() {
             expect(WorldIntegrity.check(delegated).isValid)
         }
 
+        test("redshirt recommendations are executable") {
+            let source = GameState.bootstrap(seed: 92_020)
+            let programmeID = source.programmes.ids[0]
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let decisions = CareerMandatoryDecisionSystem.refresh(in: controlled)
+                .pending.mandatoryDecisions
+                .filter { $0.responsibility == .redshirts }
+
+            expect(!decisions.isEmpty, "fixture did not produce redshirt decisions")
+            for decision in decisions {
+                guard case let .redshirt(playerID) = decision.subject,
+                      let option = decision.options.first(where: {
+                          $0.id == decision.recommendedOptionID
+                      }) else {
+                    expect(false, "redshirt decision is missing its recommendation")
+                    continue
+                }
+                if case let .redshirt(limit?) = option.action {
+                    expect(
+                        (try? CollegeRedshirtSystem.designate(
+                            playerID: playerID,
+                            programmeID: programmeID,
+                            plannedAppearanceLimit: limit,
+                            in: controlled
+                        )) != nil,
+                        "redshirt recommendation cannot be applied"
+                    )
+                }
+            }
+        }
+
+        test("a user-owned portal responsibility survives the postseason market") {
+            let source = GameState.bootstrap(seed: 92_020)
+            let programmeID = source.programmes.values.max { lhs, rhs in
+                lhs.prestige == rhs.prestige
+                    ? lhs.id.uuidString < rhs.id.uuidString
+                    : lhs.prestige < rhs.prestige
+            }!.id
+            var state = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let staffIDs = state.programmes[programmeID]!.staffIDs.filter {
+                $0 != state.career.college?.coachID
+            }
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
+                expect(CareerControlSystem.setResponsibility(
+                    responsibility,
+                    owner: .delegated(staffID: staffIDs[index / 2]),
+                    in: &state
+                ))
+            }
+            while state.calendar.week < 21 {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            expect(CareerControlSystem.setResponsibility(
+                .portalAndRetention,
+                owner: .user,
+                in: &state
+            ))
+
+            let transition = try WorldScheduler.advanceWeek(state)
+
+            expectEqual(transition.state.calendar, CalendarState(season: 1, week: 1))
+            expect(WorldIntegrity.check(transition.state).isValid)
+        }
+
+        testAsync("delegating a responsibility resolves its queued sibling decisions") {
+            let source = GameState.bootstrap(seed: 92_020)
+            let programmeID = source.programmes.ids[0]
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let initial = CareerMandatoryDecisionSystem.refresh(in: controlled)
+            let decisions = initial.pending.mandatoryDecisions.filter {
+                $0.responsibility == .redshirts
+            }
+            guard let decision = decisions.first,
+                  decisions.count > 1,
+                  let staffID = initial.programmes[programmeID]?.staffIDs.first(where: {
+                      $0 != initial.career.college?.coachID
+                  }) else {
+                expect(false, "fixture did not produce multiple delegable redshirt decisions")
+                return
+            }
+
+            let session = try CareerSession(state: initial)
+            _ = try await session.resolve(.delegateDecision(
+                decisionID: decision.id,
+                staffID: staffID
+            ))
+            let resolved = await session.snapshot()
+            expectEqual(
+                resolved.career.college?.responsibilityOwners[.redshirts],
+                .delegated(staffID: staffID)
+            )
+            expect(resolved.pending.mandatoryDecisions.allSatisfy {
+                $0.responsibility != .redshirts
+            })
+            expect(resolved.career.mandatoryDecisionResolutions.filter {
+                $0.subject.responsibility == .redshirts
+            }.count >= decisions.count)
+            expect(WorldIntegrity.check(resolved).isValid)
+        }
+
         testAsync("a fully delegated controlled career completes a deterministic annual cycle") {
             func delegatedState(seed: UInt64) throws -> GameState {
                 let source = GameState.bootstrap(seed: seed)

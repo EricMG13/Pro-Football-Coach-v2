@@ -5,8 +5,8 @@ public enum CompetitionRules {
         max(CollegeRules.rosterLimit, ProRules.activeRosterLimit)
     }
 
-    public static let collegeBaselinePoints = 25.5
-    public static let proBaselinePoints = 22.6
+    public static let collegeBaselinePoints = 23.05
+    public static let proBaselinePoints = 19.4
     public static let collegeScoreDeviation = 10.0
     public static let proScoreDeviation = 8.0
     public static let strengthPointScale = 0.24
@@ -46,7 +46,7 @@ public enum CompetitionRules {
     /// Controlled-fixture scrimmage-play means, measured on the tuning worlds after punts and
     /// field goals were removed from the detailed summary's denominator.
     public static let proBaselinePlays = 63.3
-    public static let collegeBaselinePlays = 73.0
+    public static let collegeBaselinePlays = 69.2
 
     /// **[ASSUMPTION]** `01` §6.5 bands the *mean* plays per team-game and says nothing about the
     /// spread, so this is not transcribed. It is set near a real per-team-game standard deviation
@@ -58,32 +58,32 @@ public enum CompetitionRules {
     /// Bounds a drawn play count to something a game can actually contain. A tail beyond this is
     /// the gaussian's, not football's.
     public static let playCountRange: ClosedRange<Int> = 40...105
-    public static let baselineCompletionProbability = 0.618
-    public static let collegeBaselineCompletionProbability = 0.617
+    public static let baselineCompletionProbability = 0.642
+    public static let collegeBaselineCompletionProbability = 0.682
     public static let strengthCompletionProbabilityScale = 0.003
-    public static let baselineSackProbability = 0.084
-    public static let collegeBaselineSackProbability = 0.0856
+    public static let baselineSackProbability = 0.068
+    public static let collegeBaselineSackProbability = 0.069
     public static let strengthSackProbabilityScale = 0.001
-    public static let baselineTurnoverProbability = 0.0333
-    public static let collegeBaselineTurnoverProbability = 0.036
+    public static let baselineTurnoverProbability = 0.023
+    public static let collegeBaselineTurnoverProbability = 0.020
     public static let proBaselineExplosiveRunProbability = 0.1175
     public static let collegeBaselineExplosiveRunProbability = 0.15
     public static let proBaselineExplosivePassProbability = 0.1375
     public static let collegeBaselineExplosivePassProbability = 0.143
 
-    public static let proBaselineOffensiveYards = 300.0
-    public static let collegeBaselineOffensiveYards = 360.0
+    public static let proBaselineOffensiveYards = 322.0
+    public static let collegeBaselineOffensiveYards = 400.0
     public static let strengthYardScale = 4.0
     public static let offensiveYardDeviation = 70.0
     public static let offensiveYardRange: ClosedRange<Int> = 120...750
     public static let turnoverRange: ClosedRange<Int> = 0...4
     public static let touchdownPointEstimate = 10
     public static let playerAwardTouchdownValue = 50
-    public static let wr1TargetShare = 0.48
-    public static let wr2TargetShare = 0.17
-    public static let wr3PlusTargetShare = 0.03
-    public static let tightEndTargetShare = 0.23
-    public static let runningBackTargetShare = 0.08
+    public static let wr1TargetShare = 0.34
+    public static let wr2TargetShare = 0.27
+    public static let wr3PlusTargetShare = 0.0
+    public static let tightEndTargetShare = 0.22
+    public static let runningBackTargetShare = 0.17
     public static let primaryBackCarryShare = 0.70
     public static let reserveBackCarryShare = 0.25
     public static let quarterbackCarryShare = 0.05
@@ -133,7 +133,7 @@ public enum CompetitionRules {
     }
 
     public static func baselineFourthQuarterScoringShare(for tier: Tier) -> Double {
-        tier == .college ? 0.274 : 0.280
+        tier == .college ? 0.282 : 0.289
     }
 
     public static func baselineDriveCount(for tier: Tier) -> Int {
@@ -145,8 +145,8 @@ public enum CompetitionRules {
         bucket: DriveOutcomeBucket
     ) -> Double {
         let probabilities = tier == .college
-            ? [0.2949, 0.0907, 0.0189, 0.3371, 0.1704, 0.0172, 0.0034, 0.0674]
-            : [0.2734, 0.0958, 0.0199, 0.3413, 0.1674, 0.0184, 0.0033, 0.0804]
+            ? [0.3157, 0.1193, 0.0395, 0.2916, 0.1333, 0.0139, 0.0009, 0.0858]
+            : [0.2370, 0.1393, 0.0239, 0.3514, 0.1408, 0.0166, 0.0015, 0.0895]
         return probabilities[bucket.rawValue]
     }
 

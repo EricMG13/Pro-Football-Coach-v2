@@ -456,35 +456,47 @@ public actor CareerSession {
                 throw CareerSessionError.responsibilityUpdateFailed
             }
             var candidate = state
-            guard let option = decision.options.first(where: {
-                $0.id == decision.recommendedOptionID
-            }) else {
-                throw CareerSessionError.missingDecisionOption
+            let queued = state.pending.mandatoryDecisions.filter {
+                $0.programmeID == control.programmeID
+                    && $0.owner == .user
+                    && $0.responsibility == decision.responsibility
             }
-            candidate = try applyDecision(
-                decision,
-                option: option,
-                control: control,
-                in: candidate
-            )
-            guard candidate.pending.removeDecision(id: decisionID) != nil,
-                  candidate.career.recordResolution(MandatoryDecisionResolution(
-                      decisionID: decision.id,
-                      programmeID: decision.programmeID,
-                      subject: decision.subject,
-                      optionID: option.id,
-                      action: option.action,
-                      decidedAt: candidate.calendar
-                  )),
+            var delegatedOptionID: UUID?
+            for queuedDecision in queued {
+                guard let option = queuedDecision.options.first(where: {
+                    $0.id == queuedDecision.recommendedOptionID
+                }) else {
+                    throw CareerSessionError.missingDecisionOption
+                }
+                candidate = try applyDecision(
+                    queuedDecision,
+                    option: option,
+                    control: control,
+                    in: candidate
+                )
+                guard candidate.pending.removeDecision(id: queuedDecision.id) != nil,
+                      candidate.career.recordResolution(MandatoryDecisionResolution(
+                          decisionID: queuedDecision.id,
+                          programmeID: queuedDecision.programmeID,
+                          subject: queuedDecision.subject,
+                          optionID: option.id,
+                          action: option.action,
+                          decidedAt: candidate.calendar
+                      )),
+                      recordDecisionDelegation(
+                          decision: queuedDecision,
+                          optionID: option.id,
+                          staffID: staffID,
+                          in: &candidate
+                      ) else {
+                    throw CareerSessionError.responsibilityUpdateFailed
+                }
+                if queuedDecision.id == decisionID { delegatedOptionID = option.id }
+            }
+            guard let delegatedOptionID,
                   CareerControlSystem.setResponsibility(
                       decision.responsibility,
                       owner: .delegated(staffID: staffID),
-                      in: &candidate
-                  ),
-                  recordDecisionDelegation(
-                      decision: decision,
-                      optionID: option.id,
-                      staffID: staffID,
                       in: &candidate
                   ),
                   WorldIntegrity.check(candidate).isValid else {
@@ -497,7 +509,7 @@ public actor CareerSession {
                 result: .decisionDelegated(
                     decisionID: decisionID,
                     staffID: staffID,
-                    optionID: option.id
+                    optionID: delegatedOptionID
                 )
             )
         case let .career(action):
