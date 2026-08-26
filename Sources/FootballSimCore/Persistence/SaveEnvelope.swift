@@ -70,10 +70,8 @@ public struct SaveEnvelope: Sendable {
     /// The drift ratio is the half that matters for a twenty-season career: the retained set is
     /// bounded now, so a late checkpoint may sit above or below an early one as departures cycle,
     /// but it must not climb away from it.
-    /// Measured, not chosen: a twenty-season career on the soaks' own seed encodes to 14.76 MB
-    /// with departed retention bounded, against 3.67 MB at season 0. The ceiling sits just above
-    /// the measurement so a regression trips it; it is not a claim that 16 MB is the target.
-    public static let productionSaveByteCeiling = 16 * 1024 * 1024
+    /// Product D4's measured twenty-season production ceiling.
+    public static let productionSaveByteCeiling = 8 * 1024 * 1024
     /// Season 5 to season 20 measured 1.80x. The allowance catches the unbounded case this
     /// replaced, which was 3.2x over the same span, and it is deliberately not tight: the save
     /// still drifts across a long career, and `docs/STATUS.md` says so rather than this number

@@ -125,6 +125,77 @@ func runMatchReducerTests() {
             expect(resumed.callInReceipts.allSatisfy { $0.side == .away })
         }
 
+        test("12, 25, and 40 call-in targets are deterministic and resume identically") {
+            let personnel = testPersonnel(offenseSkill: 70, defenseSkill: 70)
+            func finish(target: Int, resumeAfter: Int? = nil) -> MatchSessionState {
+                var state = MatchReducer.start(
+                    tier: .pro,
+                    home: personnel,
+                    away: personnel,
+                    seed: 8_113,
+                    controlledSide: .home,
+                    callInsPerGame: target
+                )
+                var actions = 0
+                while !state.completed {
+                    let action: MatchAction = state.pendingCallIn == nil
+                        ? .advance
+                        : .chooseCallIn(.trustCoordinator)
+                    _ = try! MatchReducer.reduce(action, state: &state)
+                    actions += 1
+                    if actions == resumeAfter {
+                        state = try! JSONDecoder.stable().decode(
+                            MatchSessionState.self,
+                            from: JSONEncoder.stable().encode(state)
+                        )
+                    }
+                }
+                return state
+            }
+
+            let low = finish(target: 12)
+            let medium = finish(target: 25)
+            let high = finish(target: 40)
+            expect(low.callInReceipts.count < medium.callInReceipts.count)
+            expect(medium.callInReceipts.count < high.callInReceipts.count)
+            expect(high.callInReceipts.count <= SharedRules.callInsPerGameRange.upperBound)
+            expectEqual(low, finish(target: 12))
+            expectEqual(high, finish(target: 40))
+
+            let replay = finish(target: 25)
+            let resumed = finish(target: 25, resumeAfter: 40)
+            expectEqual(replay, resumed)
+            expectEqual(resumed.callInTarget, 25)
+            expect(resumed.eligibleCallInCount >= resumed.callInReceipts.count)
+        }
+
+        test("urgent call-ins bypass spacing but every prompt respects the global ceiling") {
+            expect(!TacticalCallInSystem.shouldPresent(
+                trigger: .planLeavesItOpen,
+                target: 12,
+                eligibleIndex: 0,
+                completedCount: 0
+            ))
+            expect(TacticalCallInSystem.shouldPresent(
+                trigger: .planLeavesItOpen,
+                target: 12,
+                eligibleIndex: 3,
+                completedCount: 0
+            ))
+            expect(TacticalCallInSystem.shouldPresent(
+                trigger: .fourthDown,
+                target: 12,
+                eligibleIndex: 0,
+                completedCount: 0
+            ))
+            expect(!TacticalCallInSystem.shouldPresent(
+                trigger: .fourthDown,
+                target: 12,
+                eligibleIndex: 39,
+                completedCount: SharedRules.callInsPerGameRange.upperBound
+            ))
+        }
+
         test("pause is persisted and prevents a snap until resumed") {
             let personnel = testPersonnel(offenseSkill: 70, defenseSkill: 70)
             let situation = Situation(
@@ -367,6 +438,8 @@ func runMatchReducerTests() {
             object.removeValue(forKey: "stage")
             object.removeValue(forKey: "overtimePeriod")
             object.removeValue(forKey: "overtimePossessions")
+            object.removeValue(forKey: "callInTarget")
+            object.removeValue(forKey: "eligibleCallInCount")
             let legacy = try! JSONSerialization.data(withJSONObject: object)
             let reopened = try! JSONDecoder.stable().decode(
                 MatchSessionState.self,
@@ -375,6 +448,43 @@ func runMatchReducerTests() {
             expectEqual(reopened.stage, .regularSeason)
             expectEqual(reopened.overtimePeriod, 0)
             expect(reopened.overtimePossessions.isEmpty)
+            expectEqual(reopened.callInTarget, SharedRules.defaultCallInsPerGame)
+            expectEqual(reopened.eligibleCallInCount, reopened.callInReceipts.count)
+        }
+
+        test("match pacing checkpoints reject incomplete and out-of-range fields") {
+            let personnel = testPersonnel(offenseSkill: 70, defenseSkill: 70)
+            let state = MatchReducer.start(
+                tier: .pro,
+                home: personnel,
+                away: personnel,
+                seed: 8_109
+            )
+            let object = try! JSONSerialization.jsonObject(
+                with: JSONEncoder.stable().encode(state)
+            ) as! [String: Any]
+
+            func rejects(_ label: String, _ mutate: (inout [String: Any]) -> Void) {
+                var hostile = object
+                mutate(&hostile)
+                do {
+                    let data = try JSONSerialization.data(withJSONObject: hostile)
+                    _ = try JSONDecoder.stable().decode(MatchSessionState.self, from: data)
+                    expect(false, "a \(label) pacing checkpoint decoded")
+                } catch {
+                    expect(true)
+                }
+            }
+
+            rejects("missing target") { $0.removeValue(forKey: "callInTarget") }
+            rejects("missing cursor") { $0.removeValue(forKey: "eligibleCallInCount") }
+            rejects("target above maximum") {
+                $0["callInTarget"] = SharedRules.callInsPerGameRange.upperBound + 1
+            }
+            rejects("target below minimum") {
+                $0["callInTarget"] = SharedRules.callInsPerGameRange.lowerBound - 1
+            }
+            rejects("negative cursor") { $0["eligibleCallInCount"] = -1 }
         }
 
         test("completion is exactly once and rejects a second mutation") {
@@ -435,6 +545,13 @@ func runMatchReducerTests() {
                 )
                 expect(completion.record.winner != nil,
                        "\(tier.rawValue) \(stage.rawValue) overtime must produce a winner")
+                if tier == .college {
+                    let firstPeriodOffenses = Set(completion.record.drives.filter {
+                        $0.startYardLine == CompetitionRules.overtimePossessionYardLine
+                    }.prefix(2).map(\.offense))
+                    expectEqual(firstPeriodOffenses, Set(Side.allCases),
+                                "college overtime ended a period before both teams possessed")
+                }
             }
         }
 

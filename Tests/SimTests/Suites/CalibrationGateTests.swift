@@ -14,21 +14,27 @@ import FootballSimCore
 //
 // It reports against the **holdout** ladder. `01` section 6.6 clause 2: tune against A, report
 // against B. Gating on the tuning ladder would gate the model on the seeds it was fitted to.
-func runCalibrationGateTests() {
+func runCalibrationGateTests(tuning: Bool = false) {
+    let seeds = tuning ? CalibrationHarness.tuningSeeds : CalibrationHarness.holdoutSeeds
+    let ladder = tuning ? "tuning" : "holdout"
     suite("Calibration gate") {
         for tier in Tier.allCases {
-            test("the \(tier.rawValue) engine holds every band on the holdout ladder") {
-                let report = CalibrationHarness.run(tier: tier, seeds: CalibrationHarness.holdoutSeeds)
+            test("the \(tier.rawValue) engine holds every band on the \(ladder) ladder") {
+                let report = CalibrationHarness.run(tier: tier, seeds: seeds)
+                let failureCount = report.failures.count + report.assertionFailures.count
                 // Printed whole, passing rows included. A calibration failure is read by comparing
                 // the interval to the band, and 01 section 6.6 clause 3's contract is that every
                 // row carries theta, CI90, the band, n and its confidence grade.
                 print("--- \(tier.rawValue): \(report.gamesPlayed) games, "
-                        + "\(report.failures.count) of \(report.results.count) bands failing")
+                        + "\(failureCount) of "
+                        + "\(report.results.count + report.assertions.count) checks failing")
                 print(report.summary)
                 expect(report.passed,
-                       "\(report.failures.count) of \(report.results.count) \(tier.rawValue) bands "
+                       "\(failureCount) of "
+                           + "\(report.results.count + report.assertions.count) \(tier.rawValue) checks "
                            + "fail on the holdout ladder:\n"
-                           + report.failures.map(\.report).joined(separator: "\n"))
+                           + (report.assertionFailures.map(\.report)
+                                + report.failures.map(\.report)).joined(separator: "\n"))
             }
         }
     }

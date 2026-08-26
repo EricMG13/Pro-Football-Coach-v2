@@ -16,7 +16,6 @@ import SwiftUI
 /// proportion for the same reason Match Day is: the design is composed, not reflowed.
 struct CoachWorldFloodlitComposition<Content: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @State private var showingSurfaceRegistry = false
 
     private let model: FloodlitChromeReadModel
     private let palette: CoachWorldTokens.Palette
@@ -36,35 +35,17 @@ struct CoachWorldFloodlitComposition<Content: View>: View {
     }
 
     var body: some View {
-        ZStack {
-            Group {
-                if dynamicTypeSize.isAccessibilitySize {
-                    // AX5 keeps the same information and drops the absolute composition: the
-                    // header becomes a stacked block. `04` section 7.
-                    accessibleLayout
-                } else {
-                    standardLayout
-                }
-            }
-            if showingSurfaceRegistry {
-                SurfaceRegistryOverlay(
-                    current: model.screen,
-                    palette: palette,
-                    availableScreens: model.availableScreens,
-                    onSelect: { screen in
-                        showingSurfaceRegistry = false
-                        onNavigate(CoachWorldIntentID(rawValue: "route|\(screen.rawValue)"))
-                    },
-                    onClose: { showingSurfaceRegistry = false }
-                )
-                .zIndex(10)
+        Group {
+            if dynamicTypeSize.isAccessibilitySize {
+                // AX5 keeps the same information and drops the absolute composition: the
+                // header becomes a stacked block. `04` section 7.
+                accessibleLayout
+            } else {
+                standardLayout
             }
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("floodlit-surface")
-    }
-
-    private var registryOpener: () -> Void {
-        { showingSurfaceRegistry = true }
     }
 
     private var standardLayout: some View {
@@ -81,8 +62,7 @@ struct CoachWorldFloodlitComposition<Content: View>: View {
                 .accessibilitySortPriority(80)
 
             FloodlitIdentityHeader(
-                model: model, palette: palette,
-                onNavigate: onNavigate, onOpenRegistry: registryOpener
+                model: model, palette: palette, onNavigate: onNavigate
             )
                 .frame(width: CoachWorldTokens.Stage.contentWidth, alignment: .leading)
                 .padding(.leading, CoachWorldTokens.Stage.contentLeading)
@@ -101,8 +81,7 @@ struct CoachWorldFloodlitComposition<Content: View>: View {
     private var accessibleLayout: some View {
         VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.lg) {
             FloodlitIdentityHeader(
-                model: model, palette: palette,
-                onNavigate: onNavigate, onOpenRegistry: registryOpener
+                model: model, palette: palette, onNavigate: onNavigate
             )
             .accessibilitySortPriority(100)
             content()
@@ -113,79 +92,6 @@ struct CoachWorldFloodlitComposition<Content: View>: View {
         .padding(.vertical, CoachWorldTokens.Pad.panel.v)
     }
 }
-
-private struct SurfaceRegistryOverlay: View {
-    let current: CoachWorldScreenID
-    let palette: CoachWorldTokens.Palette
-    let availableScreens: [CoachWorldScreenID]
-    let onSelect: (CoachWorldScreenID) -> Void
-    let onClose: () -> Void
-
-    var body: some View {
-        ZStack(alignment: .top) {
-            CoachWorldTokens.Floodlit.overlayScrim.color.opacity(0.97)
-                .ignoresSafeArea()
-            ScrollView {
-                VStack(alignment: .leading, spacing: CoachWorldTokens.Space.md) {
-                    HStack(alignment: .firstTextBaseline) {
-                        VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.hair) {
-                            Text("ALL TASKS")
-                                .font(CoachWorldTokens.TypeRole.display.weight(.black))
-                            Text("\(availableScreens.filter { $0.isCanonicalTask }.count) available tasks")
-                                .font(CoachWorldTokens.TypeRole.caption)
-                                .foregroundStyle(palette.contentSecondary.color)
-                        }
-                        Spacer(minLength: CoachWorldTokens.Space.sm)
-                        Button("Close", action: onClose)
-                            .buttonStyle(CoachWorldActionButtonStyle(role: .secondary, palette: palette))
-                    }
-
-                    ForEach(CoachWorldSurfaceFamily.allCases, id: \.rawValue) { family in
-                        VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.xxs) {
-                            Text(family.canonicalName.uppercased())
-                                .font(CoachWorldTokens.TypeRole.caption.weight(.heavy))
-                                .foregroundStyle(palette.actionPrimary.color)
-                            ForEach(
-                                family.surfaces.filter { availableScreens.contains($0) },
-                                id: \.rawValue
-                            ) { screen in
-                                Button {
-                                    onSelect(screen)
-                                } label: {
-                                    HStack(spacing: CoachWorldTokens.Space.sm) {
-                                        Text("\(screen.number)")
-                                            .monospacedDigit()
-                                            .foregroundStyle(palette.actionPrimary.color)
-                                            .frame(width: 28, alignment: .trailing)
-                                        Text(screen.taskName)
-                                            .foregroundStyle(palette.contentPrimary.color)
-                                        Spacer(minLength: .zero)
-                                    }
-                                    .frame(maxWidth: .infinity, minHeight: CoachWorldTokens.Shape.minimumTarget,
-                                           alignment: .leading)
-                                    .padding(.horizontal, CoachWorldTokens.Space.sm)
-                                    .background(
-                                        screen == current
-                                            ? palette.actionPrimary.color.opacity(0.14)
-                                            : palette.raised.color.opacity(0.55)
-                                    )
-                                }
-                                .buttonStyle(.plain)
-                                .accessibilityLabel(screen.canonicalName)
-                                .accessibilityAddTraits(screen == current ? .isSelected : [])
-                            }
-                        }
-                    }
-                }
-                .padding(CoachWorldTokens.Space.xl)
-                .frame(maxWidth: 720, alignment: .leading)
-                .frame(maxWidth: .infinity, alignment: .top)
-            }
-        }
-        .accessibilitySortPriority(200)
-    }
-}
-
 
 // MARK: - Conversion seam
 

@@ -173,9 +173,11 @@ public enum IntentResolver {
     public static func resolve(_ intent: CoachIntent, in state: GameState) throws -> ResolvedIntent {
         switch intent {
         case .advanceWeek:
-            guard state.pending.mandatoryDecisions.isEmpty else {
+            let pendingDecisionCount = state.pending.mandatoryDecisions.count
+                + (state.pending.professionalCapCompliance == nil ? 0 : 1)
+            guard pendingDecisionCount == 0 else {
                 throw IntentResolutionError.unresolvedMandatoryDecisions(
-                    count: state.pending.mandatoryDecisions.count
+                    count: pendingDecisionCount
                 )
             }
             if let organisationID = controlledOrganisationID(in: state),
@@ -401,6 +403,7 @@ public enum IntentResolver {
                     // former programme while the carousel evaluates the next job, and must not
                     // stay on its staff as its head coach either.
                     nextState.career.clearCollege()
+                    nextState.career.clearPro()
                     CareerControlSystem.vacateCurrentSeat(in: &nextState)
                 }
             }

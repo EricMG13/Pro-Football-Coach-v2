@@ -346,8 +346,7 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
                 )
             }
         }
-        .disabled(!choice.isAvailable)
-        .opacity(choice.isAvailable ? 1 : CoachWorldTokens.Motion.disabledOpacity)
+        .coachWorldDisabled(!choice.isAvailable)
     }
 
     private func secondaryAction(_ title: String, action: @escaping () -> Void) -> some View {
@@ -561,7 +560,7 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
                     Text(accessibleCurrentDayLabel)
                         .foregroundStyle(palette.page.color)
                         .padding(.horizontal, CoachWorldTokens.Space.sm)
-                        .background(palette.collegeIdentity.color)
+                        .background(palette.contentPrimary.color)
                     Text(model.week.nextDeadline)
                         .foregroundStyle(palette.contentSecondary.color)
                 }
@@ -576,14 +575,9 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
                             .font(CoachWorldTokens.TypeRole.caption.weight(.bold))
                             .frame(maxWidth: .infinity,
                                    minHeight: CoachWorldTokens.Shape.minimumTarget)
-                            .background(day.isCurrent ? palette.actionPrimary.color : Color.clear)
+                            .background(day.isCurrent ? palette.contentPrimary.color : Color.clear)
                             .foregroundStyle(
-                                // S-2, 2026-08-19 review: was a hand-typed Color(red:green:blue:)
-                                // literal, ~1/255 per channel off the canon `goldInk` token
-                                // (0x150F02) that already exists for exactly this ink-on-gold
-                                // case -- FloodlitPatterns.swift:335 and MatchDayField.swift:651
-                                // use it the same way, ink on an isCurrent/isSelected gold ground.
-                                day.isCurrent ? CoachWorldTokens.Floodlit.goldInk.color
+                                day.isCurrent ? palette.page.color
                                     : palette.contentPrimary.color
                             )
                             .accessibilityLabel("\(day.dayLabel), \(day.assignment)")
@@ -754,14 +748,14 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
             .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
             .background(
                 selected
-                    ? palette.collegeIdentity.color.opacity(0.14)
+                    ? palette.contentPrimary.color.opacity(0.14)
                     : palette.raised.color.opacity(0.5)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: CoachWorldTokens.Shape.rowRadius)
                     .stroke(
                         selected
-                            ? palette.collegeIdentity.color
+                            ? palette.contentPrimary.color
                             : palette.contentQuiet.color.opacity(0.65),
                         lineWidth: CoachWorldTokens.Shape.hairline
                     )

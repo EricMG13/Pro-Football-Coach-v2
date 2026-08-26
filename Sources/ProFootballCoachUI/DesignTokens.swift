@@ -35,10 +35,9 @@ public enum CoachWorldTokens {
     /// management surface now uses that geometry. The content column gains 52 pt.
     public enum Stage {
         public static let contentLeading: CGFloat = Frame.leadingInset
-        public static let contentTop: CGFloat = 46
-        public static let headerTop: CGFloat = 3
-        public static let headerPrimaryRow: CGFloat = 22
-        public static let headerSecondaryRow: CGFloat = 16
+        public static let headerTop: CGFloat = Frame.topInset
+        public static let headerHeight: CGFloat = 34
+        public static let contentTop: CGFloat = 54
         /// `844 - 63 - 20`: the frame minus the leading inset and the trailing gutter. Derived,
         /// not chosen, so it stays right if the floor ever moves.
         public static let contentWidth: CGFloat =
@@ -90,6 +89,10 @@ public enum CoachWorldTokens {
         /// that is committing with it.
         public static let pressDim: Double = 0.12
         public static let disabledOpacity: Double = 0.4
+
+        public static func resolvedDisabledOpacity(for contrast: ColorSchemeContrast) -> Double {
+            contrast == .increased ? 0.62 : disabledOpacity
+        }
 
         // The curve constructor that turns these durations into an `Animation` lives in
         // `CoachWorldMotion.swift`, not here — this enum is data, per `04` section 6.7; scheduling

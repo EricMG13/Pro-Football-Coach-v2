@@ -123,7 +123,7 @@ struct ScoreBug: View {
             // Trails the score, per the handoff's stated cell order (rail, name, score, triangle).
             if hasBall {
                 BroadcastWedge()
-                    .fill(CoachWorldTokens.dark.actionPrimary.color)
+                    .fill(CoachWorldTokens.dark.contentPrimary.color)
                     .frame(width: Bug.possessionSize, height: Bug.possessionSize)
                     .accessibilityHidden(true)
             }

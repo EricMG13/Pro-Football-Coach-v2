@@ -3,13 +3,18 @@ import Foundation
 public struct PendingQueues: Codable, Sendable, Equatable {
     public static let maximumMandatoryDecisions = 512
     public private(set) var mandatoryDecisions: [MandatoryDecision]
+    public private(set) var professionalCapCompliance: ProCapComplianceDecision?
 
-    public init(mandatoryDecisions: [MandatoryDecision] = []) {
+    public init(
+        mandatoryDecisions: [MandatoryDecision] = [],
+        professionalCapCompliance: ProCapComplianceDecision? = nil
+    ) {
         precondition(
             Self.isValid(mandatoryDecisions),
             "Pending mandatory decisions are invalid."
         )
         self.mandatoryDecisions = mandatoryDecisions.sorted { $0.id.uuidString < $1.id.uuidString }
+        self.professionalCapCompliance = professionalCapCompliance
     }
 
     public init(from decoder: any Decoder) throws {
@@ -23,6 +28,10 @@ public struct PendingQueues: Codable, Sendable, Equatable {
             )
         }
         mandatoryDecisions = decoded.sorted { $0.id.uuidString < $1.id.uuidString }
+        professionalCapCompliance = try container.decodeIfPresent(
+            ProCapComplianceDecision.self,
+            forKey: .professionalCapCompliance
+        )
     }
 
     @discardableResult
@@ -42,19 +51,31 @@ public struct PendingQueues: Codable, Sendable, Equatable {
         return mandatoryDecisions.remove(at: index)
     }
 
+    mutating func setProfessionalCapCompliance(_ decision: ProCapComplianceDecision?) {
+        professionalCapCompliance = decision
+    }
+
     private static func isValid(_ decisions: [MandatoryDecision]) -> Bool {
         decisions.count <= maximumMandatoryDecisions
             && Set(decisions.map(\.id)).count == decisions.count
     }
 }
 
+private struct CareerControlSchemaProbe: Decodable {
+    struct College: Decodable {
+        let responsibilitySchemaVersion: Int?
+    }
+
+    let college: College?
+}
+
 /// The single authoritative root for a career save.
 public struct GameState: Codable, Sendable, Equatable {
-    /// Root schema used by the application save document. Schemas 11 and 12 remain readable
+    /// Root schema used by the application save document. Schemas 11 through 13 remain readable
     /// through the decoder below and are normalised to this value before any state reaches the
-    /// world. Schema 13 adds the durable professional contract-negotiation ledger.
-    public static let schemaVersion = 13
-    public static let previousSchemaVersion = 12
+    /// world. Schema 14 expands college responsibility ownership from four areas to six.
+    public static let schemaVersion = 14
+    public static let previousSchemaVersion = 13
     public static let legacySchemaVersion = 11
 
     public let version: Int
@@ -139,16 +160,28 @@ public struct GameState: Codable, Sendable, Equatable {
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let decodedVersion = try container.decode(Int.self, forKey: .version)
-        guard decodedVersion == GameState.schemaVersion
-                || decodedVersion == GameState.previousSchemaVersion
-                || decodedVersion == GameState.legacySchemaVersion else {
+        guard (GameState.legacySchemaVersion...GameState.schemaVersion)
+            .contains(decodedVersion) else {
             throw DecodingError.dataCorruptedError(
                 forKey: .version,
                 in: container,
                 debugDescription: "The game-state schema version is unsupported."
             )
         }
-        // Schemas 11 and 12 have the same base field set. The application document migration owns
+        if decodedVersion == GameState.schemaVersion,
+           let college = try container.decode(
+               CareerControlSchemaProbe.self,
+               forKey: .career
+           ).college,
+           college.responsibilitySchemaVersion == nil {
+            throw DecodingError.dataCorruptedError(
+                forKey: .career,
+                in: container,
+                debugDescription:
+                    "The current game-state schema is missing responsibility metadata."
+            )
+        }
+        // Schemas 11 through 13 have the same base field set. The application document owns
         // future field defaults; ProMarketState itself defaults the negotiation ledger for schema
         // 12 saves. Normalising here prevents a legacy root from escaping with a stale version
         // marker after it has passed integrity validation.
@@ -165,6 +198,17 @@ public struct GameState: Codable, Sendable, Equatable {
         calendar = try container.decode(CalendarState.self, forKey: .calendar)
         career = try container.decode(CareerControlState.self, forKey: .career)
         careerArc = try container.decode(CareerArcState.self, forKey: .careerArc)
+        if career.college == nil,
+           career.pro == nil,
+           let coachID = career.coachID,
+           let job = careerArc.currentJob,
+           job.tier == .professional {
+            career.setPro(ProCareerControl(
+                coachID: coachID,
+                teamID: job.organisationID,
+                startedAt: job.startedAt
+            ))
+        }
         pending = try container.decode(PendingQueues.self, forKey: .pending)
         competition = try container.decode(CompetitionState.self, forKey: .competition)
         people = try container.decode(PeopleState.self, forKey: .people)

@@ -233,6 +233,7 @@ extension CollegePortalPolicyV1 {
             integrityProjection.calendar = CalendarState(season: result.targetSeason, week: 1)
             integrityProjection.league.season = result.targetSeason
             integrityProjection.league.week = 1
+            integrityProjection = ProCapComplianceSystem.refresh(in: integrityProjection)
         }
         let integrity = WorldIntegrity.check(integrityProjection)
         let collegeProgrammeIDs = Set(state.programmes.ids)

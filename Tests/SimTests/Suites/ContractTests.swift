@@ -1036,22 +1036,17 @@ func runContractTests() {
             // owner, not resolved by this test).
             expect(Chrome.familySize > 0 && Chrome.familySize < 20,
                    "family label size drifted to a value that cannot be a micro-label")
-            expect(Chrome.jumpToSymbol > 0 && Chrome.jumpToSymbol < 20,
-                   "jump-to symbol size drifted to a value that cannot sit in a micro-row")
             expect(Chrome.siblingSize > 0 && Chrome.siblingSize < 20,
                    "sibling link size drifted to a value that cannot be a micro-label")
-            // The overlay and its opener stay in the composition; the control that calls the
-            // opener moved into the identity band on 2026-08-23 when the icon rail was removed.
-            // Both halves are asserted, in the file that now holds each — removing a control the
-            // band already duplicated must not remove the only route to every other family, and a
-            // check that looked in one file would have passed while the route disappeared.
-            expect(composition.contains("SurfaceRegistryOverlay")
-                       && composition.contains("onOpenRegistry")
-                       && composition.contains("availableScreens"),
-                   "the surface registry overlay and its opener must stay in the composition")
-            expect(floodlitChrome.contains("ALL TASKS")
-                       && floodlitChrome.contains("onOpenRegistry"),
-                   "the identity band must carry the control that opens the task registry")
+            expect(Chrome.familyPanelWidth == 250 && Chrome.hostPanelWidth == 232,
+                   "the two navigator panels must retain their measured Press Box widths")
+            expect(floodlitChrome.contains("Switch family, ")
+                       && floodlitChrome.contains("FloodlitFamilySwitcher")
+                       && floodlitChrome.contains("FloodlitHostPanel"),
+                   "the identity band must expose truthful family and alias navigation")
+            expect(!composition.contains("SurfaceRegistryOverlay")
+                       && !floodlitChrome.contains("ALL TASKS"),
+                   "the family switcher must replace the retired all-task index screen")
             expect(hq.contains("noDecision")
                        && hq.contains("preparationNeeded")
                        && hq.contains("isEnabled: canAdvance"),
@@ -2640,9 +2635,9 @@ func runContractTests() {
             let root = swiftFiles(under: "Sources/CoachWorldApp")
                 .first { $0.path.hasSuffix("/CoachWorldAppRootView.swift") }?.text ?? ""
             guard let start = root.range(
-                of: "private func navigate(_ destination: CoachWorldScreenID, in store: CoachWorldStore) {"
+                of: "private func navigate("
             ), let end = root.range(
-                of: "\n    private func closeCareer(",
+                of: "\n    private var currentChromeScreen:",
                 range: start.upperBound..<root.endIndex
             ) else {
                 expect(false, "could not locate navigate(_:in:) to scan it")

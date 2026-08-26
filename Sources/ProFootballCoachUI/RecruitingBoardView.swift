@@ -487,12 +487,12 @@ public struct RecruitingBoardView: View, CoachWorldChromedSurface {
             .contentShape(Rectangle())
             .background(
                 prospect.stableID == selectedProspect?.stableID
-                    ? palette.collegeIdentity.color.opacity(0.14)
+                    ? palette.contentPrimary.color.opacity(0.14)
                     : palette.raised.color.opacity(0.34)
             )
             .overlay(alignment: .leading) {
                 if prospect.stableID == selectedProspect?.stableID {
-                    Rectangle().fill(palette.collegeIdentity.color)
+                    Rectangle().fill(palette.contentPrimary.color)
                         .frame(width: RecruitingMetric.selectedRuleWidth)
                 }
             }
@@ -536,12 +536,12 @@ public struct RecruitingBoardView: View, CoachWorldChromedSurface {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
                         prospect.stableID == selectedProspect?.stableID
-                            ? palette.collegeIdentity.color.opacity(0.14)
+                            ? palette.contentPrimary.color.opacity(0.14)
                             : Color.clear
                     )
                     .overlay(alignment: .leading) {
                         if prospect.stableID == selectedProspect?.stableID {
-                            Rectangle().fill(palette.collegeIdentity.color)
+                            Rectangle().fill(palette.contentPrimary.color)
                                 .frame(width: RecruitingMetric.selectedRuleWidth)
                         }
                     }
@@ -584,12 +584,12 @@ public struct RecruitingBoardView: View, CoachWorldChromedSurface {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(
                                 prospect.stableID == selectedProspect?.stableID
-                                    ? palette.collegeIdentity.color.opacity(0.14)
+                                    ? palette.contentPrimary.color.opacity(0.14)
                                     : Color.clear
                             )
                             .overlay(alignment: .leading) {
                                 if prospect.stableID == selectedProspect?.stableID {
-                                    Rectangle().fill(palette.collegeIdentity.color)
+                            Rectangle().fill(palette.contentPrimary.color)
                                         .frame(width: RecruitingMetric.selectedRuleWidth)
                                 }
                             }

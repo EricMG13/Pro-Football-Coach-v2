@@ -42,6 +42,98 @@ private func professionalCareer(seed: UInt64) throws -> (GameState, ProTeam) {
     return (state, team)
 }
 
+private func depthChartIdentityIsBacked(
+    _ model: DepthChartReadModel,
+    state: GameState,
+    programme: Programme
+) -> Bool {
+    let players = programme.rosterIDs.compactMap { state.players[$0] }
+    let numbers = JerseyNumbers.assign(players)
+    return model.positions.allSatisfy { group in
+        group.slots.allSatisfy { slot in
+            guard let id = UUID(uuidString: slot.playerID),
+                  let player = state.players[id] else { return false }
+            return slot.person.stableID == player.id.uuidString
+                && slot.person.name == player.fullName
+                && slot.person.role == group.title
+                && slot.number == numbers[id]
+        }
+    }
+}
+
+private func proManagementPlayerIdentityIsBacked(
+    _ model: ProManagementReadModel,
+    state: GameState,
+    team: ProTeam
+) -> Bool {
+    let players = (team.rosterIDs + team.practiceSquadIDs).compactMap { state.players[$0] }
+    let numbers = JerseyNumbers.assign(players)
+    let matches: (ProManagementReadModel.PlayerRow) -> Bool = { row in
+        guard let player = state.players[row.id] else { return false }
+        return row.person.stableID == player.id.uuidString
+            && row.person.name == player.fullName
+            && row.person.role == row.position
+            && row.number == numbers[row.id]
+    }
+    return model.activeRoster.allSatisfy(matches)
+        && model.practiceSquad.allSatisfy(matches)
+}
+
+private func proManagementNegotiationIdentityIsBacked(
+    state: GameState,
+    team: ProTeam
+) throws -> Bool {
+    guard let playerID = team.rosterIDs.first,
+          let player = state.players[playerID],
+          let contract = player.contract else { return false }
+    let opened = try ProManagementSystem.beginNegotiation(
+        playerID: playerID,
+        teamID: team.id,
+        offer: contract,
+        deadline: state.calendar.advancedWeek(),
+        in: state
+    )
+    guard let negotiation = CoachWorldReadModelProvider.proManagement(from: opened.state)?
+        .negotiations.first else { return false }
+    let players = (team.rosterIDs + team.practiceSquadIDs).compactMap { state.players[$0] }
+    let numbers = JerseyNumbers.assign(players)
+    return negotiation.person.stableID == player.id.uuidString
+        && negotiation.person.name == player.fullName
+        && negotiation.person.role == negotiation.position
+        && negotiation.number == numbers[player.id]
+}
+
+private func releasedPlayerNegotiationOmitsJerseyNumber(
+    state: GameState,
+    team: ProTeam
+) throws -> Bool {
+    guard let initial = CoachWorldReadModelProvider.proManagement(from: state),
+          let playerID = initial.activeRoster.first(where: { $0.action?.isAvailable == true })?.id,
+          let player = state.players[playerID],
+          let contract = player.contract else { return false }
+    let opened = try ProManagementSystem.beginNegotiation(
+        playerID: playerID,
+        teamID: team.id,
+        offer: contract,
+        deadline: state.calendar.advancedWeek(),
+        in: state
+    )
+    let settled = try ProManagementSystem.settleNegotiation(
+        negotiationID: opened.negotiation.id,
+        as: .withdrawn,
+        in: opened.state
+    )
+    let released = try ProManagementSystem.release(
+        playerID: playerID,
+        from: team.id,
+        in: settled.state
+    )
+    guard let negotiation = CoachWorldReadModelProvider.proManagement(from: released.state)?
+        .negotiations.first(where: { $0.id == opened.negotiation.id }) else { return false }
+    return negotiation.person.stableID == player.id.uuidString
+        && negotiation.number == nil
+}
+
 func runReadModelProviderTests() {
     suite("Read model provider: identity") {
         test("starting jobs are three deterministic generated programmes") {
@@ -537,6 +629,7 @@ func runReadModelProviderTests() {
                     && $0.plan.calendar == state.calendar
             })
             expect(model.options.contains { $0.plan.overrides.isEmpty })
+            expect(depthChartIdentityIsBacked(model, state: state, programme: programme))
         }
 
         test("depth chart marks redshirt-limited players unavailable") {
@@ -699,6 +792,9 @@ func runReadModelProviderTests() {
             expect(model.activeRoster.count <= ProManagementReadModel.maximumRows)
             expect(model.practiceSquad.count <= ProManagementReadModel.maximumRows)
             expect(model.activeRoster.allSatisfy { $0.action?.action == .release(playerID: $0.id, teamID: team.id) })
+            expect(proManagementPlayerIdentityIsBacked(model, state: state, team: team))
+            expect(try proManagementNegotiationIdentityIsBacked(state: state, team: team))
+            expect(try releasedPlayerNegotiationOmitsJerseyNumber(state: state, team: team))
             expectEqual(model, CoachWorldReadModelProvider.proManagement(from: state))
             expectEqual(
                 CoachWorldReadModelProvider.proManagement(from: GameState.bootstrap(seed: 4_062)),
@@ -1242,12 +1338,24 @@ func runReadModelProviderTests() {
             )
         }
 
-        test("HQ does not invent a staff author or confidence for a system recommendation") {
+        test("HQ attributes a recommended action to qualified staff with recorded evidence") {
             var state = try startedCareer(seed: 4_012).0
             guard let control = state.career.college,
+                  let programme = state.programmes[control.programmeID],
                   let prospectID = state.prospects.ids.first else {
                 expect(false, "the world generated no controlled programme or prospect")
                 return
+            }
+            _ = state.scouting.queueEvaluation(
+                observerID: control.programmeID,
+                prospectID: prospectID,
+                effort: CollegeRules.weeklyRecruitingContactPoints
+            )
+            state.scouting = ScoutingSystem.process(at: state.calendar, in: state).scouting
+            for staffID in programme.staffIDs where state.staff[staffID]?.role != .headCoach {
+                _ = state.staff.update(staffID) { staff in
+                    staff.ratings[.recruiting] = Rating(70)
+                }
             }
             let recommendedID = UUID(uuidString: "00000000-0000-0000-0000-000000004012")!
             let alternateID = UUID(uuidString: "00000000-0000-0000-0000-000000004013")!
@@ -1272,9 +1380,47 @@ func runReadModelProviderTests() {
                 reasons: [MandatoryDecisionReason(code: .rosterNeed, value: 3)]
             ))
             let model = CoachWorldReadModelProvider.coachingHQ(from: state)
-            expectEqual(model?.staffRecommendation, nil)
+            let expectedStaff = programme.staffIDs.compactMap { state.staff[$0] }
+                .filter { $0.role != .headCoach }
+                .sorted {
+                    if $0.rating(.recruiting) != $1.rating(.recruiting) {
+                        return $0.rating(.recruiting).value > $1.rating(.recruiting).value
+                    }
+                    return $0.id.uuidString < $1.id.uuidString
+                }
+                .first
+            let expectedConfidence = state.scouting.observation(
+                observerID: control.programmeID,
+                prospectID: prospectID
+            )?.confidence
+            expectEqual(model?.staffRecommendation?.staff.stableID, expectedStaff?.id.uuidString)
+            expectEqual(model?.staffRecommendation?.verdict, "Offer scholarship")
+            expectEqual(model?.staffRecommendation?.reason, "Roster need: 3")
+            expectEqual(model?.staffRecommendation?.confidence, expectedConfidence.map { "\($0)%" })
+            expectEqual(CoachWorldReadModelProvider.coachingHQ(from: state), model)
             expect(model?.decision?.choices.allSatisfy { $0.cost == "No recorded cost" } == true)
             expect(model?.decision?.choices.allSatisfy(\.consequence.isEmpty) == true)
+
+            var withoutQualifiedStaff = state
+            let headCoachIDs = Set(programme.staffIDs.filter {
+                withoutQualifiedStaff.staff[$0]?.role == .headCoach
+            })
+            _ = withoutQualifiedStaff.programmes.update(control.programmeID) { controlled in
+                controlled.staffIDs.removeAll { !headCoachIDs.contains($0) }
+            }
+            expectEqual(
+                CoachWorldReadModelProvider.coachingHQ(from: withoutQualifiedStaff)?
+                    .staffRecommendation,
+                nil
+            )
+
+            var withoutScoutingEvidence = state
+            withoutScoutingEvidence.scouting = ScoutingState()
+            expectEqual(
+                CoachWorldReadModelProvider.coachingHQ(from: withoutScoutingEvidence)?
+                    .staffRecommendation,
+                nil
+            )
         }
 
         test("missing competition rows carry no invented rank or record") {
@@ -1383,6 +1529,20 @@ func runReadModelProviderTests() {
     }
 
     suite("Read model provider: practice budget") {
+        test("the practice model carries the authoritative weekly budget") {
+            let (state, _) = try startedCareer(seed: 4_032)
+            guard let model = CoachWorldReadModelProvider.practicePlan(from: state) else {
+                expect(false, "a started career produced no practice plan")
+                return
+            }
+            expectEqual(model.weeklyMinutes, TacticalPracticePlan.weeklyMinutes)
+            expect(model.options.allSatisfy { option in
+                let plan = option.plan
+                return plan.installMinutes + plan.conditioningMinutes
+                    + plan.recoveryMinutes + plan.positionFocusMinutes == model.weeklyMinutes
+            })
+        }
+
         test("an unplanned week offers the whole budget") {
             let (state, _) = try startedCareer(seed: 4_030)
             expectEqual(
@@ -1456,7 +1616,8 @@ func runReadModelProviderTests() {
         }
 
         test("a profile states nothing the root does not hold") {
-            let (state, programme) = try startedCareer(seed: 4_051)
+            let (initialState, programme) = try startedCareer(seed: 4_051)
+            var state = initialState
             guard let playerID = programme.rosterIDs.first,
                   let model = CoachWorldReadModelProvider.playerProfile(playerID, in: state),
                   let player = state.players[playerID] else {
@@ -1464,11 +1625,17 @@ func runReadModelProviderTests() {
                 return
             }
             expectEqual(model.person.name, player.fullName)
-            // G-04 has no form series and G-02 no staff verdict, so both ship empty rather than
-            // invented. The hometown is the same: the root records a *prospect's* origin city, not
-            // a rostered player's.
+            // G-04 has no form series. The hometown is also absent because the root records a
+            // *prospect's* origin city, not a rostered player's.
             expectEqual(model.recentForm.count, 0)
-            expectEqual(model.staffSummary, "")
+            let positionCoach = programme.staffIDs.compactMap { state.staff[$0] }.first {
+                $0.role == .positionCoach && $0.positionGroup == player.position.group
+            }
+            expect(model.staffSummary.contains(positionCoach?.fullName ?? "missing position coach"))
+            expect(model.staffSummary.contains(model.availability))
+            expect(model.staffSummary.contains("Overall \(player.overall.value)"))
+            expect(model.staffSummary.contains("scheme fit \(model.schemeFit)"))
+            expectEqual(CoachWorldReadModelProvider.playerProfile(playerID, in: state), model)
             expectEqual(model.hometown, "")
             expectEqual(model.developmentEvidence, "No recorded development change in this snapshot.")
             expectEqual(
@@ -1482,6 +1649,55 @@ func runReadModelProviderTests() {
                    "the profile shows attributes the position is not rated on: "
                        + shown.subtracting(rated).sorted().joined(separator: ", "))
             expect(!shown.isEmpty, "the profile showed no attributes at all")
+
+            _ = state.programmes.update(programme.id) { controlled in
+                controlled.staffIDs.removeAll { $0 == positionCoach?.id }
+            }
+            expectEqual(
+                CoachWorldReadModelProvider.playerProfile(playerID, in: state)?.staffSummary,
+                ""
+            )
+        }
+
+        test("Compare composes live roster rows without storing player truth") {
+            var state = try startedCareer(seed: 4_055).0
+            guard let roster = CoachWorldReadModelProvider.roster(from: state),
+                  roster.players.count >= 2 else {
+                expect(false, "a started career produced fewer than two roster rows")
+                return
+            }
+            let first = roster.players[0]
+            let second = roster.players[1]
+            guard let firstID = UUID(uuidString: first.stableID),
+                  let secondID = UUID(uuidString: second.stableID) else {
+                expect(false, "a roster row carried a non-UUID identity")
+                return
+            }
+
+            let comparison = CoachWorldReadModelProvider.comparePlayers(
+                firstID,
+                secondID,
+                in: state
+            )
+            expectEqual(comparison?.first, first)
+            expectEqual(comparison?.second, second)
+            expectEqual(
+                CoachWorldReadModelProvider.comparePlayers(firstID, firstID, in: state),
+                nil
+            )
+            expectEqual(
+                CoachWorldReadModelProvider.comparePlayers(
+                    UUID(uuidString: "00000000-0000-4000-8000-000000000455")!,
+                    secondID,
+                    in: state
+                ),
+                nil
+            )
+
+            _ = state.players.update(firstID) { $0.firstName = "Updated" }
+            let updated = CoachWorldReadModelProvider.comparePlayers(firstID, secondID, in: state)
+            expectEqual(updated?.first.person.name, "Updated \(state.players[firstID]?.lastName ?? "")")
+            expectEqual(updated?.second, second)
         }
 
         test("a professional appointment exposes the team's active roster") {

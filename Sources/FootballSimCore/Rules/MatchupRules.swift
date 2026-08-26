@@ -43,6 +43,18 @@ public enum MatchupRules {
     /// `03` §5.1's talent-dispersion band is what will pin it in P4.
     public static let leverageNoise = 0.38
 
+    /// Rating share for pass-protection and coverage duels.
+    ///
+    /// A game resolves dozens of these duels, so giving every rating difference the leverage
+    /// curve's full range compounds a modest roster edge into a near-certain result. The logistic
+    /// remains canonical; this limits only its contribution when scheme, situation and noise are
+    /// also inputs to the snap.
+    public static let passMatchupRatingWeight = 0.03
+
+    /// Run blocking and pursuit need a stronger talent signal: the distribution contract requires
+    /// a whole-unit 20-point edge to move a carry by at least a yard in either direction.
+    public static let runMatchupRatingWeight = 0.18
+
     /// How much scheme fit can move a matchup, in leverage units at full fit.
     ///
     /// `02` §6 makes scheme identity "the spine", and "the roster's fit to it modifies every matchup
@@ -61,8 +73,11 @@ public enum MatchupRules {
     /// game, measured by playing even teams with the bonus zeroed (19.9 to 18.8, home winning half)
     /// and again at 0.035 (28.7 to 14.2, home winning 0.656). That conversion rate is itself a
     /// defect and is not this constant's to fix; see `docs/STATUS.md`.
-    public static let proHomeAdvantage = 0.018
-    public static let collegeHomeAdvantage = 0.059
+    public static let proHomeAdvantage = 0.0008
+    public static let collegeHomeAdvantage = 0.015
+
+    /// A trait is a nudge on the existing rating scale, not a second resolution currency.
+    public static let traitPerformanceAdjustment = 4
 
     // MARK: - Assignment
 
@@ -91,9 +106,9 @@ public enum MatchupRules {
 
     // MARK: - Pass
 
-    public static let shortPassAirYards = 5
-    public static let midPassAirYards = 12
-    public static let deepPassAirYards = 24
+    public static let shortPassAirYards = 3
+    public static let midPassAirYards = 10
+    public static let deepPassAirYards = 20
     /// Average pressure above which the pocket collapses into a sack.
     ///
     /// Was 0.66 — above the 99th percentile of pressure the engine actually produces (measured
@@ -101,7 +116,7 @@ public enum MatchupRules {
     /// 1.4 percent of dropbacks against a real rate of roughly 6 to 7 percent, and `01` §6.5's band
     /// of 2.0 to 3.1 sacks per team-game read 0.72 to 0.97. 0.50 sits at the tier's p93 to p94 for
     /// an average-poise passer once `poiseSackRelief` is applied, which is where that real rate is.
-    public static let sackPressureThreshold = 0.50
+    public static let sackPressureThreshold = 0.40
     /// How much a maximally poised passer raises that threshold.
     public static let poiseSackRelief = 0.22
     public static let sackYards = -7
@@ -131,15 +146,19 @@ public enum MatchupRules {
     /// passer's own rating has to fight through one logistic — which conflated "how hard is this
     /// throw" with "how good is this passer".
     public static let referencePasserAccuracy = 70
-    public static let throwAccuracyWeight = 0.35
+    /// College talent dispersion is materially wider, so passer accuracy retains a stronger
+    /// team-level signal there while the pro tier keeps individual variance from becoming a rout.
+    public static let proThrowAccuracyWeight = 0.16
+    public static let collegeThrowAccuracyWeight = 0.35
+    public static let collegePassBaselineBonus = 0.02
 
     /// Where each depth starts, in leverage units, for a reference passer with nobody open and no
     /// pressure. Solved from the completion share each depth held before the rebalance.
     public static func throwBaseline(_ depth: PassDepth) -> Double {
         switch depth {
-        case .short: return 0.27
-        case .mid: return 0.05
-        case .deep: return -0.26
+        case .short: return 0.31
+        case .mid: return 0.09
+        case .deep: return -0.22
         }
     }
     public static let aggressionThrowBonus = 0.06
@@ -147,7 +166,7 @@ public enum MatchupRules {
     public static let interceptionThreshold = -0.73
     public static let completionThreshold = -0.02
     /// How much a low-decision passer is pulled toward progression order rather than the open man.
-    public static let progressionPenalty = 0.25
+    public static let progressionPenalty = 0.05
 
     // MARK: - Run
 
@@ -160,7 +179,8 @@ public enum MatchupRules {
     /// engine came out of the break chain and the harness measured 1.34 yards a carry against a
     /// rush band of 100 to 130 per team-game. A run play that is blocked to a standstill still
     /// gains a couple of yards; that is what this is.
-    public static let baseRunYards = 3.0
+    public static let baseRunYards = 1.6
+    public static let collegeBaseRunYardBonus = 1.0
     /// Yards per unit of lane leverage.
     public static let laneYardScale = 3.5
     /// Multiplies the lane and contact terms in the college tier.
@@ -204,7 +224,15 @@ public enum MatchupRules {
     /// threshold meant tuning the run's tail moved the explosive-pass rate with it — `01` §6.5 bands
     /// those separately (0.105–0.130 run against 0.125–0.150 pass in the pro tier), so one constant
     /// could not serve both.
-    public static let catchBreakTackleThreshold = 0.46
+    public static let catchBreakTackleThreshold = 0.47
+    /// Once a receiver has broken the first tackle, open-field pursuit is less likely to reset the
+    /// chain than a runner's box pursuit. This shapes the long-play tail without inflating every
+    /// completed pass.
+    public static let catchBrokenTackleDecay = 0.08
+    /// Catch breaks happen in space, so each one creates more field than a run through the box.
+    public static let catchBrokenTackleYards = 4
+    /// Later catch breaks create the long-play tail without padding every completion.
+    public static let catchLaterBreakMultiplier = 8
     /// How much lower the college tier's break threshold sits.
     ///
     /// A smooth lever where scaling the chain's yards was not: broken-tackle yards are integers
@@ -218,7 +246,7 @@ public enum MatchupRules {
     /// band already sitting on its floor with 0.0022 to spare before any of this moved. 0.08
     /// re-centres it at 0.1488 against a band midpoint of 0.150. This is the tier-local lever the
     /// paragraph above was written for, used for the thing it was written for.
-    public static let collegeBreakTackleRelief = 0.08
+    public static let collegeBreakTackleRelief = 0.025
     /// Lane quality above which the carrier is met at the second level rather than at the line,
     /// and above which he is into the secondary rather than either.
     ///
@@ -250,7 +278,7 @@ public enum MatchupRules {
     /// set is identical to the pre-change one -- the same seven bands on the same edges -- so the
     /// correctness fix costs no band. The model moved and the constant followed it; no band was
     /// touched, which `01` §6.6 and `03` §5.2 both forbid.
-    public static let breakTackleThreshold = 0.60
+    public static let breakTackleThreshold = 0.07
     /// Yards for the first break. Each successive one is worth a multiple of this, which is what
     /// gives a run distribution its right tail.
     public static let brokenTackleYards = 4
@@ -276,7 +304,7 @@ public enum MatchupRules {
     /// the same argument that put `homeAdvantage` on the tier. College kicking is worse because
     /// college kickers are, which is a fact about the people rather than about the posts, but the
     /// engine has no separate college kicker population to express it through, so it lands here.
-    public static let collegeFieldGoalDifficultyPenalty = 7
+    public static let collegeFieldGoalDifficultyPenalty = 6
 
     public static func fieldGoalDifficulty(distanceYards: Int, tier: Tier) -> Int {
         let base = fieldGoalBaseDifficulty

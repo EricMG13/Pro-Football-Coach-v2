@@ -237,6 +237,9 @@ public struct MatchStepReceipt: Codable, Sendable, Equatable {
 }
 
 public struct MatchSessionState: Codable, Sendable, Equatable {
+    public static let maximumEligibleCallIns = MatchupRules.maximumDrivesPerGame
+        * MatchupRules.maximumPlaysPerDrive
+
     public let fixtureID: UUID?
     public let tier: Tier
     public let stage: CompetitionStage
@@ -258,6 +261,10 @@ public struct MatchSessionState: Codable, Sendable, Equatable {
     public var clockRunning: Bool
     public var pendingCallIn: TacticalCallInProposal?
     public var callInReceipts: [MatchCallInReceipt]
+    /// The per-save pacing preference captured when this resumable match begins.
+    public private(set) var callInTarget: Int
+    /// Number of source-backed eligible moments inspected, including those spacing skipped.
+    public fileprivate(set) var eligibleCallInCount: Int
     /// Monotonic checkpoint identity used to reject delayed UI actions after a resume or snap.
     /// Missing in older checkpoints means the first loaded state is revision zero.
     public fileprivate(set) var revision: UInt64
@@ -280,7 +287,8 @@ public struct MatchSessionState: Codable, Sendable, Equatable {
         awayPlan: TacticalPlan = .balanced,
         homeFieldAdvantage: Double? = nil,
         initialSituation: Situation? = nil,
-        fixtureID: UUID? = nil
+        fixtureID: UUID? = nil,
+        callInsPerGame: Int = SharedRules.defaultCallInsPerGame
     ) {
         let rules = tier.clockRules
         let situation = initialSituation ?? Situation(
@@ -309,6 +317,11 @@ public struct MatchSessionState: Codable, Sendable, Equatable {
         self.clockRunning = false
         self.pendingCallIn = nil
         self.callInReceipts = []
+        self.callInTarget = min(
+            SharedRules.callInsPerGameRange.upperBound,
+            max(SharedRules.callInsPerGameRange.lowerBound, callInsPerGame)
+        )
+        self.eligibleCallInCount = 0
         self.revision = 0
         self.isPaused = false
         self.overtimePeriod = 0
@@ -354,6 +367,21 @@ public struct MatchSessionState: Codable, Sendable, Equatable {
                                                            forKey: .pendingCallIn)
         self.callInReceipts = try container.decode([MatchCallInReceipt].self,
                                                    forKey: .callInReceipts)
+        let hasCallInTarget = container.contains(.callInTarget)
+        let hasEligibleCallInCount = container.contains(.eligibleCallInCount)
+        guard hasCallInTarget == hasEligibleCallInCount else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .callInTarget,
+                in: container,
+                debugDescription: "A match pacing checkpoint is incomplete."
+            )
+        }
+        self.callInTarget = try container.decodeIfPresent(Int.self, forKey: .callInTarget)
+            ?? SharedRules.defaultCallInsPerGame
+        self.eligibleCallInCount = try container.decodeIfPresent(
+            Int.self,
+            forKey: .eligibleCallInCount
+        ) ?? callInReceipts.count
         self.revision = try container.decodeIfPresent(UInt64.self, forKey: .revision) ?? 0
         self.isPaused = try container.decodeIfPresent(Bool.self, forKey: .isPaused) ?? false
         self.overtimePeriod = try container.decodeIfPresent(Int.self, forKey: .overtimePeriod)
@@ -388,6 +416,11 @@ public struct MatchSessionState: Codable, Sendable, Equatable {
               overtimePeriod <= CompetitionRules.maximumOvertimePeriods,
               overtimePossessions.values.allSatisfy({ (0...1).contains($0) }),
               callInReceipts.count <= MatchupRules.maximumCallInsPerGame,
+              SharedRules.callInsPerGameRange.contains(callInTarget),
+              eligibleCallInCount >= callInReceipts.count,
+              eligibleCallInCount <= Self.maximumEligibleCallIns,
+              !hasCallInTarget
+                || callInReceipts.count <= SharedRules.callInsPerGameRange.upperBound,
               currentDrive?.ending == nil,
               currentDrive == nil || currentDrive?.situation == situation,
               currentDrive?.plays.count ?? 0 <= MatchupRules.maximumPlaysPerDrive else {
@@ -414,7 +447,9 @@ public struct MatchSessionState: Codable, Sendable, Equatable {
                   let drive = currentDrive,
                   drive.ending == nil,
                   drive.situation == proposal.situation,
-                  callInReceipts.count < MatchupRules.maximumCallInsPerGame else {
+                  callInReceipts.count < MatchupRules.maximumCallInsPerGame,
+                  !hasCallInTarget
+                    || callInReceipts.count < SharedRules.callInsPerGameRange.upperBound else {
                 throw DecodingError.dataCorruptedError(
                     forKey: .pendingCallIn,
                     in: container,
@@ -422,6 +457,13 @@ public struct MatchSessionState: Codable, Sendable, Equatable {
                 )
             }
         }
+    }
+
+    public mutating func setCallInTarget(_ value: Int) {
+        callInTarget = min(
+            SharedRules.callInsPerGameRange.upperBound,
+            max(SharedRules.callInsPerGameRange.lowerBound, value)
+        )
     }
 }
 
@@ -463,13 +505,14 @@ public enum MatchReducer {
         awayPlan: TacticalPlan = .balanced,
         homeFieldAdvantage: Double? = nil,
         initialSituation: Situation? = nil,
-        fixtureID: UUID? = nil
+        fixtureID: UUID? = nil,
+        callInsPerGame: Int = SharedRules.defaultCallInsPerGame
     ) -> MatchSessionState {
         MatchSessionState(
             tier: tier, stage: stage, home: home, away: away, seed: seed,
             controlledSide: controlledSide, homePlan: homePlan, awayPlan: awayPlan,
             homeFieldAdvantage: homeFieldAdvantage, initialSituation: initialSituation,
-            fixtureID: fixtureID
+            fixtureID: fixtureID, callInsPerGame: callInsPerGame
         )
     }
 
@@ -521,7 +564,7 @@ public enum MatchReducer {
         }
 
         prepareDriveIfNeeded(state: &state)
-        if let proposal = callInProposal(state: state) {
+        if let proposal = callInProposal(state: &state) {
             state.pendingCallIn = proposal
             return commit(
                 MatchStepReceipt(boundary: .callIn, proposal: proposal),
@@ -587,23 +630,32 @@ public enum MatchReducer {
         )
     }
 
-    private static func callInProposal(state: MatchSessionState) -> TacticalCallInProposal? {
+    private static func callInProposal(state: inout MatchSessionState) -> TacticalCallInProposal? {
         guard let controlledSide = state.controlledSide,
               state.isTakeover,
-              state.callInReceipts.count < MatchupRules.maximumCallInsPerGame,
+              state.callInReceipts.count < SharedRules.callInsPerGameRange.upperBound,
+              state.eligibleCallInCount < MatchSessionState.maximumEligibleCallIns,
               let drive = state.currentDrive,
               drive.ending == nil else { return nil }
         let situation = drive.situation
         guard situation.possession == controlledSide else { return nil }
         let plan = controlledSide == .home ? state.homePlan : state.awayPlan
         let opponent = controlledSide == .home ? state.awayPlan : state.homePlan
-        return TacticalCallInSystem.proposal(
+        guard let proposal = TacticalCallInSystem.proposal(
             for: situation,
             plan: plan,
             opponentPlan: opponent,
             isAfterTurnover: drive.afterTurnover,
             rules: state.tier.clockRules
-        )
+        ) else { return nil }
+        let eligibleIndex = state.eligibleCallInCount
+        state.eligibleCallInCount += 1
+        return TacticalCallInSystem.shouldPresent(
+            trigger: proposal.trigger,
+            target: state.callInTarget,
+            eligibleIndex: eligibleIndex,
+            completedCount: state.callInReceipts.count
+        ) ? proposal : nil
     }
 
     private static func chooseCallIn(
@@ -662,6 +714,7 @@ public enum MatchReducer {
             defense: defense,
             caller: caller,
             rules: state.tier.clockRules,
+            stage: state.stage,
             homeFieldAdvantage: state.homeFieldAdvantage,
             callInTrigger: callInTrigger
         )
@@ -759,7 +812,13 @@ public enum MatchReducer {
         switch rules.overtime {
         case .alternatingPossessions:
             state.overtimePossessions[completedDrive.offense, default: 0] += 1
-            guard state.overtimePossessions.values.allSatisfy({ $0 >= 1 }) else {
+            guard Side.allCases.allSatisfy({ state.overtimePossessions[$0, default: 0] >= 1 }) else {
+                state.situation.possession = completedDrive.offense.opponent
+                state.situation.yardLine = CompetitionRules.overtimePossessionYardLine
+                state.situation.down = 1
+                state.situation.distance = MatchupRules.yardsForFirstDown
+                state.clockRunning = false
+                state.afterTurnover = false
                 return nil
             }
             if state.situation.homeScore != state.situation.awayScore {

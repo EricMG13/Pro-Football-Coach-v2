@@ -11,17 +11,21 @@ public extension CoachWorldReadModelProvider {
     static func chrome(
         for screen: CoachWorldScreenID,
         hub: CoachingHQReadModel,
+        back: FloodlitChromeReadModel.Back,
         conference: String? = nil,
         /// Surface context for the header's right-hand chip. The reference varies this per screen
         /// — scholarships on personnel, the class on recruiting, conference position on league —
         /// so a caller that holds a surface's own figures passes them. Nil falls back to the next
         /// fixture, which is what the week hub itself shows.
         context surfaceContext: String? = nil,
+        contextShort surfaceContextShort: String? = nil,
         availableScreens: [CoachWorldScreenID] = CoachWorldScreenID.allCases
     ) -> FloodlitChromeReadModel {
         let canonicalScreen = screen.canonicalDestination
         let context = surfaceContext
             ?? hub.opponent.map { "\(hub.week.currentDay) \u{00B7} \($0.name)" }
+        let contextShort = surfaceContextShort
+            ?? (surfaceContext == nil ? hub.week.currentDay : nil)
         return FloodlitChromeReadModel(
             screen: canonicalScreen,
             world: world(for: canonicalScreen),
@@ -30,10 +34,12 @@ public extension CoachWorldReadModelProvider {
             ranking: hub.rankLabel,
             conference: conference,
             context: context,
+            contextShort: contextShort,
             // The opponent pennant belongs to the chip only when the chip is about the fixture.
-            contextOpponent: context == nil || !isFixtureContext(for: canonicalScreen)
+            contextOpponent: surfaceContext != nil || !isFixtureContext(for: canonicalScreen)
                 ? nil
                 : hub.opponent,
+            back: back,
             siblings: siblings(for: canonicalScreen, availableScreens: availableScreens),
             availableScreens: availableScreens
         )

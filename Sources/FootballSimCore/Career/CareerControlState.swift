@@ -5,6 +5,8 @@ public enum CollegeCareerResponsibility: String, Codable, Sendable, CaseIterable
     case portalAndRetention
     case nilAllocation
     case redshirts
+    case practicePlan
+    case depthChart
 }
 
 public enum CareerResponsibilityOwner: Codable, Sendable, Equatable {
@@ -12,13 +14,32 @@ public enum CareerResponsibilityOwner: Codable, Sendable, Equatable {
     case delegated(staffID: UUID)
 }
 
+public enum ProCareerResponsibility: String, Codable, Sendable, CaseIterable, Hashable {
+    case scouting
+    case rosterManagement
+    case contractNegotiations
+    case gamePlan
+    case practicePlan
+    case depthChart
+}
+
 public struct CollegeCareerControl: Codable, Sendable, Equatable {
+    private static let currentResponsibilitySchemaVersion = 2
+    private static let currentResponsibilityCount = CollegeCareerResponsibility.allCases.count
+    private static let legacyResponsibilities: Set<CollegeCareerResponsibility> = [
+        .recruiting,
+        .portalAndRetention,
+        .nilAllocation,
+        .redshirts,
+    ]
+
     public let coachID: UUID
     public let programmeID: UUID
     public let startedAt: CalendarState
     public private(set) var responsibilityOwners: [
         CollegeCareerResponsibility: CareerResponsibilityOwner
     ]
+    private let responsibilitySchemaVersion: Int
 
     public init(
         coachID: UUID,
@@ -38,15 +59,27 @@ public struct CollegeCareerControl: Codable, Sendable, Equatable {
         self.programmeID = programmeID
         self.startedAt = startedAt
         self.responsibilityOwners = responsibilityOwners
+        responsibilitySchemaVersion = Self.currentResponsibilitySchemaVersion
     }
 
     public init(from decoder: any Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let decodedOwners = try container.decode(
+        var owners = try container.decode(
             [CollegeCareerResponsibility: CareerResponsibilityOwner].self,
             forKey: .responsibilityOwners
         )
-        guard Set(decodedOwners.keys) == Set(CollegeCareerResponsibility.allCases) else {
+        let schemaVersion = try container.decodeIfPresent(
+            Int.self,
+            forKey: .responsibilitySchemaVersion
+        )
+        if schemaVersion == nil,
+           owners.count == Self.legacyResponsibilities.count,
+           owners.keys.allSatisfy(Self.legacyResponsibilities.contains) {
+            owners[.practicePlan] = .user
+            owners[.depthChart] = .user
+        }
+        guard schemaVersion == nil || schemaVersion == Self.currentResponsibilitySchemaVersion,
+              owners.count == Self.currentResponsibilityCount else {
             throw DecodingError.dataCorruptedError(
                 forKey: .responsibilityOwners,
                 in: container,
@@ -56,7 +89,8 @@ public struct CollegeCareerControl: Codable, Sendable, Equatable {
         coachID = try container.decode(UUID.self, forKey: .coachID)
         programmeID = try container.decode(UUID.self, forKey: .programmeID)
         startedAt = try container.decode(CalendarState.self, forKey: .startedAt)
-        responsibilityOwners = decodedOwners
+        responsibilityOwners = owners
+        responsibilitySchemaVersion = Self.currentResponsibilitySchemaVersion
     }
 
     mutating func setOwner(
@@ -67,28 +101,316 @@ public struct CollegeCareerControl: Codable, Sendable, Equatable {
     }
 }
 
+public struct ProCareerControl: Codable, Sendable, Equatable {
+    public let coachID: UUID
+    public let teamID: UUID
+    public let startedAt: CalendarState
+    public private(set) var responsibilityOwners: [
+        ProCareerResponsibility: CareerResponsibilityOwner
+    ]
+
+    public init(
+        coachID: UUID,
+        teamID: UUID,
+        startedAt: CalendarState,
+        responsibilityOwners: [
+            ProCareerResponsibility: CareerResponsibilityOwner
+        ] = Dictionary(uniqueKeysWithValues: ProCareerResponsibility.allCases.map {
+            ($0, .user)
+        })
+    ) {
+        precondition(
+            Set(responsibilityOwners.keys) == Set(ProCareerResponsibility.allCases),
+            "A professional career requires one owner for every management responsibility."
+        )
+        self.coachID = coachID
+        self.teamID = teamID
+        self.startedAt = startedAt
+        self.responsibilityOwners = responsibilityOwners
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let owners = try container.decode(
+            [ProCareerResponsibility: CareerResponsibilityOwner].self,
+            forKey: .responsibilityOwners
+        )
+        guard Set(owners.keys) == Set(ProCareerResponsibility.allCases) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .responsibilityOwners,
+                in: container,
+                debugDescription: "A professional career has missing responsibilities."
+            )
+        }
+        coachID = try container.decode(UUID.self, forKey: .coachID)
+        teamID = try container.decode(UUID.self, forKey: .teamID)
+        startedAt = try container.decode(CalendarState.self, forKey: .startedAt)
+        responsibilityOwners = owners
+    }
+
+    mutating func setOwner(
+        _ owner: CareerResponsibilityOwner,
+        for responsibility: ProCareerResponsibility
+    ) {
+        responsibilityOwners[responsibility] = owner
+    }
+}
+
+public enum CareerDelegatedAction: String, Codable, Sendable, Equatable {
+    case responsibilityAssigned
+    case decisionApplied
+    case recruiting
+    case portalAndRetention
+    case nilAllocation
+    case gamePlan
+    case practicePlan
+    case depthChart
+    case scouting
+    case rosterManagement
+    case contractNegotiation
+}
+
+public enum CareerDelegatedEffect: Codable, Sendable, Equatable {
+    case ownershipChanged
+    case recommendationApplied(optionID: UUID)
+    case actionsCommitted(count: Int)
+
+    fileprivate var isValid: Bool {
+        switch self {
+        case .ownershipChanged, .recommendationApplied:
+            return true
+        case let .actionsCommitted(count):
+            return (1...10_000).contains(count)
+        }
+    }
+}
+
+public enum CareerDelegationTrigger: String, Codable, Sendable, Equatable {
+    case userRequest
+    case scheduledWeek
+    case mandatoryDecision
+    case cruise
+}
+
+public struct CareerDelegatedActivity: Codable, Sendable, Equatable, Identifiable {
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case calendar
+        case area
+        case actorID
+        case action
+        case effect
+        case trigger
+    }
+
+    public let id: String
+    public let calendar: CalendarState
+    public let area: CareerResponsibilityArea
+    public let actorID: UUID
+    public let action: CareerDelegatedAction
+    public let effect: CareerDelegatedEffect
+    public let trigger: CareerDelegationTrigger
+
+    public init(
+        id: String,
+        calendar: CalendarState,
+        area: CareerResponsibilityArea,
+        actorID: UUID,
+        action: CareerDelegatedAction,
+        effect: CareerDelegatedEffect,
+        trigger: CareerDelegationTrigger
+    ) {
+        precondition(
+            !id.isEmpty && id.count <= 256 && effect.isValid,
+            "A delegated activity is invalid."
+        )
+        self.id = id
+        self.calendar = calendar
+        self.area = area
+        self.actorID = actorID
+        self.action = action
+        self.effect = effect
+        self.trigger = trigger
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let effect = try container.decode(CareerDelegatedEffect.self, forKey: .effect)
+        guard effect.isValid else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .effect,
+                in: container,
+                debugDescription: "A delegated activity effect is invalid."
+            )
+        }
+        let id = try container.decode(String.self, forKey: .id)
+        guard !id.isEmpty, id.count <= 256 else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .id,
+                in: container,
+                debugDescription: "A delegated activity identity is invalid."
+            )
+        }
+        self.id = id
+        calendar = try container.decode(CalendarState.self, forKey: .calendar)
+        area = try container.decode(CareerResponsibilityArea.self, forKey: .area)
+        actorID = try container.decode(UUID.self, forKey: .actorID)
+        action = try container.decode(CareerDelegatedAction.self, forKey: .action)
+        self.effect = effect
+        trigger = try container.decode(CareerDelegationTrigger.self, forKey: .trigger)
+    }
+}
+
+public enum CareerCruiseStatus: String, Codable, Sendable, Equatable {
+    case active
+    case stopped
+    case completed
+}
+
+public enum CareerCruiseStopReason: String, Codable, Sendable, Equatable {
+    case mandatoryDecision
+    case capIllegal
+    case injuryAvailabilityChanged
+    case matchRequiresControl
+    case userRequested
+    case requestedEnd
+    case careerComplete
+}
+
+public struct CareerCruiseState: Codable, Sendable, Equatable {
+    public static let maximumWeeks = 52
+
+    public let startedAt: CalendarState
+    public private(set) var current: CalendarState
+    public let requestedEnd: CalendarState
+    public private(set) var status: CareerCruiseStatus
+    public private(set) var stopReason: CareerCruiseStopReason?
+
+    public init(startedAt: CalendarState, requestedEnd: CalendarState) {
+        precondition(Self.isValidRangeForControl(from: startedAt, through: requestedEnd))
+        self.startedAt = startedAt
+        current = startedAt
+        self.requestedEnd = requestedEnd
+        status = .active
+        stopReason = nil
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let startedAt = try container.decode(CalendarState.self, forKey: .startedAt)
+        let current = try container.decode(CalendarState.self, forKey: .current)
+        let requestedEnd = try container.decode(CalendarState.self, forKey: .requestedEnd)
+        let status = try container.decode(CareerCruiseStatus.self, forKey: .status)
+        let reason = try container.decodeIfPresent(
+            CareerCruiseStopReason.self,
+            forKey: .stopReason
+        )
+        guard Self.isValidRangeForControl(from: startedAt, through: requestedEnd),
+              Self.isOnOrAfter(current, startedAt),
+              Self.isOnOrAfter(requestedEnd, current),
+              (status == .active ? reason == nil : reason != nil),
+              (status != .completed || reason == .requestedEnd || reason == .careerComplete)
+        else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .status,
+                in: container,
+                debugDescription: "A career cruise checkpoint is invalid."
+            )
+        }
+        self.startedAt = startedAt
+        self.current = current
+        self.requestedEnd = requestedEnd
+        self.status = status
+        stopReason = reason
+    }
+
+    mutating func resume() -> Bool {
+        guard status == .stopped, current != requestedEnd else { return false }
+        status = .active
+        stopReason = nil
+        return true
+    }
+
+    mutating func advance(to calendar: CalendarState) -> Bool {
+        guard status == .active,
+              Self.isOnOrAfter(calendar, current),
+              Self.isOnOrAfter(requestedEnd, calendar) else { return false }
+        current = calendar
+        if current == requestedEnd {
+            status = .completed
+            stopReason = .requestedEnd
+        }
+        return true
+    }
+
+    mutating func stop(_ reason: CareerCruiseStopReason) {
+        guard status == .active else { return }
+        status = reason == .requestedEnd || reason == .careerComplete ? .completed : .stopped
+        stopReason = reason
+    }
+
+    static func isValidRangeForControl(
+        from start: CalendarState,
+        through end: CalendarState
+    ) -> Bool {
+        guard isOnOrAfter(end, start) else { return false }
+        let seasonDelta = end.season - start.season
+        guard seasonDelta <= maximumWeeks / SharedRules.inSeasonWeeks + 1 else { return false }
+        let weeks = seasonDelta * SharedRules.inSeasonWeeks + end.week - start.week
+        return (1...maximumWeeks).contains(weeks)
+    }
+
+    private static func isOnOrAfter(_ lhs: CalendarState, _ rhs: CalendarState) -> Bool {
+        lhs.season > rhs.season || (lhs.season == rhs.season && lhs.week >= rhs.week)
+    }
+}
+
 public struct CareerControlState: Codable, Sendable, Equatable {
+    private enum CodingKeys: String, CodingKey {
+        case college
+        case pro
+        case coachID
+        case mandatoryDecisionResolutions
+        case delegatedActivities
+        case cruise
+    }
+
     public static let maximumMandatoryDecisionResolutions = 10_000
+    public static let maximumDelegatedActivities = 512
     public private(set) var college: CollegeCareerControl?
+    public private(set) var pro: ProCareerControl?
     /// The coach identity survives tier transitions and separation from a programme.
     /// Optional decoding keeps schema-11 saves readable; new careers always set it.
     public private(set) var coachID: UUID?
     public private(set) var mandatoryDecisionResolutions: [MandatoryDecisionResolution]
+    public private(set) var delegatedActivities: [CareerDelegatedActivity]
+    public private(set) var cruise: CareerCruiseState?
 
     public init(
         college: CollegeCareerControl? = nil,
+        pro: ProCareerControl? = nil,
         coachID: UUID? = nil,
-        mandatoryDecisionResolutions: [MandatoryDecisionResolution] = []
+        mandatoryDecisionResolutions: [MandatoryDecisionResolution] = [],
+        delegatedActivities: [CareerDelegatedActivity] = [],
+        cruise: CareerCruiseState? = nil
     ) {
+        precondition(college == nil || pro == nil, "A career cannot control both tiers at once.")
         precondition(
             mandatoryDecisionResolutions.count <= Self.maximumMandatoryDecisionResolutions
                 && Set(mandatoryDecisionResolutions.map(\.decisionID)).count
                     == mandatoryDecisionResolutions.count,
             "Career decision history is invalid."
         )
+        precondition(
+            Self.activitiesAreValid(delegatedActivities),
+            "Delegated career activity is invalid."
+        )
         self.college = college
-        self.coachID = coachID ?? college?.coachID
+        self.pro = pro
+        self.coachID = coachID ?? college?.coachID ?? pro?.coachID
         self.mandatoryDecisionResolutions = mandatoryDecisionResolutions
+        self.delegatedActivities = delegatedActivities
+        self.cruise = cruise
     }
 
     public init(from decoder: any Decoder) throws {
@@ -106,17 +428,51 @@ public struct CareerControlState: Codable, Sendable, Equatable {
             )
         }
         college = try container.decodeIfPresent(CollegeCareerControl.self, forKey: .college)
-        coachID = try container.decodeIfPresent(UUID.self, forKey: .coachID) ?? college?.coachID
+        pro = try container.decodeIfPresent(ProCareerControl.self, forKey: .pro)
+        guard college == nil || pro == nil else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .pro,
+                in: container,
+                debugDescription: "A career cannot control both tiers at once."
+            )
+        }
+        coachID = try container.decodeIfPresent(UUID.self, forKey: .coachID)
+            ?? college?.coachID
+            ?? pro?.coachID
         mandatoryDecisionResolutions = decoded
+        let activities = try container.decodeIfPresent(
+            [CareerDelegatedActivity].self,
+            forKey: .delegatedActivities
+        ) ?? []
+        guard Self.activitiesAreValid(activities) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .delegatedActivities,
+                in: container,
+                debugDescription: "Delegated career activity is invalid."
+            )
+        }
+        delegatedActivities = activities
+        cruise = try container.decodeIfPresent(CareerCruiseState.self, forKey: .cruise)
     }
 
     mutating func setCollege(_ control: CollegeCareerControl) {
         college = control
+        pro = nil
+        coachID = control.coachID
+    }
+
+    mutating func setPro(_ control: ProCareerControl) {
+        pro = control
+        college = nil
         coachID = control.coachID
     }
 
     mutating func clearCollege() {
         college = nil
+    }
+
+    mutating func clearPro() {
+        pro = nil
     }
 
     @discardableResult
@@ -127,6 +483,52 @@ public struct CareerControlState: Codable, Sendable, Equatable {
               }) else { return false }
         mandatoryDecisionResolutions.append(resolution)
         return true
+    }
+
+    @discardableResult
+    mutating func recordDelegatedActivity(_ activity: CareerDelegatedActivity) -> Bool {
+        guard !delegatedActivities.contains(where: { $0.id == activity.id }),
+              delegatedActivities.last.map({ !Self.occurs(activity.calendar, before: $0.calendar) })
+                ?? true else { return false }
+        delegatedActivities.append(activity)
+        if delegatedActivities.count > Self.maximumDelegatedActivities {
+            delegatedActivities.removeFirst(
+                delegatedActivities.count - Self.maximumDelegatedActivities
+            )
+        }
+        return true
+    }
+
+    mutating func startCruise(requestedEnd: CalendarState, at calendar: CalendarState) -> Bool {
+        guard cruise?.status != .active,
+              CareerCruiseState.isValidRangeForControl(from: calendar, through: requestedEnd)
+        else { return false }
+        cruise = CareerCruiseState(startedAt: calendar, requestedEnd: requestedEnd)
+        return true
+    }
+
+    mutating func resumeCruise() -> Bool {
+        cruise?.resume() ?? false
+    }
+
+    mutating func advanceCruise(to calendar: CalendarState) -> Bool {
+        cruise?.advance(to: calendar) ?? false
+    }
+
+    mutating func stopCruise(_ reason: CareerCruiseStopReason) {
+        cruise?.stop(reason)
+    }
+
+    private static func activitiesAreValid(_ activities: [CareerDelegatedActivity]) -> Bool {
+        guard activities.count <= maximumDelegatedActivities,
+              Set(activities.map(\.id)).count == activities.count else { return false }
+        return zip(activities, activities.dropFirst()).allSatisfy {
+            !occurs($1.calendar, before: $0.calendar)
+        }
+    }
+
+    private static func occurs(_ lhs: CalendarState, before rhs: CalendarState) -> Bool {
+        lhs.season < rhs.season || (lhs.season == rhs.season && lhs.week < rhs.week)
     }
 }
 
@@ -147,11 +549,15 @@ public struct CareerControlTransition: Sendable, Equatable {
 }
 
 public enum CareerControlSystem {
+    public static let maximumResponsibilitiesPerDelegate = 2
+
     public static func startCollegeCareer(
         at programmeID: UUID,
         in state: GameState
     ) throws -> CareerControlTransition {
-        guard state.career.college == nil, state.careerArc.currentJob == nil else {
+        guard state.career.college == nil,
+              state.career.pro == nil,
+              state.careerArc.currentJob == nil else {
             throw CareerControlError.careerAlreadyStarted
         }
         guard let programme = state.programmes[programmeID] else {
@@ -216,6 +622,11 @@ public enum CareerControlSystem {
             for: coach
         )
         next.career.setCollege(control)
+        _ = next.careerArc.establishCollegeJob(
+            organisationID: programmeID,
+            at: state.calendar
+        )
+        CareerArcSystem.prepareSeasonExpectation(in: next, arc: &next.careerArc)
         guard WorldIntegrity.check(next).isValid else {
             throw CareerControlError.missingHeadCoach
         }
@@ -272,6 +683,11 @@ public enum CareerControlSystem {
                 for: member
             )
         }
+        state.career.setPro(ProCareerControl(
+            coachID: coachID,
+            teamID: teamID,
+            startedAt: state.calendar
+        ))
     }
 
     /// The coordinators employed by whichever organisation currently seats the coach, in role
@@ -312,6 +728,9 @@ public enum CareerControlSystem {
     ) -> (coachID: UUID, record: CoachSeasonRecord)? {
         guard let coachID = state.career.coachID,
               let job = state.careerArc.currentJob else { return nil }
+        if let outcome = CareerSeasonOutcomeSystem.snapshot(after: calendar, in: state) {
+            return (coachID, outcome)
+        }
         let tier: Tier = job.tier == .college ? .college : .pro
         guard let row = state.competition.standings[tier]?.first(where: {
             $0.id == job.organisationID
@@ -427,15 +846,53 @@ public enum CareerControlSystem {
         guard var control = state.career.college,
               let programme = state.programmes[control.programmeID] else { return false }
         if case let .delegated(staffID) = owner {
-            guard programme.staffIDs.contains(staffID), state.staff[staffID] != nil else {
+            guard staffID != control.coachID,
+                  programme.staffIDs.contains(staffID),
+                  state.staff[staffID] != nil else {
                 return false
             }
         }
         control.setOwner(owner, for: responsibility)
+        guard delegationFitsCapacity(control.responsibilityOwners.values) else { return false }
         var proposed = state
         proposed.career.setCollege(control)
         guard WorldIntegrity.check(proposed).isValid else { return false }
         state = proposed
+        return true
+    }
+
+    @discardableResult
+    public static func setProResponsibility(
+        _ responsibility: ProCareerResponsibility,
+        owner: CareerResponsibilityOwner,
+        in state: inout GameState
+    ) -> Bool {
+        guard var control = state.career.pro,
+              let team = state.proTeams[control.teamID] else { return false }
+        if case let .delegated(staffID) = owner {
+            guard staffID != control.coachID,
+                  team.staffIDs.contains(staffID),
+                  state.staff[staffID] != nil else { return false }
+        }
+        control.setOwner(owner, for: responsibility)
+        guard delegationFitsCapacity(control.responsibilityOwners.values) else { return false }
+        var proposed = state
+        proposed.career.setPro(control)
+        guard WorldIntegrity.check(proposed).isValid else { return false }
+        state = proposed
+        return true
+    }
+
+    static func delegationFitsCapacity<S: Sequence>(_ owners: S) -> Bool
+    where S.Element == CareerResponsibilityOwner {
+        var counts: [UUID: Int] = [:]
+        for owner in owners {
+            guard case let .delegated(staffID) = owner else { continue }
+            counts[staffID, default: 0] += 1
+            if counts[staffID, default: 0] > maximumResponsibilitiesPerDelegate {
+                return false
+            }
+        }
         return true
     }
 }
@@ -446,18 +903,204 @@ public enum CollegeCareerDelegationSystem {
     public static func processRecruiting(
         in state: GameState
     ) throws -> CollegeRecruitingAITransition {
-        guard let control = state.career.college,
-              case .delegated = control.responsibilityOwners[.recruiting] else {
-            return CollegeRecruitingAITransition(
-                college: state.college,
-                scouting: state.scouting,
-                decisions: [],
-                eventPayloads: []
-            )
-        }
-        return try CollegeRecruitingAISystem.process(
+        let unchanged = CollegeRecruitingAITransition(
+            college: state.college,
+            scouting: state.scouting,
+            decisions: [],
+            eventPayloads: []
+        )
+        guard let control = state.career.college else { return unchanged }
+
+        let recruitingIsDelegated = if case .delegated = control
+            .responsibilityOwners[.recruiting] { true } else { false }
+        let nilIsDelegated = if case .delegated = control
+            .responsibilityOwners[.nilAllocation] { true } else { false }
+        guard recruitingIsDelegated || nilIsDelegated else { return unchanged }
+
+        let proposed = try CollegeRecruitingAISystem.process(
             programmeIDs: [control.programmeID],
             in: state
+        )
+        if recruitingIsDelegated && nilIsDelegated { return proposed }
+
+        func applyDelegated(
+            _ request: RecruitingActionRequest,
+            to state: inout GameState
+        ) throws -> RecruitingActionTransition {
+            let userRelationship = nilIsDelegated
+                ? state.college.programmes[request.programmeID]?
+                    .relationships[request.prospectID]
+                : nil
+            let transition = try CollegeRecruitingSystem.apply(request, in: state)
+            var college = transition.college
+            if let userRelationship {
+                _ = college.updateProgramme(request.programmeID) { programme in
+                    _ = programme.updateRelationship(request.prospectID) {
+                        $0 = userRelationship
+                    }
+                }
+            }
+            state.college = college
+            if !nilIsDelegated {
+                state.scouting = transition.scouting
+            }
+            return transition
+        }
+
+        var working = state
+        var decisions: [RecruitingPolicyDecision] = []
+        var payloads: [DomainEventPayload] = []
+
+        for decision in proposed.decisions {
+            let isNIL = if case .setNILAllocation = decision.request.action {
+                true
+            } else {
+                false
+            }
+            guard isNIL ? nilIsDelegated : recruitingIsDelegated else { continue }
+
+            if recruitingIsDelegated,
+               case .withdraw = decision.request.action,
+               (working.college.programmes[decision.request.programmeID]?
+                   .nilAllocation(for: decision.request.prospectID) ?? 0) > 0 {
+                continue
+            }
+
+            guard let transition = try? applyDelegated(
+                decision.request,
+                to: &working
+            ) else { continue }
+            decisions.append(decision)
+            payloads.append(contentsOf: transition.eventPayloads)
+        }
+
+        if nilIsDelegated,
+           decisions.isEmpty,
+           let recruiting = working.college.programmes[control.programmeID],
+           let prospectID = recruiting.boardIDs.first(where: {
+               recruiting.nilAllocation(for: $0) < CollegeRules.aiInitialNILAllocation
+           }) {
+            let current = recruiting.nilAllocation(for: prospectID)
+            let increase = min(
+                recruiting.nilState.remaining,
+                CollegeRules.aiInitialNILAllocation - current
+            )
+            if increase > 0 {
+                let request = RecruitingActionRequest(
+                    programmeID: control.programmeID,
+                    prospectID: prospectID,
+                    action: .setNILAllocation(amount: current + increase)
+                )
+                let transition = try applyDelegated(request, to: &working)
+                decisions.append(RecruitingPolicyDecision(
+                    request: request,
+                    score: transition.explanation.total,
+                    explanation: transition.explanation
+                ))
+                payloads.append(contentsOf: transition.eventPayloads)
+            }
+        }
+        return CollegeRecruitingAITransition(
+            college: working.college,
+            scouting: working.scouting,
+            decisions: decisions,
+            eventPayloads: payloads
+        )
+    }
+}
+
+public struct ProCareerDelegationTransition: Sendable, Equatable {
+    public let state: GameState
+    public let eventPayloads: [DomainEventPayload]
+    public let settledNegotiationIDs: [UUID]
+
+    public init(
+        state: GameState,
+        eventPayloads: [DomainEventPayload],
+        settledNegotiationIDs: [UUID] = []
+    ) {
+        self.state = state
+        self.eventPayloads = eventPayloads
+        self.settledNegotiationIDs = settledNegotiationIDs
+    }
+}
+
+public enum ProCareerDelegationSystem {
+    public static func process(in state: GameState) throws -> ProCareerDelegationTransition {
+        guard let control = state.career.pro else {
+            return ProCareerDelegationTransition(state: state, eventPayloads: [])
+        }
+        var next = state
+        var payloads: [DomainEventPayload] = []
+        var settledNegotiationIDs: [UUID] = []
+        if case let .delegated(staffID) = control.responsibilityOwners[.scouting],
+           state.proMarket.phase == .freeAgency || state.proMarket.phase == .draft {
+            let observed = Set(state.proMarket.observations.lazy
+                .filter { $0.teamID == control.teamID }
+                .map(\.prospectID))
+            if let prospectID = state.proMarket.draftClass.first(where: {
+                !observed.contains($0.id)
+            })?.id {
+                next = try ProMarketSystem.recordScouting(
+                    teamID: control.teamID,
+                    prospectID: prospectID,
+                    in: next
+                )
+                if let observation = next.proMarket.observations.first(where: {
+                    $0.teamID == control.teamID && $0.prospectID == prospectID
+                }) {
+                    payloads.append(.proDraftScouted(
+                        teamID: control.teamID,
+                        prospectID: prospectID,
+                        confidence: observation.confidence
+                    ))
+                    _ = next.career.recordDelegatedActivity(CareerDelegatedActivity(
+                        id: "\(state.calendar.season)|\(state.calendar.week)|pro.scouting|\(staffID.uuidString)|\(prospectID.uuidString)",
+                        calendar: state.calendar,
+                        area: .professional(.scouting),
+                        actorID: staffID,
+                        action: .scouting,
+                        effect: .actionsCommitted(count: 1),
+                        trigger: state.career.cruise?.status == .active
+                            ? .cruise : .scheduledWeek
+                    ))
+                }
+            }
+        }
+        if case let .delegated(staffID) = control
+            .responsibilityOwners[.contractNegotiations],
+           let negotiation = next.proMarket.contractNegotiations.first(where: {
+               $0.teamID == control.teamID && $0.status.isOpen
+           }) {
+            do {
+                next = try ProManagementSystem.settleNegotiation(
+                    negotiationID: negotiation.id,
+                    as: .accepted,
+                    in: next
+                ).state
+            } catch ProManagementError.capExceeded {
+                next = try ProManagementSystem.settleNegotiation(
+                    negotiationID: negotiation.id,
+                    as: .rejected,
+                    in: next
+                ).state
+            }
+            settledNegotiationIDs.append(negotiation.id)
+            _ = next.career.recordDelegatedActivity(CareerDelegatedActivity(
+                id: "\(state.calendar.season)|\(state.calendar.week)|pro.contractNegotiations|\(staffID.uuidString)|\(negotiation.id.uuidString)",
+                calendar: state.calendar,
+                area: .professional(.contractNegotiations),
+                actorID: staffID,
+                action: .contractNegotiation,
+                effect: .actionsCommitted(count: 1),
+                trigger: state.career.cruise?.status == .active
+                    ? .cruise : .scheduledWeek
+            ))
+        }
+        return ProCareerDelegationTransition(
+            state: next,
+            eventPayloads: payloads,
+            settledNegotiationIDs: settledNegotiationIDs
         )
     }
 }

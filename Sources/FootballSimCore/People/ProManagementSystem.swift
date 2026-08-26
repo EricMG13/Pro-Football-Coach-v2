@@ -233,6 +233,7 @@ public enum ProManagementSystem {
         let isActive = team.rosterIDs.contains(playerID)
         let isPractice = team.practiceSquadIDs.contains(playerID)
         guard isActive || isPractice else { throw ProManagementError.playerNotOnRoster }
+        let before = try capSnapshot(teamID: teamID, in: state)
         let addedDeadMoney = contract.deadMoney(ifReleasedAtSeason: state.calendar.season)
         guard team.deadMoney <= Int.max - addedDeadMoney else {
             throw ProManagementError.invalidTeamRoster
@@ -245,13 +246,18 @@ public enum ProManagementSystem {
             $0.deadMoney += addedDeadMoney
         }
         next.players.update(playerID) { $0.contract = nil }
+        let after = try capSnapshot(teamID: teamID, in: next)
+        guard before.isWithinCap ? after.isWithinCap : after.committedCap < before.committedCap else {
+            throw ProManagementError.capExceeded
+        }
+        next = ProCapComplianceSystem.refresh(in: next)
         guard WorldIntegrity.check(next).isValid else { throw ProManagementError.invalidRoot }
         return ProReleaseReceipt(
             state: next,
             playerID: playerID,
             teamID: teamID,
             deadMoneyAdded: addedDeadMoney,
-            capAfter: try capSnapshot(teamID: teamID, in: next)
+            capAfter: after
         )
     }
 
@@ -283,7 +289,9 @@ public enum ProManagementSystem {
             with: offer,
             in: state
         )
-        guard after.isWithinCap else { throw ProManagementError.capExceeded }
+        guard before.isWithinCap ? after.isWithinCap : after.committedCap < before.committedCap else {
+            throw ProManagementError.capExceeded
+        }
         var negotiationRNG = SeededRandom(seed: SeededRandom.derive(
             from: SeededRandom.seed(from: teamID, playerID),
             scope: .contract,
@@ -332,7 +340,9 @@ public enum ProManagementSystem {
             with: offer,
             in: next
         )
-        guard after.isWithinCap else { throw ProManagementError.capExceeded }
+        guard before.isWithinCap ? after.isWithinCap : after.committedCap < before.committedCap else {
+            throw ProManagementError.capExceeded
+        }
         guard negotiation.counter(with: offer), next.proMarket.updateContractNegotiation(negotiation) else {
             throw ProManagementError.negotiationClosed
         }
@@ -370,15 +380,19 @@ public enum ProManagementSystem {
                 with: negotiation.currentOffer,
                 in: next
             )
-            guard after.isWithinCap else { throw ProManagementError.capExceeded }
+            guard before.isWithinCap
+                ? after.isWithinCap
+                : after.committedCap < before.committedCap else {
+                throw ProManagementError.capExceeded
+            }
             next.players.update(negotiation.playerID) {
                 $0.contract = negotiation.currentOffer.withSignedSeason(state.calendar.season)
             }
-            after = try capSnapshot(teamID: negotiation.teamID, in: next)
         }
         guard negotiation.settle(as: status), next.proMarket.updateContractNegotiation(negotiation) else {
             throw ProManagementError.negotiationClosed
         }
+        next = ProCapComplianceSystem.refresh(in: next)
         guard WorldIntegrity.check(next).isValid else { throw ProManagementError.invalidRoot }
         return ProNegotiationReceipt(
             state: next,

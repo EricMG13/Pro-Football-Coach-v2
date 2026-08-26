@@ -33,6 +33,8 @@ if CommandLine.arguments.contains("--catalog") {
     runProfessionalCareerSessionTests()
 } else if CommandLine.arguments.contains("--career-arc") {
     runCareerArcTests()
+} else if CommandLine.arguments.contains("--career-outcomes") {
+    runCareerOutcomeTests()
 } else if CommandLine.arguments.contains("--coach-season-record") {
     runCoachSeasonRecordTests()
 } else if CommandLine.arguments.contains("--pro-management") {
@@ -55,6 +57,8 @@ if CommandLine.arguments.contains("--catalog") {
     runWeekAdvanceTimingProbe()
 } else if CommandLine.arguments.contains("--performance-budget") {
     runPerformanceBudgetTests()
+} else if CommandLine.arguments.contains("--agency-budget") {
+    runAgencyBudgetTests()
 } else if CommandLine.arguments.contains("--pro-movement-probe") {
     runProMovementProbe()
 } else if CommandLine.arguments.contains("--pro-draft-stall-probe") {
@@ -73,6 +77,14 @@ if CommandLine.arguments.contains("--catalog") {
 } else if let index = CommandLine.arguments.firstIndex(of: "--team-logo-specimen"),
           CommandLine.arguments.indices.contains(index + 1) {
     try writeTeamLogoSpecimen(family: CommandLine.arguments[index + 1])
+} else if CommandLine.arguments.contains("--e2e-journey-child") {
+    runE2EJourneyChild()
+} else if CommandLine.arguments.contains("--e2e-journey") {
+    runE2EJourneyTests()
+} else if CommandLine.arguments.contains("--e2e-h-durability-child") {
+    runE2EHDurabilityChild()
+} else if CommandLine.arguments.contains("--e2e-h-durability") {
+    runE2EHDurabilityTests()
 } else if CommandLine.arguments.contains("--screen-read-models") {
     runReadModelProviderTests()
     runAvailabilityProviderTests()
@@ -104,6 +116,8 @@ if CommandLine.arguments.contains("--catalog") {
     runInvalidRedshirtCareerGamesProbe(tier: .pro)
 } else if CommandLine.arguments.contains("--m3-recruiting-calibration") {
     runM3RecruitingCalibrationTests()
+} else if CommandLine.arguments.contains("--calibration-tuning") {
+    runCalibrationGateTests(tuning: true)
 } else if CommandLine.arguments.contains("--calibration-gate") {
     runCalibrationGateTests()
 } else if CommandLine.arguments.contains("--calibration") {

@@ -7,6 +7,8 @@ import AppKit
 #endif
 
 enum CoachWorldTeamLogoSize: CGFloat {
+    case context = 11
+    case desk = 19
     case compact = 20
     case medium = 32
     case large = 44

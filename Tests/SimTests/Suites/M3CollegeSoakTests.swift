@@ -14,13 +14,13 @@ func runM3CollegeSoakTests() {
                 at: programmeID,
                 in: source
             ).state
-            let staffID = source.programmes[programmeID]!.staffIDs.first {
-                source.staff[$0]?.role == .offensiveCoordinator
-            }!
-            for responsibility in CollegeCareerResponsibility.allCases {
+            let staffIDs = source.programmes[programmeID]!.staffIDs.filter {
+                source.staff[$0]?.role != .headCoach
+            }
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
                 expect(CareerControlSystem.setResponsibility(
                     responsibility,
-                    owner: .delegated(staffID: staffID),
+                    owner: .delegated(staffID: staffIDs[index / 2]),
                     in: &source
                 ))
             }
@@ -158,12 +158,14 @@ func runM3CollegeSoakTests() {
                 expectEqual(Set(state.people.playerLifecycle.keys), Set(state.players.ids))
                 let departedPlayerIDs = Set(state.people.departedPlayers.keys)
                 let exceptionalDepartedPlayerIDs = departedPlayerIDs.intersection(retainedPlayerIDs)
+                // The authoritative season pruner uses the departed-store limit; the smaller
+                // compacted-list limit governs a different projection.
                 expect(exceptionalDepartedPlayerIDs.subtracting(durablePlayerIDs).count
                     <= state.history.recent.count * 6
                         + state.competition.archives.count * Tier.allCases.count)
                 expect(departedPlayerIDs.subtracting(exceptionalDepartedPlayerIDs).count
-                    <= PeopleRules.maximumRetainedDepartedPlayers)
-                expect(departedPlayerIDs.count <= PeopleRules.maximumRetainedDepartedPlayers
+                    <= PeopleRules.departedPlayerRetentionLimit)
+                expect(departedPlayerIDs.count <= PeopleRules.departedPlayerRetentionLimit
                     + exceptionalDepartedPlayerIDs.count)
                 expectEqual(Set(state.people.playerCareers.keys),
                             Set(state.players.ids).union(departedPlayerIDs))

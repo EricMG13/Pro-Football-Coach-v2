@@ -35,17 +35,45 @@ public enum ProRosterAISystem {
         guard calendar == state.calendar else {
             return ProRosterAITransition(state: state, eventPayloads: [], signedPlayerIDs: [])
         }
-        let controlledTeamID = state.careerArc.currentJob.flatMap { job in
+        let rosterDelegateID: UUID? = if let owner = state.career.pro?
+            .responsibilityOwners[.rosterManagement], case let .delegated(staffID) = owner {
+            staffID
+        } else { nil }
+        let rosterIsDelegated = rosterDelegateID != nil
+        let controlledTeamID = rosterIsDelegated ? nil : state.careerArc.currentJob.flatMap { job in
             job.tier == .professional ? job.organisationID : nil
         }
-        switch state.proMarket.phase {
+        let transition: ProRosterAITransition = switch state.proMarket.phase {
         case .freeAgency:
-            return try signFreeAgents(in: state, controlledTeamID: controlledTeamID)
+            try signFreeAgents(in: state, controlledTeamID: controlledTeamID)
         case .draft:
-            return try makeDraftPicks(in: state, controlledTeamID: controlledTeamID)
+            try makeDraftPicks(in: state, controlledTeamID: controlledTeamID)
         case .closed, .rosterBuild:
-            return ProRosterAITransition(state: state, eventPayloads: [], signedPlayerIDs: [])
+            ProRosterAITransition(state: state, eventPayloads: [], signedPlayerIDs: [])
         }
+        guard let staffID = rosterDelegateID,
+              let teamID = state.career.pro?.teamID else { return transition }
+        let addedPlayerIDs = Set(transition.state.proTeams[teamID]?.rosterIDs ?? [])
+            .subtracting(state.proTeams[teamID]?.rosterIDs ?? [])
+            .sorted { $0.uuidString < $1.uuidString }
+        guard let firstPlayerID = addedPlayerIDs.first else { return transition }
+        var attributed = transition.state
+        _ = attributed.career.recordDelegatedActivity(CareerDelegatedActivity(
+            id: "\(calendar.season)|\(calendar.week)|pro.rosterManagement|\(staffID.uuidString)|\(firstPlayerID.uuidString)",
+            calendar: calendar,
+            area: .professional(.rosterManagement),
+            actorID: staffID,
+            action: .rosterManagement,
+            effect: .actionsCommitted(count: addedPlayerIDs.count),
+            trigger: state.career.cruise?.status == .active ? .cruise : .scheduledWeek
+        ))
+        return ProRosterAITransition(
+            state: attributed,
+            eventPayloads: transition.eventPayloads,
+            signedPlayerIDs: transition.signedPlayerIDs,
+            passedPicks: transition.passedPicks,
+            stoppedBecause: transition.stoppedBecause
+        )
     }
 
     /// Every pick the AI is entitled to make, in draft order, best available by rating.

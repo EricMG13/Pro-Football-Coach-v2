@@ -2,6 +2,46 @@ import Foundation
 import FootballSimCore
 @testable import CoachWorldApp
 
+private struct LegacyFourAreaCollegeCareerControl: Encodable {
+    let coachID: UUID
+    let programmeID: UUID
+    let startedAt: CalendarState
+    let responsibilityOwners: [CollegeCareerResponsibility: CareerResponsibilityOwner]
+
+    init(_ control: CollegeCareerControl) {
+        coachID = control.coachID
+        programmeID = control.programmeID
+        startedAt = control.startedAt
+        responsibilityOwners = [
+            .recruiting: control.responsibilityOwners[.recruiting]!,
+            .portalAndRetention: control.responsibilityOwners[.portalAndRetention]!,
+            .nilAllocation: control.responsibilityOwners[.nilAllocation]!,
+            .redshirts: control.responsibilityOwners[.redshirts]!,
+        ]
+    }
+}
+
+private struct MarkedCollegeCareerControl: Encodable {
+    let coachID: UUID
+    let programmeID: UUID
+    let startedAt: CalendarState
+    let responsibilityOwners: [CollegeCareerResponsibility: CareerResponsibilityOwner]
+    let responsibilitySchemaVersion: Int
+
+    init(_ control: CollegeCareerControl, schemaVersion: Int, includeAll: Bool = false) {
+        coachID = control.coachID
+        programmeID = control.programmeID
+        startedAt = control.startedAt
+        responsibilityOwners = includeAll ? control.responsibilityOwners : [
+            .recruiting: control.responsibilityOwners[.recruiting]!,
+            .portalAndRetention: control.responsibilityOwners[.portalAndRetention]!,
+            .nilAllocation: control.responsibilityOwners[.nilAllocation]!,
+            .redshirts: control.responsibilityOwners[.redshirts]!,
+        ]
+        responsibilitySchemaVersion = schemaVersion
+    }
+}
+
 private func legacyEnvelope(
     for state: GameState,
     omitOptionalRootFields: Bool = false,
@@ -136,7 +176,7 @@ func runSaveDocumentTests() {
             var object = try! JSONSerialization.jsonObject(
                 with: JSONEncoder.stable().encode(state)
             ) as! [String: Any]
-            object["version"] = GameState.previousSchemaVersion
+            object["version"] = 12
             var market = object["proMarket"] as! [String: Any]
             market.removeValue(forKey: "contractNegotiations")
             object["proMarket"] = market
@@ -146,6 +186,135 @@ func runSaveDocumentTests() {
             )
             expectEqual(decoded.version, GameState.schemaVersion)
             expectEqual(decoded.proMarket.contractNegotiations, [])
+        }
+
+        test("schema 13 four-area ownership migrates once and remains stable") {
+            let source = GameState.bootstrap(seed: 20_260_826)
+            let programmeID = source.programmes.ids[0]
+            var controlled = try! CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let staffID = controlled.programmes[programmeID]!.staffIDs[0]
+            expect(CareerControlSystem.setResponsibility(
+                .portalAndRetention,
+                owner: .delegated(staffID: staffID),
+                in: &controlled
+            ))
+
+            var object = try! JSONSerialization.jsonObject(
+                with: JSONEncoder.stable().encode(
+                    CoachWorldSaveDocument(gameState: controlled)
+                )
+            ) as! [String: Any]
+            var gameState = object["gameState"] as! [String: Any]
+            gameState["version"] = 13
+            var career = gameState["career"] as! [String: Any]
+            career["college"] = try! JSONSerialization.jsonObject(
+                with: JSONEncoder.stable().encode(
+                    LegacyFourAreaCollegeCareerControl(controlled.career.college!)
+                )
+            )
+            gameState["career"] = career
+            object["gameState"] = gameState
+
+            let first = try! CoachWorldSaveDocument.decode(
+                envelopeData: try! compressedEnvelope(
+                    for: JSONSerialization.data(withJSONObject: object)
+                )
+            )
+            expectEqual(first.gameState.version, GameState.schemaVersion)
+            expectEqual(
+                first.gameState.career.college?.responsibilityOwners[.portalAndRetention],
+                .delegated(staffID: staffID)
+            )
+            expectEqual(
+                first.gameState.career.college?.responsibilityOwners[.practicePlan],
+                .user
+            )
+            expectEqual(
+                first.gameState.career.college?.responsibilityOwners[.depthChart],
+                .user
+            )
+            let migratedControl = try! JSONSerialization.jsonObject(
+                with: JSONEncoder.stable().encode(first.gameState.career.college!)
+            ) as! [String: Any]
+            expectEqual(
+                (migratedControl["responsibilitySchemaVersion"] as? NSNumber)?.intValue,
+                2
+            )
+
+            let second = try! CoachWorldSaveDocument.decode(
+                envelopeData: try! SaveEnvelope.encode(first)
+            )
+            expectEqual(second, first)
+        }
+
+        test("current ownership refuses missing responsibilities and unknown markers") {
+            let source = GameState.bootstrap(seed: 20_260_827)
+            let control = try! CareerControlSystem.startCollegeCareer(
+                at: source.programmes.ids[0],
+                in: source
+            ).state.career.college!
+
+            for fixture in [
+                MarkedCollegeCareerControl(control, schemaVersion: 2),
+                MarkedCollegeCareerControl(control, schemaVersion: 3, includeAll: true),
+            ] {
+                let encoded = try! JSONEncoder.stable().encode(fixture)
+                do {
+                    _ = try JSONDecoder.stable().decode(
+                        CollegeCareerControl.self,
+                        from: encoded
+                    )
+                    expect(false, "invalid responsibility ownership decoded")
+                } catch let DecodingError.dataCorrupted(context) {
+                    expectEqual(
+                        context.debugDescription,
+                        "A college career has missing or unknown responsibilities."
+                    )
+                } catch {
+                    expect(false, "invalid ownership returned the wrong error: \(error)")
+                }
+            }
+        }
+
+        test("current root refuses markerless four-area ownership") {
+            let source = GameState.bootstrap(seed: 20_260_828)
+            let controlled = try! CareerControlSystem.startCollegeCareer(
+                at: source.programmes.ids[0],
+                in: source
+            ).state
+            var object = try! JSONSerialization.jsonObject(
+                with: JSONEncoder.stable().encode(
+                    CoachWorldSaveDocument(gameState: controlled)
+                )
+            ) as! [String: Any]
+            var gameState = object["gameState"] as! [String: Any]
+            var career = gameState["career"] as! [String: Any]
+            career["college"] = try! JSONSerialization.jsonObject(
+                with: JSONEncoder.stable().encode(
+                    LegacyFourAreaCollegeCareerControl(controlled.career.college!)
+                )
+            )
+            gameState["career"] = career
+            object["gameState"] = gameState
+
+            do {
+                _ = try CoachWorldSaveDocument.decode(
+                    envelopeData: try compressedEnvelope(
+                        for: JSONSerialization.data(withJSONObject: object)
+                    )
+                )
+                expect(false, "current corruption masqueraded as legacy ownership")
+            } catch let DecodingError.dataCorrupted(context) {
+                expectEqual(
+                    context.debugDescription,
+                    "The current game-state schema is missing responsibility metadata."
+                )
+            } catch {
+                expect(false, "current ownership corruption returned the wrong error: \(error)")
+            }
         }
 
         test("current document round trips") {

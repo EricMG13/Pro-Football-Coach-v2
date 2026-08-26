@@ -73,6 +73,52 @@ final class ProFootballCoachUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Back to HQ"].exists)
     }
 
+    func testPressBoxNavigatorPanelsAndBackStates() {
+        let app = XCUIApplication()
+        app.launchEnvironment["PROOF_NEW_CAREER"] = "424242"
+        app.launchEnvironment["PROOF_SCREEN_NUMBER"] = "8"
+        app.launch()
+
+        let navigator = app.otherElements["top-navigator"]
+        XCTAssertTrue(navigator.waitForExistence(timeout: 30))
+        XCTAssertTrue(app.staticTexts["Nothing behind this surface"].exists)
+
+        app.buttons["Switch family, This week"].tap()
+        XCTAssertTrue(app.buttons["Career, 9 tasks"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Recruiting, 7 tasks"].exists)
+        XCTAssertFalse(app.buttons["Pro management, 8 tasks"].exists)
+        let families = XCTAttachment(screenshot: app.screenshot())
+        families.name = "Press Box — family switcher"
+        families.lifetime = .keepAlways
+        add(families)
+
+        app.buttons["Career, 9 tasks"].tap()
+        XCTAssertTrue(app.buttons["Switch family, Career"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["Back to the previous surface"].exists)
+        app.buttons["Back to the previous surface"].tap()
+        XCTAssertTrue(app.buttons["Switch family, This week"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.staticTexts["Nothing behind this surface"].exists)
+
+        app.buttons["Switch family, This week"].tap()
+        XCTAssertTrue(app.buttons["Career, 9 tasks"].waitForExistence(timeout: 2))
+        app.buttons["Career, 9 tasks"].tap()
+        XCTAssertTrue(app.buttons["Switch family, Career"].waitForExistence(timeout: 2))
+
+        app.buttons["Career Hub"].tap()
+        XCTAssertTrue(app.buttons["3, Job Board"].waitForExistence(timeout: 2))
+        XCTAssertTrue(app.buttons["4, Offer"].exists)
+        XCTAssertTrue(app.buttons["5, Appointment"].exists)
+        let aliases = XCTAttachment(screenshot: app.screenshot())
+        aliases.name = "Press Box — alias host panel"
+        aliases.lifetime = .keepAlways
+        add(aliases)
+
+        app.buttons["3, Job Board"].tap()
+        XCTAssertTrue(app.buttons["Back to Opportunities"].waitForExistence(timeout: 2))
+        app.buttons["Back to Opportunities"].tap()
+        XCTAssertTrue(app.buttons["Switch family, Career"].waitForExistence(timeout: 2))
+    }
+
     func testTeamLogoAssetAndFallbackProof() {
         let app = XCUIApplication()
         app.launchEnvironment["PROOF_SCREEN"] = "team-logos"

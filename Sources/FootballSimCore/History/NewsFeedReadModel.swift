@@ -145,6 +145,7 @@ public struct NewsFeedReadModel: Sendable, Equatable {
         case .integrityChecked,
              .weekAdvanced,
              .gameCompleted,
+             .decisionDelegated,
              .playerInjured,
              .playerRecovered,
              .playerReinstated,

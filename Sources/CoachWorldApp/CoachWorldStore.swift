@@ -285,13 +285,8 @@ public final class CoachWorldStore {
     /// not need to repeat that bound -- assigning a value outside it is caught the same way a
     /// decoded one is.
     ///
-    /// Persisted and player-adjustable, not yet consumed: `situationalCallInTriggers(rules:
-    /// isSnapAfterTurnover:)` (`Situation.swift`) decides call-ins from fixed situational booleans
-    /// (fourth down, red zone, two-minute, third-and-long, after a turnover) with no rate
-    /// parameter anywhere in that path, so this value does not yet change how often a call-in
-    /// actually fires. Making it do so means deciding *which* triggers get more or less sensitive
-    /// at a chosen rate -- a mechanism `02` does not specify beyond "tunable ~12 to ~40" -- so it
-    /// stays a canon question, not a Phase 4 implementation detail.
+    /// A controlled match copies this value into its resumable session when it starts; changing the
+    /// preference during a match therefore affects the next match, not a checkpoint already saved.
     public var callInsPerGame: Int { presentation.callInsPerGame }
 
     public func setCallInsPerGame(_ value: Int) {
@@ -360,7 +355,9 @@ public final class CoachWorldStore {
     }
 
     public func advanceWeek() async {
-        await run { try await self.session.resolve(.advanceWeek) }
+        await run {
+            try await self.session.advanceWeek(callInsPerGame: self.presentation.callInsPerGame)
+        }
     }
 
     /// Commits the smallest truthful preparation when the HQ exposes an incomplete weekly board.
@@ -388,6 +385,7 @@ public final class CoachWorldStore {
             statusMessage = "That opportunity is no longer available"
             return
         }
+        let hadOffer = careerHub?.opportunities.contains { $0.id == stableID } == true
         let teamName = careerHub?.opportunities.first { $0.id == stableID }?.team.name
         await run(
             {
@@ -398,6 +396,10 @@ public final class CoachWorldStore {
             successMessage: teamName.map { "Accepted \($0). Appointment updated." }
                 ?? "Career appointment updated."
         )
+        if hadOffer && !availableScreens.contains(.promotionDecision) {
+            presentationRoute = String(CoachWorldScreenID.careerHub.rawValue)
+            presentation.route = presentationRoute
+        }
     }
 
     public func resignCareer() async {
@@ -432,8 +434,10 @@ public final class CoachWorldStore {
         let attribute: CoachAttribute = switch decision.responsibility {
         case .recruiting, .portalAndRetention, .nilAllocation:
             .recruiting
-        case .redshirts:
+        case .redshirts, .practicePlan:
             .development
+        case .depthChart:
+            .schemeAffinity
         }
         let staff = programme.staffIDs
             .compactMap { snapshot.staff[$0] }

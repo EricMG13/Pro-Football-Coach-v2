@@ -226,7 +226,7 @@ public struct DepthChartView: View, CoachWorldChromedSurface {
             .overlay {
                 CoachWorldCutCorner.row.stroke(
                     isOpen
-                        ? palette.actionPrimary.color
+                        ? palette.contentPrimary.color
                         : (vacant ? palette.stateWarning.color : Color.white.opacity(DepthMetric.tokenHairline)),
                     lineWidth: CoachWorldTokens.Shape.hairline
                 )

@@ -142,10 +142,6 @@ public enum SeasonLifecycleSystem {
             payloads: &payloads
         )
         if completed.week == SharedRules.inSeasonWeeks {
-            // The one unbounded inflow in people state, bounded at the only moment it grows.
-            // The protected set is read from the pre-transition root, so this season's departures
-            // are still active identities there and survive their first prune by construction.
-            people.pruneDepartedPlayers(protecting: retainedIdentityIDs(in: state))
             pruneSeatlessStaff(
                 state: state,
                 programmes: &programmes,
@@ -206,8 +202,9 @@ public enum SeasonLifecycleSystem {
     /// window is still named by any live portal event — the last because `WorldIntegrity`
     /// cross-checks live-window event counts, retained capacity snapshots, and scouting knowledge
     /// against career records, and dropping one half of that pair would report as corruption.
-    private static func retainedIdentityIDs(in state: GameState) -> Set<UUID> {
+    package static func retainedIdentityIDs(in state: GameState) -> Set<UUID> {
         var protectedIDs = Set(state.players.ids)
+        protectedIDs.formUnion(state.career.delegatedActivities.map(\.actorID))
         var survivingPortalWindows = Set<PortalWindowKey>()
         for event in state.history.recent {
             let payload = event.payload

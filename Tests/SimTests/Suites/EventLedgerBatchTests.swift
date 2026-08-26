@@ -13,6 +13,17 @@ func runEventLedgerBatchTests() {
             expectEqual(try JSONEncoder.stable().encode(ledger), before)
         }
 
+        test("the production hot journal archives beyond 2048 events") {
+            var ledger = DomainEventLedger()
+            let events = ledgerEvents(count: 2_049)
+
+            expect(ledger.append(contentsOf: events))
+            expectEqual(ledger.recent.count, 2_048)
+            expectEqual(ledger.recent.first?.sequence, 1)
+            expectEqual(ledger.archivedCount, 1)
+            expectEqual(ledger.totalCount, events.count)
+        }
+
         test("batch and sequential append are byte-identical at and across hot retention") {
             let retention = DomainEventLedger.defaultRetentionLimit
             let overflow = 17

@@ -478,6 +478,15 @@ func runStaffPruningTests() {
                 expect(false, "no secondary programme for the pruning fixture")
                 return
             }
+            guard let unreferencedProgrammeID = played.programmes.ids.first(where: {
+                $0 != played.career.college?.programmeID && $0 != programmeID
+            }), let unreferencedProgramme = played.programmes[unreferencedProgrammeID],
+                  let unreferencedID = unreferencedProgramme.staffIDs.first(where: {
+                      played.staff[$0]?.role == .defensiveCoordinator
+                  }) else {
+                expect(false, "no unreferenced staff fixture for pruning")
+                return
+            }
             guard let mentorID = programme.staffIDs.first(where: {
                 played.staff[$0]?.role == .headCoach
             }), let discipleID = programme.staffIDs.first(where: {
@@ -497,6 +506,27 @@ func runStaffPruningTests() {
                     [mentorID, discipleID, discardedID, historyID].contains($0)
                 }
             }
+            _ = state.programmes.update(unreferencedProgrammeID) {
+                $0.staffIDs.removeAll { $0 == unreferencedID }
+            }
+            state.career = CareerControlState(
+                college: state.career.college,
+                pro: state.career.pro,
+                coachID: state.career.coachID,
+                mandatoryDecisionResolutions: state.career.mandatoryDecisionResolutions,
+                delegatedActivities: state.career.delegatedActivities + [
+                    CareerDelegatedActivity(
+                        id: "staff-pruning-activity",
+                        calendar: state.calendar,
+                        area: .college(.recruiting),
+                        actorID: discardedID,
+                        action: .recruiting,
+                        effect: .actionsCommitted(count: 1),
+                        trigger: .scheduledWeek
+                    ),
+                ],
+                cruise: state.career.cruise
+            )
             _ = state.people.recordStaffAssignment(
                 StaffCareerAssignment(
                     season: state.calendar.season + 1,
@@ -529,9 +559,11 @@ func runStaffPruningTests() {
                    "a seatless coaching-tree disciple was pruned")
             expect(transition.staff[historyID] != nil,
                    "a seatless coach named by retained history was pruned")
-            expect(transition.staff[discardedID] == nil,
-                   "a seatless coach with no history was retained")
-            expect(transition.people.staffCareers[discardedID] == nil,
+            expect(transition.staff[discardedID] != nil,
+                   "a seatless delegated-activity author was pruned")
+            expect(transition.staff[unreferencedID] == nil,
+                   "a seatless coach with no retained reference was retained")
+            expect(transition.people.staffCareers[unreferencedID] == nil,
                    "a pruned coach left an orphaned career record")
             expect(transition.staff[state.career.coachID!] != nil,
                    "the played coach was pruned while unseated staff were cleaned")

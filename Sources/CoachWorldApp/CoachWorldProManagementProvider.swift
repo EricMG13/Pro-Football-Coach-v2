@@ -15,13 +15,17 @@ public extension CoachWorldReadModelProvider {
             return nil
         }
 
+        let roster = (team.rosterIDs + team.practiceSquadIDs).compactMap { state.players[$0] }
+        let numbers = JerseyNumbers.assign(roster)
         let activeByPosition = Dictionary(
             grouping: team.rosterIDs.compactMap { state.players[$0]?.position },
             by: { $0 }
         ).mapValues(\.count)
 
         func row(_ playerID: UUID, kind: String, isActive: Bool) -> ProManagementReadModel.PlayerRow? {
-            guard let player = state.players[playerID], let contract = player.contract else {
+            guard let player = state.players[playerID],
+                  let contract = player.contract,
+                  let number = numbers[playerID] else {
                 return nil
             }
             let minimum = SharedRules.minimumPlayableRosterByPosition[player.position] ?? 0
@@ -39,6 +43,12 @@ public extension CoachWorldReadModelProvider {
             return ProManagementReadModel.PlayerRow(
                 id: player.id,
                 name: player.fullName,
+                person: CoachWorldPersonReference(
+                    stableID: player.id.uuidString,
+                    name: player.fullName,
+                    role: positionLabel(player.position)
+                ),
+                number: number,
                 position: positionLabel(player.position),
                 rosterKind: kind,
                 capHit: contract.capHit(atSeason: state.calendar.season),
@@ -67,6 +77,13 @@ public extension CoachWorldReadModelProvider {
                     id: negotiation.id,
                     playerID: negotiation.playerID,
                     playerName: player.fullName,
+                    person: CoachWorldPersonReference(
+                        stableID: player.id.uuidString,
+                        name: player.fullName,
+                        role: positionLabel(player.position)
+                    ),
+                    number: numbers[player.id],
+                    position: positionLabel(player.position),
                     status: status,
                     currentOffer: negotiation.currentOffer,
                     offerCount: negotiation.offerHistory.count,

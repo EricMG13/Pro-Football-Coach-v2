@@ -162,7 +162,7 @@ public struct StandingsView: View, CoachWorldChromedSurface {
             .overlay {
                 if row.isControlled {
                     CoachWorldCutCorner.row.stroke(
-                        palette.actionPrimary.color, lineWidth: CoachWorldTokens.Shape.hairline
+                        palette.contentPrimary.color, lineWidth: CoachWorldTokens.Shape.hairline
                     )
                 }
             }
@@ -172,7 +172,7 @@ public struct StandingsView: View, CoachWorldChromedSurface {
                 Text("\(index + 1)")
                     .coachWorldFigure(CoachWorldTokens.DisplaySize.row, weight: .semibold)
                     .foregroundStyle(
-                        row.isControlled ? palette.actionPrimary.color : palette.contentQuiet.color
+                        row.isControlled ? palette.contentPrimary.color : palette.contentQuiet.color
                     )
                     .frame(width: StandingsMetric.rankColumn, alignment: .leading)
                 HStack(spacing: CoachWorldTokens.Gap.xs) {
@@ -214,7 +214,7 @@ public struct StandingsView: View, CoachWorldChromedSurface {
             .overlay {
                 if row.isControlled {
                     CoachWorldCutCorner.row.stroke(
-                        palette.actionPrimary.color, lineWidth: CoachWorldTokens.Shape.hairline
+                        palette.contentPrimary.color, lineWidth: CoachWorldTokens.Shape.hairline
                     )
                 }
             }

@@ -127,6 +127,31 @@ func runDisciplineTests() {
                    "two weeks share incident identities, so the file never changes")
         }
 
+        test("batched morale is exactly the same derived reading as the public API") {
+            let state = GameState.bootstrap(seed: 60_155)
+            let organisationIDs = [
+                state.programmes.ids.sorted { $0.uuidString < $1.uuidString }.first,
+                state.proTeams.ids.sorted { $0.uuidString < $1.uuidString }.first,
+            ].compactMap { $0 }
+
+            expectEqual(organisationIDs.count, 2, "the fixture does not cover both tiers")
+            for organisationID in organisationIDs {
+                let rosterIDs = state.programmes[organisationID]?.rosterIDs
+                    ?? state.proTeams[organisationID]?.rosterIDs
+                    ?? []
+                let batched = PlayerMorale.readings(in: organisationID, state: state)
+                expectEqual(batched.count, rosterIDs.count,
+                            "the batch omitted a rostered player")
+                for playerID in rosterIDs {
+                    expectEqual(
+                        batched[playerID],
+                        PlayerMorale.reading(for: playerID, in: state),
+                        "batch morale changed the reading for \(playerID)"
+                    )
+                }
+            }
+        }
+
         test("a volatile player is likelier to be in the file than a settled one") {
             // The trait's named consumer. Measured over a season of weeks rather than asserted at
             // one, because a probability is not a fact about any single draw.

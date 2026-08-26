@@ -98,6 +98,13 @@ public enum DomainEventPayload: Codable, Sendable, Equatable {
         source: PlayerIntakeSource
     )
     case staffHired(staffID: UUID, organisationID: UUID, role: StaffRole)
+    case decisionDelegated(
+        decisionID: UUID,
+        programmeID: UUID,
+        responsibility: CollegeCareerResponsibility,
+        staffID: UUID,
+        optionID: UUID
+    )
     case prospectEvaluated(observerID: UUID, prospectID: UUID, confidence: Int)
     case recruitingInteraction(
         programmeID: UUID,
@@ -205,6 +212,7 @@ public enum DomainEventPayload: Codable, Sendable, Equatable {
              .playerDeparted,
              .playerJoined,
              .staffHired,
+             .decisionDelegated,
              .prospectEvaluated,
              .recruitingInteraction,
              .prospectCommitted,
@@ -264,6 +272,7 @@ public enum DomainEventPayload: Codable, Sendable, Equatable {
         case .integrityChecked,
              .weekAdvanced,
              .gameCompleted,
+             .decisionDelegated,
              .playerInjured,
              .playerRecovered,
              .playerReinstated,
@@ -318,6 +327,8 @@ public enum DomainEventPayload: Codable, Sendable, Equatable {
             return [playerID, organisationID]
         case let .staffHired(staffID, organisationID, _):
             return [staffID, organisationID]
+        case let .decisionDelegated(_, programmeID, _, staffID, _):
+            return [programmeID, staffID]
         case let .prospectEvaluated(observerID, prospectID, _):
             return [observerID, prospectID]
         case let .recruitingInteraction(programmeID, prospectID, _, _, _):
@@ -430,7 +441,9 @@ public struct DomainEvent: Codable, Sendable, Equatable, Identifiable {
 /// Bounded hot history plus an archive count. Later persistence milestones may move archived event
 /// bodies to cold storage without changing this root contract.
 public struct DomainEventLedger: Codable, Sendable, Equatable {
-    public static let defaultRetentionLimit = 4_096
+    /// Keeps recent event detail within the production save budget; older facts retain season
+    /// digests and cumulative accounting.
+    public static let defaultRetentionLimit = 2_048
     public static let maximumRetentionLimit = 100_000
 
     /// Seasons of digest retained. A career is twenty and the M7 exit gate asks for thirty-plus, so

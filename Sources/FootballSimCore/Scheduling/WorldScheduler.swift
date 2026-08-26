@@ -75,6 +75,7 @@ public enum WorldSchedulerError: Error, Equatable {
     /// The career reached `SharedRules.maximumCareerSeasons` and has ended. A terminal resting
     /// state, not a failure: the root stays valid and readable, it simply cannot advance.
     case careerComplete
+    case unresolvedProfessionalCapCompliance(UUID)
     case integrityFailed([IntegrityIssue])
     case scheduledGameMissing(UUID)
     case scheduledGameResultMissing(UUID)
@@ -204,6 +205,7 @@ public enum WorldScheduler {
         )
         next.competition = CompetitionReducer.rebuildStandings(from: next)
         next.competition = CompetitionReducer.rebuildStatistics(from: next)
+        CareerArcSystem.captureChampionshipResult(in: next, arc: &next.careerArc)
         let integrity = WorldIntegrity.check(next)
         guard integrity.isValid else {
             throw WorldSchedulerError.integrityFailed(integrity.issues)
@@ -389,6 +391,9 @@ public enum WorldScheduler {
         guard state.calendar.season < SharedRules.maximumCareerSeasons else {
             throw WorldSchedulerError.careerComplete
         }
+        if let decision = state.pending.professionalCapCompliance {
+            throw WorldSchedulerError.unresolvedProfessionalCapCompliance(decision.teamID)
+        }
         if let session = state.matchSession, let fixtureID = session.fixtureID {
             throw WorldSchedulerError.controlledMatchRequired(fixtureID)
         }
@@ -500,6 +505,33 @@ public enum WorldScheduler {
                 }
                 nextState.college = delegated.college
                 nextState.scouting = delegated.scouting
+                if let control = nextState.career.college {
+                    let nilCount = delegated.decisions.reduce(into: 0) { count, decision in
+                        if case .setNILAllocation = decision.request.action { count += 1 }
+                    }
+                    if case let .delegated(staffID) = control
+                        .responsibilityOwners[.recruiting] {
+                        recordDelegatedActivity(
+                            area: .college(.recruiting),
+                            actorID: staffID,
+                            action: .recruiting,
+                            count: delegated.decisions.count - nilCount,
+                            at: completed,
+                            in: &nextState
+                        )
+                    }
+                    if case let .delegated(staffID) = control
+                        .responsibilityOwners[.nilAllocation] {
+                        recordDelegatedActivity(
+                            area: .college(.nilAllocation),
+                            actorID: staffID,
+                            action: .nilAllocation,
+                            count: nilCount,
+                            at: completed,
+                            in: &nextState
+                        )
+                    }
+                }
                 checkpoint("recruitingDelegation", nextState)
                 try appendEvents(
                     payloads: delegated.eventPayloads,
@@ -508,6 +540,16 @@ public enum WorldScheduler {
                     emittedEvents: &events
                 )
                 do {
+                    let professionalDelegation = try ProCareerDelegationSystem.process(
+                        in: nextState
+                    )
+                    nextState = professionalDelegation.state
+                    try appendEvents(
+                        payloads: professionalDelegation.eventPayloads,
+                        occurredAt: completed,
+                        to: &nextState,
+                        emittedEvents: &events
+                    )
                     let professional = try ProRosterAISystem.process(
                         at: completed,
                         in: nextState
@@ -673,6 +715,10 @@ public enum WorldScheduler {
 
             case .statisticsAndRecords:
                 nextState.competition = CompetitionReducer.rebuildStatistics(from: nextState)
+                CareerArcSystem.captureChampionshipResult(
+                    in: nextState,
+                    arc: &nextState.careerArc
+                )
                 let evaluatedCoachSeason = CareerControlSystem.pendingCoachSeason(
                     after: completed,
                     in: nextState
@@ -703,6 +749,7 @@ public enum WorldScheduler {
                     // team through the next screen, and leaving the chair behind leaves them
                     // listed as the programme's head coach on every staff surface.
                     nextState.career.clearCollege()
+                    nextState.career.clearPro()
                     CareerControlSystem.vacateCurrentSeat(in: &nextState)
                 }
                 records.append(WorldStepRecord(step: step, status: .executed))
@@ -792,6 +839,7 @@ public enum WorldScheduler {
                         // career record are carried forward instead of overwritten by the
                         // transition's wholesale staff assignment.
                         nextState.career.clearCollege()
+                        nextState.career.clearPro()
                         CareerControlSystem.vacateCurrentSeat(in: &nextState)
                     }
                 }
@@ -1038,6 +1086,11 @@ public enum WorldScheduler {
                 records.append(WorldStepRecord(step: step, status: .executed))
 
             case .saveGrowthAndIntegrity:
+                if completed.week == SharedRules.inSeasonWeeks {
+                    nextState.people.pruneDepartedPlayers(
+                        protecting: SeasonLifecycleSystem.retainedIdentityIDs(in: nextState)
+                    )
+                }
                 nextState.college = CollegeCycleSystem.pruningArchivedProspects(in: nextState)
                 var integrityProjection = nextState
                 if completed.week == SharedRules.inSeasonWeeks {
@@ -1045,6 +1098,7 @@ public enum WorldScheduler {
                     integrityProjection.league.season = next.season
                     integrityProjection.league.week = next.week
                 }
+                integrityProjection = ProCapComplianceSystem.refresh(in: integrityProjection)
                 let report = WorldIntegrity.check(integrityProjection)
                 guard report.isValid else {
                     throw WorldSchedulerError.integrityFailed(report.issues)
@@ -1062,6 +1116,12 @@ public enum WorldScheduler {
                 nextState.calendar = next
                 nextState.league.season = next.season
                 nextState.league.week = next.week
+                nextState.careerArc.beginSeason(next.season)
+                CareerArcSystem.prepareSeasonExpectation(
+                    in: nextState,
+                    arc: &nextState.careerArc
+                )
+                nextState = ProCapComplianceSystem.refresh(in: nextState)
                 nextState.tactical.advance(to: next)
                 nextState.college.resetWeeklyContactPoints()
                 // Signing day (`02` section 4.1). Set here rather than in an earlier step because
@@ -1148,6 +1208,7 @@ public enum WorldScheduler {
         state: inout GameState,
         emittedEvents: inout [DomainEvent]
     ) throws {
+        let control = state.career.college
         guard let market = CollegePortalPolicyV1.makeMarketSnapshot(
             targetSeason: state.college.recruitingSeason,
             window: window,
@@ -1159,11 +1220,49 @@ public enum WorldScheduler {
             throw WorldSchedulerError.portalCommitFailed(window)
         }
         state = transition.state
+        if let control,
+           case let .delegated(staffID) = control
+            .responsibilityOwners[.portalAndRetention] {
+            recordDelegatedActivity(
+                area: .college(.portalAndRetention),
+                actorID: staffID,
+                action: .portalAndRetention,
+                count: transition.records.filter {
+                    $0.sourceProgrammeID == control.programmeID
+                }.count,
+                at: state.calendar,
+                in: &state
+            )
+        }
         try appendExistingEvents(
             transition.events,
             in: state,
             emittedEvents: &emittedEvents
         )
+    }
+
+    private static func recordDelegatedActivity(
+        area: CareerResponsibilityArea,
+        actorID: UUID,
+        action: CareerDelegatedAction,
+        count: Int,
+        at calendar: CalendarState,
+        in state: inout GameState
+    ) {
+        guard count > 0 else { return }
+        let areaID = switch area {
+        case let .college(value): "college.\(value.rawValue)"
+        case let .professional(value): "pro.\(value.rawValue)"
+        }
+        _ = state.career.recordDelegatedActivity(CareerDelegatedActivity(
+            id: "\(calendar.season)|\(calendar.week)|\(areaID)|\(actorID.uuidString)|\(action.rawValue)",
+            calendar: calendar,
+            area: area,
+            actorID: actorID,
+            action: action,
+            effect: .actionsCommitted(count: count),
+            trigger: state.career.cruise?.status == .active ? .cruise : .scheduledWeek
+        ))
     }
 
     private static func appendExistingEvents(

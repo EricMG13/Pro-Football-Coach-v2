@@ -1,17 +1,36 @@
 import Foundation
 
+public struct CalibrationAssertion: Sendable, Equatable {
+    public let metric: String
+    public let tier: Tier
+    public let value: Double
+    public let requirement: String
+    public let passed: Bool
+
+    public var report: String {
+        "\(metric) [\(tier.rawValue)]: value=\(value) requirement=\(requirement) "
+            + (passed ? "PASS" : "FAIL")
+    }
+}
+
 /// What the harness measured, and what each band made of it.
 public struct CalibrationReport: Sendable {
     public let tier: Tier
     public let gamesPlayed: Int
     public let results: [BandResult]
+    public let assertions: [CalibrationAssertion]
 
     public var failures: [BandResult] { results.filter { !$0.passed } }
-    public var passed: Bool { failures.isEmpty }
+    public var assertionFailures: [CalibrationAssertion] { assertions.filter { !$0.passed } }
+    public var passed: Bool { failures.isEmpty && assertionFailures.isEmpty }
 
     /// One line per band, failures first. `01` §6.6 clause 3's contract.
     public var summary: String {
-        (failures + results.filter(\.passed)).map(\.report).joined(separator: "\n")
+        (assertionFailures.map(\.report)
+            + failures.map(\.report)
+            + assertions.filter(\.passed).map(\.report)
+            + results.filter(\.passed).map(\.report))
+            .joined(separator: "\n")
     }
 }
 
@@ -51,12 +70,39 @@ public enum CalibrationHarness {
     /// more of it is not widening anything. Twelve pairs still make a round, so the ladder's shape
     /// is unchanged; each pair simply plays more games, at a different seed each time.
     public static let matchupsPerSeed = 50
+    private static let bestWorstMatchupsPerSeed = 10
+    private static let overtimeDiagnosticsPerSeed = 10
 
     /// A game and the talent it was played at, so the favourite can be identified.
+    enum GameContext: Sendable, Equatable {
+        case ordinary
+        case bestVsWorst
+        case nonConferenceMismatch
+        case powerConference
+        case postseason
+        case overtimeDiagnostic
+    }
+
     struct SampledGame {
         let record: GameRecord
         let homeSkill: Int
         let awaySkill: Int
+        let positions: [UUID: Position]
+        let context: GameContext
+
+        init(
+            record: GameRecord,
+            homeSkill: Int,
+            awaySkill: Int,
+            positions: [UUID: Position] = [:],
+            context: GameContext = .ordinary
+        ) {
+            self.record = record
+            self.homeSkill = homeSkill
+            self.awaySkill = awaySkill
+            self.positions = positions
+            self.context = context
+        }
     }
 
     /// Runs the harness and tests every band for the tier.
@@ -64,27 +110,141 @@ public enum CalibrationHarness {
         var games: [SampledGame] = []
         for seed in seeds {
             for matchup in 0..<matchupsPerSeed {
-                let ladder = talentLadder(matchup: matchup)
+                let context = gameContext(tier: tier, matchup: matchup)
+                let ladder = talentLadder(tier: tier, matchup: matchup, context: context)
+                let home = CalibrationRoster.team(
+                    skill: ladder.home,
+                    seed: rosterSeed(base: seed, matchup: matchup, side: .home)
+                )
+                let away = CalibrationRoster.team(
+                    skill: ladder.away,
+                    seed: rosterSeed(base: seed, matchup: matchup, side: .away)
+                )
                 games.append(SampledGame(record: GameEngine.play(
                     tier: tier,
-                    home: CalibrationRoster.team(
-                        skill: ladder.home,
-                        seed: rosterSeed(base: seed, matchup: matchup, side: .home)
-                    ),
-                    away: CalibrationRoster.team(
-                        skill: ladder.away,
-                        seed: rosterSeed(base: seed, matchup: matchup, side: .away)
-                    ),
+                    stage: context == .postseason ? .championship : .regularSeason,
+                    home: home,
+                    away: away,
                     seed: SeededRandom.derive(from: seed, scope: .game, ordinal: matchup)
-                ), homeSkill: ladder.home, awaySkill: ladder.away))
+                ), homeSkill: ladder.home, awaySkill: ladder.away,
+                    positions: Dictionary(uniqueKeysWithValues: (home.offense + away.offense).map {
+                        ($0.id, $0.position)
+                    }),
+                    context: context))
+            }
+            if tier == .pro {
+                for diagnostic in 0..<bestWorstMatchupsPerSeed {
+                    let bestIsHome = (Int(seed % 2) + diagnostic).isMultiple(of: 2)
+                    let homeSkill = bestIsHome ? 84 : 70
+                    let awaySkill = bestIsHome ? 70 : 84
+                    let ordinal = matchupsPerSeed + diagnostic
+                    let home = CalibrationRoster.team(
+                        skill: homeSkill,
+                        seed: rosterSeed(base: seed, matchup: ordinal, side: .home)
+                    )
+                    let away = CalibrationRoster.team(
+                        skill: awaySkill,
+                        seed: rosterSeed(base: seed, matchup: ordinal, side: .away)
+                    )
+                    games.append(SampledGame(
+                        record: GameEngine.play(
+                            tier: tier,
+                            home: home,
+                            away: away,
+                            seed: SeededRandom.derive(from: seed, scope: .game, ordinal: ordinal)
+                        ),
+                        homeSkill: homeSkill,
+                        awaySkill: awaySkill,
+                        positions: Dictionary(
+                            uniqueKeysWithValues: (home.offense + away.offense).map {
+                                ($0.id, $0.position)
+                            }
+                        ),
+                        context: .bestVsWorst
+                    ))
+                }
+            }
+            if tier == .college {
+                for diagnostic in 0..<overtimeDiagnosticsPerSeed {
+                    let ordinal = matchupsPerSeed + diagnostic
+                    // Force the tied regulation state, not equal teams. The research band describes
+                    // the overtime population after a tie, which still contains the normal range of
+                    // roster gaps; making every diagnostic 72-versus-72 inflated matching scores.
+                    let ladder = talentLadder(matchup: diagnostic)
+                    let home = CalibrationRoster.team(
+                        skill: ladder.home,
+                        seed: rosterSeed(base: seed, matchup: ordinal, side: .home)
+                    )
+                    let away = CalibrationRoster.team(
+                        skill: ladder.away,
+                        seed: rosterSeed(base: seed, matchup: ordinal, side: .away)
+                    )
+                    games.append(SampledGame(
+                        record: GameEngine.play(
+                            tier: tier,
+                            home: home,
+                            away: away,
+                            seed: SeededRandom.derive(from: seed, scope: .game, ordinal: ordinal),
+                            initialSituation: Situation(
+                                possession: diagnostic.isMultiple(of: 2) ? .home : .away,
+                                homeScore: 21,
+                                awayScore: 21,
+                                quarter: tier.clockRules.quarters,
+                                secondsRemainingInQuarter: 1
+                            )
+                        ),
+                        homeSkill: 72,
+                        awaySkill: 72,
+                        context: .overtimeDiagnostic
+                    ))
+                }
             }
         }
         let bands = tier == .pro ? CalibrationBands.pro : CalibrationBands.college
-        let measured = measure(games)
+        var measured = measure(games)
+        var assertions: [CalibrationAssertion] = []
+        if tier == .college {
+            measured["title-capable share of programmes"] = titleCapableEstimate(seeds: seeds)
+            let tieRate = measured["tie rate"]?.value ?? .infinity
+            assertions.append(CalibrationAssertion(
+                metric: "college tie rate (exactly zero)",
+                tier: tier,
+                value: tieRate,
+                requirement: "exactly 0",
+                passed: tieRate == 0
+            ))
+        }
         return CalibrationReport(
             tier: tier,
-            gamesPlayed: games.count,
-            results: bands.compactMap { band in measured[band.metric].map(band.test) }
+            gamesPlayed: games.filter {
+                $0.context != .bestVsWorst && $0.context != .overtimeDiagnostic
+            }.count,
+            results: bands.compactMap { band in measured[band.metric].map(band.test) },
+            assertions: assertions
+        )
+    }
+
+    /// Prestige is the generator's authoritative input to roster quality and recruiting reach.
+    /// Eighty is the visible top-tier discontinuity: across the fixed archetype allocation it
+    /// yields the research target's 13–20 structurally title-capable programmes, rather than simply
+    /// naming the top N after generation and making the check tautological.
+    private static let titleCapablePrestige = 80
+
+    private static func titleCapableEstimate(seeds: [UInt64]) -> Estimate {
+        var capable = 0
+        var programmes = 0
+        for seed in seeds {
+            let generated = LeagueGenerator.generate(seed: seed)
+            capable += generated.programmes.filter {
+                $0.prestige.value >= titleCapablePrestige
+            }.count
+            programmes += generated.programmes.count
+        }
+        return Estimate(
+            value: programmes > 0 ? Double(capable) / Double(programmes) : 0,
+            sampleSize: programmes,
+            standardDeviation: 0,
+            estimator: .rate
         )
     }
 
@@ -119,6 +279,29 @@ public enum CalibrationHarness {
         return pairs[matchup % pairs.count]
     }
 
+    private static func gameContext(tier: Tier, matchup: Int) -> GameContext {
+        guard tier == .college else { return .ordinary }
+        if matchup < 13 { return .nonConferenceMismatch }
+        if matchup < 45 { return .powerConference }
+        return .postseason
+    }
+
+    private static func talentLadder(
+        tier: Tier,
+        matchup: Int,
+        context: GameContext
+    ) -> (home: Int, away: Int) {
+        guard tier == .college else { return talentLadder(matchup: matchup) }
+        switch context {
+        case .nonConferenceMismatch:
+            return matchup.isMultiple(of: 2) ? (78, 60) : (60, 78)
+        case .postseason:
+            return matchup.isMultiple(of: 2) ? (78, 69) : (69, 78)
+        case .powerConference, .ordinary, .bestVsWorst, .overtimeDiagnostic:
+            return talentLadder(matchup: matchup)
+        }
+    }
+
     // MARK: - Measurement
 
     static func measure(_ samples: [SampledGame]) -> [String: Estimate] {
@@ -130,15 +313,27 @@ public enum CalibrationHarness {
         var teamInterceptions: [Double] = []
         var gameSafeties: [Double] = []
         var combinedTotals: [Double] = []
+        var longTouchdownsPerGame: [Double] = []
+        var maximumReceiverTargetShares: [Double] = []
+        var nonConferenceMargins: [Double] = []
+        var powerConferenceMargins: [Double] = []
+        var postseasonMargins: [Double] = []
 
         var passAttempts = 0, completions = 0
         var kickAttempts = 0, kicksMade = 0
+        var longKickAttempts = 0, longKicksMade = 0
         var homeWins = 0, decidedGames = 0, ties = 0
         var favouriteWins = 0, ratedGames = 0
+        var bestWorstWins = 0, bestWorstGames = 0
         var blowouts = 0
+        var nonConferenceBlowouts = 0, nonConferenceGames = 0
+        var powerConferenceBlowouts = 0, powerConferenceGames = 0
         var runPlays = 0, explosiveRuns = 0
         var passPlays = 0, explosivePasses = 0
         var pointsInQ4 = 0, pointsTotal = 0
+        var overtimeGames = 0, onePeriodOvertimes = 0
+        var targets = 0, tightEndTargets = 0, runningBackTargets = 0
+        var measuredGames = 0
         // Per-drive accounting. `DriveRecord` has carried `pointsScored` since P3; what was missing
         // was the harness aggregating it, which is exactly what `unimplementedMetrics` said this row
         // waited on. It is a sum over records the engine already produces, not a model change.
@@ -146,6 +341,24 @@ public enum CalibrationHarness {
 
         for sample in samples {
             let game = sample.record
+            if sample.context == .bestVsWorst {
+                if let winner = game.winner {
+                    bestWorstGames += 1
+                    let favourite: Side = sample.homeSkill > sample.awaySkill ? .home : .away
+                    if winner == favourite { bestWorstWins += 1 }
+                }
+                continue
+            }
+            if sample.context == .overtimeDiagnostic {
+                let overtimePeriods = game.plays.map(\.situation.quarter).max()
+                    .map { max(0, $0 - game.tier.clockRules.quarters) } ?? 0
+                if overtimePeriods > 0 {
+                    overtimeGames += 1
+                    if overtimePeriods == 1 { onePeriodOvertimes += 1 }
+                }
+                continue
+            }
+            measuredGames += 1
             for drive in game.drives { drivePoints.append(Double(drive.pointsScored)) }
             combinedTotals.append(Double(game.homeScore + game.awayScore))
             teamPoints.append(Double(game.homeScore))
@@ -159,7 +372,31 @@ public enum CalibrationHarness {
             if Swift.abs(game.homeScore - game.awayScore) >= MatchupRules.blowoutMargin {
                 blowouts += 1
             }
+            let margin = Double(Swift.abs(game.homeScore - game.awayScore))
+            switch sample.context {
+            case .nonConferenceMismatch:
+                nonConferenceGames += 1
+                nonConferenceMargins.append(margin)
+                if margin >= Double(MatchupRules.blowoutMargin) { nonConferenceBlowouts += 1 }
+            case .powerConference:
+                powerConferenceGames += 1
+                powerConferenceMargins.append(margin)
+                if margin >= Double(MatchupRules.blowoutMargin) { powerConferenceBlowouts += 1 }
+            case .postseason:
+                postseasonMargins.append(margin)
+            case .ordinary, .bestVsWorst, .overtimeDiagnostic:
+                break
+            }
             _ = sample.awaySkill
+
+            let overtimePeriods = game.plays.map(\.situation.quarter).max()
+                .map { max(0, $0 - game.tier.clockRules.quarters) } ?? 0
+            if overtimePeriods > 0 {
+                overtimeGames += 1
+                if overtimePeriods == 1 { onePeriodOvertimes += 1 }
+            }
+            var longTouchdowns = 0
+            var targetsBySide: [Side: [UUID: Int]] = [:]
 
             var perSide: [Side: (plays: Int, pass: Int, rush: Int, sacks: Int, ints: Int,
                                  safeties: Int)] = [.home: (0, 0, 0, 0, 0, 0),
@@ -167,6 +404,15 @@ public enum CalibrationHarness {
             for play in game.plays {
                 let side = play.situation.possession
                 var tally = perSide[side]!
+                if let targetID = play.outcome.targetID {
+                    targets += 1
+                    targetsBySide[side, default: [:]][targetID, default: 0] += 1
+                    switch sample.positions[targetID] {
+                    case .tightEnd: tightEndTargets += 1
+                    case .runningBack: runningBackTargets += 1
+                    default: break
+                    }
+                }
                 switch play.offensiveCall.playType {
                 case .pass, .run, .kneel:
                     tally.plays += 1
@@ -187,9 +433,18 @@ public enum CalibrationHarness {
                     if play.offensiveCall.playType == .pass { tally.sacks += 1 }
                 case .fieldGoalGood:
                     kickAttempts += 1; kicksMade += 1
+                    if play.situation.yardsToGoal + MatchupRules.fieldGoalSnapDistance >= 50 {
+                        longKickAttempts += 1; longKicksMade += 1
+                    }
                 case .fieldGoalMissed:
                     kickAttempts += 1
+                    if play.situation.yardsToGoal + MatchupRules.fieldGoalSnapDistance >= 50 {
+                        longKickAttempts += 1
+                    }
                 case .gain, .touchdown, .fumbleLost:
+                    if play.outcome.result == .touchdown, play.outcome.yards >= 40 {
+                        longTouchdowns += 1
+                    }
                     if play.offensiveCall.playType == .pass {
                         passAttempts += 1; completions += 1; passPlays += 1
                         tally.pass += play.outcome.yards
@@ -205,6 +460,16 @@ public enum CalibrationHarness {
                     break
                 }
                 perSide[side] = tally
+            }
+            longTouchdownsPerGame.append(Double(longTouchdowns))
+            for side in Side.allCases {
+                let sideTargets = targetsBySide[side, default: [:]].values
+                let total = sideTargets.reduce(0, +)
+                if total > 0 {
+                    maximumReceiverTargetShares.append(
+                        Double(sideTargets.max() ?? 0) / Double(total)
+                    )
+                }
             }
             for side in Side.allCases {
                 let tally = perSide[side]!
@@ -265,10 +530,27 @@ public enum CalibrationHarness {
             "safeties per game": meanEstimate(gameSafeties),
             "completion percentage": rateEstimate(completions, passAttempts, scale: 100),
             "field goal percentage": rateEstimate(kicksMade, kickAttempts, scale: 100),
+            "FG percentage, 50+ yards": rateEstimate(longKicksMade, longKickAttempts),
             "home win rate": rateEstimate(homeWins, decidedGames),
             "favourite win rate": rateEstimate(favouriteWins, ratedGames),
-            "blowout rate": rateEstimate(blowouts, samples.count),
-            "tie rate": rateEstimate(ties, samples.count),
+            "best-vs-worst win rate": rateEstimate(bestWorstWins, bestWorstGames),
+            "blowout rate": rateEstimate(blowouts, measuredGames),
+            "blowout rate, non-conference mismatch": rateEstimate(
+                nonConferenceBlowouts, nonConferenceGames
+            ),
+            "blowout rate, power conference game": rateEstimate(
+                powerConferenceBlowouts, powerConferenceGames
+            ),
+            "average margin, non-conference mismatch": meanEstimate(nonConferenceMargins),
+            "average margin, power conference game": meanEstimate(powerConferenceMargins),
+            "average margin, postseason": meanEstimate(postseasonMargins),
+            "tie rate": rateEstimate(ties, measuredGames),
+            "overtime rate": rateEstimate(overtimeGames, measuredGames),
+            "overtime settled in one period": rateEstimate(onePeriodOvertimes, overtimeGames),
+            "touchdowns of 40+ yards per game": meanEstimate(longTouchdownsPerGame),
+            "TE target share": rateEstimate(tightEndTargets, targets),
+            "RB target share": rateEstimate(runningBackTargets, targets),
+            "max single-receiver target share": meanEstimate(maximumReceiverTargetShares),
             "explosive run rate": rateEstimate(explosiveRuns, runPlays),
             "explosive pass rate": rateEstimate(explosivePasses, passPlays),
             "Q4 share of points": rateEstimate(pointsInQ4, pointsTotal),

@@ -82,7 +82,13 @@ public struct BaselinePlayCaller: PlayCaller, Sendable {
     public init() {}
 
     public func offensiveCall(for situation: Situation, rules: any ClockRules.Type) -> OffensiveCall {
+        let overtimeTouchdownRequired = rules.overtime == .alternatingPossessions
+            && situation.quarter > rules.quarters
+            && situation.scoreDifferential <= -MatchupRules.touchdownPoints
         if situation.isFourthDown {
+            if overtimeTouchdownRequired {
+                return OffensiveCall(playType: .pass, passDepth: .deep, tempo: .hurry, aggression: 1)
+            }
             if situation.yardsToGoal <= MatchupRules.fieldGoalRangeYards {
                 return OffensiveCall(playType: .fieldGoal)
             }
@@ -98,7 +104,9 @@ public struct BaselinePlayCaller: PlayCaller, Sendable {
             }
             return OffensiveCall(playType: .punt)
         }
-        let hurrying = situation.isTwoMinute(rules: rules) && situation.scoreDifferential <= 0
+        let lateDeficit = situation.isTwoMinute(rules: rules) && situation.scoreDifferential < 0
+        let hurrying = overtimeTouchdownRequired
+            || situation.isTwoMinute(rules: rules) && situation.scoreDifferential <= 0
 
         // The first version threw on almost every snap and never threw deep: it ran only when
         // `distance <= 7`, and first-and-ten is ten. The calibration harness saw the consequence
@@ -136,10 +144,17 @@ public struct BaselinePlayCaller: PlayCaller, Sendable {
         } else {
             depth = .short
         }
-        return OffensiveCall(playType: .pass, passDepth: depth, tempo: hurrying ? .hurry : .normal)
+        return OffensiveCall(playType: .pass, passDepth: depth, tempo: hurrying ? .hurry : .normal,
+                             aggression: lateDeficit ? 1 : 0)
     }
 
     public func defensiveCall(for situation: Situation, rules: any ClockRules.Type) -> DefensiveCall {
+        let overtimeTouchdownRequired = rules.overtime == .alternatingPossessions
+            && situation.quarter > rules.quarters
+            && situation.scoreDifferential <= -MatchupRules.touchdownPoints
+        if overtimeTouchdownRequired {
+            return DefensiveCall(coverage: .prevent, rushers: MatchupRules.baseRushers)
+        }
         if situation.isTwoMinute(rules: rules), situation.scoreDifferential < 0 {
             return DefensiveCall(coverage: .prevent, rushers: MatchupRules.baseRushers)
         }
@@ -207,6 +222,7 @@ public enum DriveEngine {
         defense: SnapPersonnel,
         caller: some PlayCaller,
         rules: any ClockRules.Type,
+        stage: CompetitionStage = .regularSeason,
         homeFieldAdvantage: Double,
         callInTrigger: CallInTrigger? = nil
     ) -> PlayRecord? {
@@ -236,6 +252,7 @@ public enum DriveEngine {
             personnel: SnapPersonnel(offense: offense.offense, defense: defense.defense),
             situation: situation,
             rules: rules,
+            stage: stage,
             homeFieldAdvantage: situation.possession == .home
                 ? homeFieldAdvantage : -homeFieldAdvantage,
             rng: &rng
@@ -369,6 +386,7 @@ public enum DriveEngine {
         defense: SnapPersonnel,
         caller: some PlayCaller,
         rules: any ClockRules.Type,
+        stage: CompetitionStage = .regularSeason,
         homeFieldAdvantage: Double,
         driveSeed: UInt64,
         isAfterTurnover: Bool,
@@ -378,7 +396,7 @@ public enum DriveEngine {
                              isAfterTurnover: isAfterTurnover, clockRunning: clockRunning)
         while progress.ending == nil {
             _ = step(&progress, offense: offense, defense: defense, caller: caller,
-                     rules: rules, homeFieldAdvantage: homeFieldAdvantage)
+                     rules: rules, stage: stage, homeFieldAdvantage: homeFieldAdvantage)
         }
         return finish(progress)
     }

@@ -33,6 +33,8 @@ public struct CoachWorldAppRootView: View {
     @State private var gamePlanOrigin: CoachWorldScreenID = .coachingHQ
     @State private var careerFocus: CoachWorldScreenID = .careerHub
     @State private var proFocus: CoachWorldScreenID = .proOffseason
+    @State private var chromeBackStack: [CoachWorldScreenID] = []
+    @State private var activeChromeAlias: CoachWorldScreenID?
     @State private var recruitingProspectID: String?
     @State private var personnelPlayerID: String?
     @State private var recoveryRequired = false
@@ -897,9 +899,21 @@ public struct CoachWorldAppRootView: View {
         return CoachWorldReadModelProvider.chrome(
             for: screen,
             hub: hub,
+            back: chromeBack(for: screen),
             context: headerContext(for: screen.canonicalDestination, in: store),
+            contextShort: headerContextShort(for: screen.canonicalDestination, in: store),
             availableScreens: availableScreens(in: store)
         )
+    }
+
+    private func chromeBack(for screen: CoachWorldScreenID) -> FloodlitChromeReadModel.Back {
+        if let alias = activeChromeAlias, alias.canonicalDestination == screen {
+            return .up(
+                hostName: screen.taskName,
+                intentID: .init(rawValue: "route|\(screen.rawValue)")
+            )
+        }
+        return chromeBackStack.isEmpty ? .none : .plain(intentID: .init(rawValue: "back"))
     }
 
     /// The task registry only advertises canonical surfaces whose read models exist in this
@@ -929,26 +943,62 @@ public struct CoachWorldAppRootView: View {
         }
     }
 
+    private func headerContextShort(
+        for screen: CoachWorldScreenID,
+        in store: CoachWorldStore
+    ) -> String? {
+        switch screen {
+        case .roster, .depthChart, .developmentPlan, .staffRoom:
+            guard let roster = store.roster else { return nil }
+            return "\(roster.players.count)/\(roster.rosterLimit) roster"
+        case .recruitingBoard, .shortlist, .classOverview, .contactVisitPlanner:
+            guard let board = store.recruitingBoard else { return nil }
+            return "\(board.prospects.count) board"
+        default:
+            return nil
+        }
+    }
+
     /// Routes an identity-header or icon-rail tap. Chrome navigation goes through the same
     /// `navigate(_:in:)` every other route uses, so a rail tap cannot reach a screen the router
     /// considers unreachable.
     private func navigateChrome(_ intentID: CoachWorldIntentID, in store: CoachWorldStore) {
+        if intentID.rawValue == "back", let destination = chromeBackStack.last {
+            navigate(destination, in: store, recordsChromeHistory: false)
+            if failure == nil {
+                chromeBackStack.removeLast()
+            }
+            return
+        }
         guard let destination = CoachWorldReadModelProvider.routedScreen(for: intentID) else {
             return
         }
         navigate(destination, in: store)
     }
 
-    private func navigate(_ destination: CoachWorldScreenID, in store: CoachWorldStore) {
+    private func navigate(
+        _ destination: CoachWorldScreenID,
+        in store: CoachWorldStore,
+        recordsChromeHistory: Bool = true
+    ) {
         let canonicalDestination = destination.canonicalDestination
         if canonicalDestination != destination {
-            navigate(canonicalDestination, in: store)
+            let previous = currentChromeScreen
+            guard destination != previous else {
+                failure = nil
+                return
+            }
+            navigate(canonicalDestination, in: store, recordsChromeHistory: false)
+            guard failure == nil else { return }
             careerFocus = Self.careerFocus(for: destination)
             if let focus = Self.proFocus(for: destination) {
                 proFocus = focus
             }
+            activeChromeAlias = destination
+            recordChromeHistory(previous, if: recordsChromeHistory)
             return
         }
+        let previous = currentChromeScreen
         if destination != .teamHealth && destination != .inbox {
             store.setPresentationReturnRoute(nil)
         }
@@ -1025,6 +1075,10 @@ public struct CoachWorldAppRootView: View {
             failure = nil
         case .leagueMap where store.availableScreens.contains(.leagueMap):
             screen = .leagueMap
+            store.setPresentationRoute(String(destination.rawValue))
+            failure = nil
+        case .matchDay where store.matchDay != nil:
+            screen = .matchDay
             store.setPresentationRoute(String(destination.rawValue))
             failure = nil
         case .gamePlan where store.availableScreens.contains(.gamePlan):
@@ -1121,6 +1175,26 @@ public struct CoachWorldAppRootView: View {
         default:
             failure = "\(destination.canonicalName) is not available yet"
         }
+        guard failure == nil else { return }
+        activeChromeAlias = nil
+        if currentChromeScreen != previous {
+            recordChromeHistory(previous, if: recordsChromeHistory)
+        }
+    }
+
+    private var currentChromeScreen: CoachWorldScreenID {
+        if let activeChromeAlias { return activeChromeAlias }
+        return switch screen {
+        case .careerHub: careerFocus
+        case .proOffseason: proFocus
+        default: screen
+        }
+    }
+
+    private func recordChromeHistory(_ screen: CoachWorldScreenID, if shouldRecord: Bool) {
+        guard shouldRecord else { return }
+        if chromeBackStack.count == 32 { chromeBackStack.removeFirst() }
+        chromeBackStack.append(screen)
     }
 
     private func closeCareer(in store: CoachWorldStore) {
@@ -1188,6 +1262,7 @@ public struct CoachWorldAppRootView: View {
                 careerFocus = Self.careerFocus(for: destination)
                 proFocus = Self.proFocus(for: destination) ?? .proOffseason
                 screen = Self.canonicalScreen(destination)
+                activeChromeAlias = destination.isCanonicalTask ? nil : destination
                 store?.setPresentationRoute(String(screen.rawValue))
             }
             recruitingProspectID = store?.presentationSubjectID?.uuidString

@@ -177,6 +177,17 @@ public struct RosterReadModel: Sendable, Equatable {
     }
 }
 
+/// Two live roster projections. Player truth remains owned by `RosterReadModel.PlayerRow`.
+public struct CompareReadModel: Sendable, Equatable {
+    public let first: RosterReadModel.PlayerRow
+    public let second: RosterReadModel.PlayerRow
+
+    public init(first: RosterReadModel.PlayerRow, second: RosterReadModel.PlayerRow) {
+        self.first = first
+        self.second = second
+    }
+}
+
 public enum RosterSortField: String, CaseIterable, Sendable, Equatable {
     case number, name, position, overall, development, condition
 }

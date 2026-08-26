@@ -87,6 +87,7 @@ public enum DisciplineSystem {
         let rosterIDs = state.programmes[organisationID]?.rosterIDs
             ?? state.proTeams[organisationID]?.rosterIDs
             ?? []
+        let morale = PlayerMorale.readings(in: organisationID, state: state)
         return rosterIDs.compactMap { playerID -> DisciplineIncident? in
             guard let player = state.players[playerID] else { return nil }
             // Someone already serving is not in the file again this week. Piling a second
@@ -107,7 +108,7 @@ public enum DisciplineSystem {
 
             var probability = PeopleRules.baseIncidentProbability
             if player.has(.volatile) { probability += PeopleRules.volatileIncidentProbability }
-            if PlayerMorale.reading(for: playerID, in: state).isUnhappy {
+            if morale[playerID]?.isUnhappy == true {
                 probability += PeopleRules.unhappyIncidentProbability
             }
             guard roll < probability else { return nil }

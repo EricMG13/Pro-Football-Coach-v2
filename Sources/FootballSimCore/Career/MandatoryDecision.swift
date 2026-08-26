@@ -331,25 +331,56 @@ public enum CareerMandatoryDecisionSystem {
             switch owner {
             case .user:
                 _ = next.pending.enqueue(decision)
-            case .delegated:
+            case let .delegated(staffID):
                 let option = decision.options.first { $0.id == recommendedOptionID }!
+                var candidate = next
                 if case let .redshirt(limit?) = option.action {
                     guard let college = try? CollegeRedshirtSystem.designate(
                         playerID: playerID,
                         programmeID: control.programmeID,
                         plannedAppearanceLimit: limit,
-                        in: next
+                        in: candidate
                     ) else { continue }
-                    next.college = college
+                    candidate.college = college
                 }
-                _ = next.career.recordResolution(MandatoryDecisionResolution(
+                guard candidate.career.recordResolution(MandatoryDecisionResolution(
                     decisionID: decision.id,
                     programmeID: decision.programmeID,
                     subject: decision.subject,
                     optionID: option.id,
                     action: option.action,
                     decidedAt: state.calendar
-                ))
+                )) else { continue }
+                guard let sequence = candidate.history.firstSequence(forAppending: 1) else {
+                    continue
+                }
+                let event = DomainEvent(
+                    id: DomainEvent.deterministicID(
+                        rootSeed: candidate.league.seed,
+                        sequence: sequence
+                    ),
+                    sequence: sequence,
+                    occurredAt: state.calendar,
+                    payload: .decisionDelegated(
+                        decisionID: decision.id,
+                        programmeID: decision.programmeID,
+                        responsibility: .redshirts,
+                        staffID: staffID,
+                        optionID: option.id
+                    )
+                )
+                guard candidate.history.append(event),
+                      candidate.career.recordDelegatedActivity(CareerDelegatedActivity(
+                    id: "\(decision.id.uuidString)|\(staffID.uuidString)|delegated",
+                    calendar: state.calendar,
+                    area: .college(.redshirts),
+                    actorID: staffID,
+                    action: .decisionApplied,
+                    effect: .recommendationApplied(optionID: option.id),
+                    trigger: state.career.cruise?.status == .active
+                        ? .cruise : .mandatoryDecision
+                )) else { continue }
+                next = candidate
             }
         }
         return WorldIntegrity.check(next).isValid ? next : state
