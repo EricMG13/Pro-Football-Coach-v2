@@ -70,8 +70,14 @@ public enum CalibrationHarness {
     /// more of it is not widening anything. Twelve pairs still make a round, so the ladder's shape
     /// is unchanged; each pair simply plays more games, at a different seed each time.
     public static let matchupsPerSeed = 50
+    /// Independent replications of the fixed 50-matchup schedule. Keeping the schedule shape
+    /// fixed preserves its declared college context mix while supplying enough observations for
+    /// narrow two-sided equivalence bands.
+    public static let regularMatchupRounds = 3
+    public static var regularGamesPerSeed: Int { matchupsPerSeed * regularMatchupRounds }
     private static let bestWorstMatchupsPerSeed = 10
     private static let overtimeDiagnosticsPerSeed = 10
+    private static let postseasonDiagnosticsPerSeed = 110
 
     /// A game and the talent it was played at, so the favourite can be identified.
     enum GameContext: Sendable, Equatable {
@@ -80,6 +86,7 @@ public enum CalibrationHarness {
         case nonConferenceMismatch
         case powerConference
         case postseason
+        case postseasonDiagnostic
         case overtimeDiagnostic
     }
 
@@ -109,35 +116,38 @@ public enum CalibrationHarness {
     public static func run(tier: Tier, seeds: [UInt64]) -> CalibrationReport {
         var games: [SampledGame] = []
         for seed in seeds {
-            for matchup in 0..<matchupsPerSeed {
-                let context = gameContext(tier: tier, matchup: matchup)
-                let ladder = talentLadder(tier: tier, matchup: matchup, context: context)
-                let home = CalibrationRoster.team(
-                    skill: ladder.home,
-                    seed: rosterSeed(base: seed, matchup: matchup, side: .home)
-                )
-                let away = CalibrationRoster.team(
-                    skill: ladder.away,
-                    seed: rosterSeed(base: seed, matchup: matchup, side: .away)
-                )
-                games.append(SampledGame(record: GameEngine.play(
-                    tier: tier,
-                    stage: context == .postseason ? .championship : .regularSeason,
-                    home: home,
-                    away: away,
-                    seed: SeededRandom.derive(from: seed, scope: .game, ordinal: matchup)
-                ), homeSkill: ladder.home, awaySkill: ladder.away,
-                    positions: Dictionary(uniqueKeysWithValues: (home.offense + away.offense).map {
-                        ($0.id, $0.position)
-                    }),
-                    context: context))
+            for round in 0..<regularMatchupRounds {
+                for matchup in 0..<matchupsPerSeed {
+                    let ordinal = round * matchupsPerSeed + matchup
+                    let context = gameContext(tier: tier, matchup: matchup)
+                    let ladder = talentLadder(tier: tier, matchup: matchup, context: context)
+                    let home = CalibrationRoster.team(
+                        skill: ladder.home,
+                        seed: rosterSeed(base: seed, matchup: ordinal, side: .home)
+                    )
+                    let away = CalibrationRoster.team(
+                        skill: ladder.away,
+                        seed: rosterSeed(base: seed, matchup: ordinal, side: .away)
+                    )
+                    games.append(SampledGame(record: GameEngine.play(
+                        tier: tier,
+                        stage: context == .postseason ? .championship : .regularSeason,
+                        home: home,
+                        away: away,
+                        seed: SeededRandom.derive(from: seed, scope: .game, ordinal: ordinal)
+                    ), homeSkill: ladder.home, awaySkill: ladder.away,
+                        positions: Dictionary(uniqueKeysWithValues: (home.offense + away.offense).map {
+                            ($0.id, $0.position)
+                        }),
+                        context: context))
+                }
             }
             if tier == .pro {
                 for diagnostic in 0..<bestWorstMatchupsPerSeed {
                     let bestIsHome = (Int(seed % 2) + diagnostic).isMultiple(of: 2)
                     let homeSkill = bestIsHome ? 84 : 70
                     let awaySkill = bestIsHome ? 70 : 84
-                    let ordinal = matchupsPerSeed + diagnostic
+                    let ordinal = regularGamesPerSeed + diagnostic
                     let home = CalibrationRoster.team(
                         skill: homeSkill,
                         seed: rosterSeed(base: seed, matchup: ordinal, side: .home)
@@ -166,7 +176,7 @@ public enum CalibrationHarness {
             }
             if tier == .college {
                 for diagnostic in 0..<overtimeDiagnosticsPerSeed {
-                    let ordinal = matchupsPerSeed + diagnostic
+                    let ordinal = regularGamesPerSeed + diagnostic
                     // Force the tied regulation state, not equal teams. The research band describes
                     // the overtime population after a tie, which still contains the normal range of
                     // roster gaps; making every diagnostic 72-versus-72 inflated matching scores.
@@ -193,9 +203,33 @@ public enum CalibrationHarness {
                                 secondsRemainingInQuarter: 1
                             )
                         ),
-                        homeSkill: 72,
-                        awaySkill: 72,
+                        homeSkill: ladder.home,
+                        awaySkill: ladder.away,
                         context: .overtimeDiagnostic
+                    ))
+                }
+                for diagnostic in 0..<postseasonDiagnosticsPerSeed {
+                    let ordinal = regularGamesPerSeed + overtimeDiagnosticsPerSeed + diagnostic
+                    let ladder = talentLadder(tier: tier, matchup: diagnostic, context: .postseason)
+                    let home = CalibrationRoster.team(
+                        skill: ladder.home,
+                        seed: rosterSeed(base: seed, matchup: ordinal, side: .home)
+                    )
+                    let away = CalibrationRoster.team(
+                        skill: ladder.away,
+                        seed: rosterSeed(base: seed, matchup: ordinal, side: .away)
+                    )
+                    games.append(SampledGame(
+                        record: GameEngine.play(
+                            tier: tier,
+                            stage: .championship,
+                            home: home,
+                            away: away,
+                            seed: SeededRandom.derive(from: seed, scope: .game, ordinal: ordinal)
+                        ),
+                        homeSkill: ladder.home,
+                        awaySkill: ladder.away,
+                        context: .postseasonDiagnostic
                     ))
                 }
             }
@@ -217,7 +251,9 @@ public enum CalibrationHarness {
         return CalibrationReport(
             tier: tier,
             gamesPlayed: games.filter {
-                $0.context != .bestVsWorst && $0.context != .overtimeDiagnostic
+                $0.context != .bestVsWorst
+                    && $0.context != .overtimeDiagnostic
+                    && $0.context != .postseasonDiagnostic
             }.count,
             results: bands.compactMap { band in measured[band.metric].map(band.test) },
             assertions: assertions
