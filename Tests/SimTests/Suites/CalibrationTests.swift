@@ -262,7 +262,7 @@ func runCalibrationTests() {
         test("expanded roster streams keep tuning and holdout disjoint") {
             func rosterSeeds(_ bases: [UInt64]) -> Set<UInt64> {
                 Set(bases.flatMap { seed in
-                    (0..<CalibrationHarness.matchupsPerSeed).flatMap { matchup in
+                    (0..<CalibrationHarness.regularGamesPerSeed).flatMap { matchup in
                         Side.allCases.map {
                             CalibrationHarness.rosterSeed(base: seed, matchup: matchup, side: $0)
                         }
@@ -272,7 +272,7 @@ func runCalibrationTests() {
             let tuning = rosterSeeds(CalibrationHarness.tuningSeeds)
             let holdout = rosterSeeds(CalibrationHarness.holdoutSeeds)
             let expected = CalibrationHarness.tuningSeeds.count
-                * CalibrationHarness.matchupsPerSeed * Side.allCases.count
+                * CalibrationHarness.regularGamesPerSeed * Side.allCases.count
             expectEqual(tuning.count, expected, "the tuning ladder repeats roster streams")
             expectEqual(holdout.count, expected, "the holdout ladder repeats roster streams")
             expect(tuning.isDisjoint(with: holdout),

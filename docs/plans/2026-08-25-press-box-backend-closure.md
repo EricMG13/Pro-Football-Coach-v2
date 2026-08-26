@@ -46,7 +46,7 @@ This deliberately rejects the older prototype's numeric scouting-confidence rang
 | Contract restructure | Missing and rule-blocked | Add only after the canonical restructure rule is recorded; do not adopt the prototype's illustrative eligibility constant. |
 | Controlled-team cap compliance | Missing | Create a mandatory player decision and block advancement/rollover while the controlled team is illegally over the cap. Keep AI compliance behaviour unchanged. |
 | Save migration | Partial | Keep the first shipped envelope/document version at v1, preserve its pre-compression flag-0 compatibility, and add a real GameState/responsibility-map migration before new enum cases land. Continue supporting `GameState` schemas 11–13. |
-| Save size | Target unmet | Remove measured duplication, then lower the 20-season compressed-save ceiling from 16 MB to the product's 8 MB target. |
+| Save size | Target unmet | Remove measured duplication, then lower the 10-season compressed-save ceiling from 16 MB to the product's 8 MB target. The 20-season product direction remains optional diagnostics. |
 | Week/season performance | Instrumented; not enforced | Establish a fresh stable-branch baseline, make the two-second week-advance gate potent, and retain a real full-season duration check. |
 | Calibration | Incomplete | Wire the 15 currently listed metrics into the harness and define research-backed bands using disjoint tuning/holdout seeds. |
 | Long-run integrity | Partial evidence on loop branches | Reuse the targeted deterministic, rollover, retention, save/reload, and career-progression tests listed below; rerun on the integrated branch. |
@@ -328,13 +328,13 @@ Verification: `swift run SimTests --trait-population`, `--people-lifecycle`, `--
 1. Run the component profiler from `b98c360` against the integrated branch.
 2. Remove the largest reconstructible duplication first, beginning with portal/scouting copies identified by the prior evidence.
 3. Keep compression; do not add a second persistence format or cache layer.
-4. Tighten the 20-season compressed-save gate to 8 MB only after the integrated build passes it with headroom.
+4. Tighten the 10-season compressed-save gate to 8 MB only after the integrated build passes it with headroom.
 
 ### 7.2 Potent performance gates
 
 1. Establish a fresh Release-build baseline on the supported host/device before changing thresholds.
 2. Turn the existing two-second week-advance probe into a real failing assertion with controlled fixtures and warm-up.
-3. Retain a full-season duration/agency-budget instrument and a 20/21-season save/reload run.
+3. Retain a full-season duration/agency-budget instrument and a 10-season save/reload run.
 4. Investigate root causes revealed by profiling; do not weaken the threshold or delete simulation work to make the gate green.
 
 ### 7.3 Calibration closure
@@ -359,13 +359,13 @@ Use separately declared tuning and holdout seeds. Document research sources and 
 - `swift run SimTests --m3-soak`
 - Revalidate `c62f577`, `e189e67`, `fe1d2eb`, and `1c37413` against the integrated branch.
 
-**Exit:** 20-season saves are at or below 8 MB, performance gates can demonstrably fail, and every advertised calibration metric is measured on an independent holdout.
+**Exit:** 10-season saves are at or below 8 MB, performance gates can demonstrably fail, and every advertised calibration metric is measured on an independent holdout.
 
 ## Phase 8 — Integration and acceptance
 
 1. Run `swift build` and the complete `swift run SimTests` lane.
 2. Run the focused lanes from every changed phase again.
-3. Run the 20/21-season save/reload and career-progression runner, deterministic seed sweeps, and rollover integrity checks.
+3. Run the 10-season save/reload and career-progression runner, deterministic seed sweeps, and rollover integrity checks.
 4. Run the required `rewrite-tournament` and `confidence-review` workflows on all non-trivial changed production functions.
 5. Run `git diff --check` and GitNexus change detection against `main`; investigate every unexpected symbol or execution flow.
 6. Verify the diff contains no SwiftUI view, route registry, portrait layout, design-token, or visual asset changes.

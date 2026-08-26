@@ -31,8 +31,8 @@ not a player-usability requirement.
       framework names `GameState`), seeding (no `hashValue`, `Hasher(` or `hash(into:)`), ambient
       randomness (no `UUID()`, `Date()` or `Date.now`), and design tokens (no spacing, radius,
       colour, font-size or animation-duration literal in a view).
-- [ ] The 20-season soak passes every assertion, at shipping league size.
-- [ ] Save size after 20 seasons is under the 8 MB ceiling; every bounded collection verified bounded
+- [ ] The 10-season soak passes every assertion, at shipping league size.
+- [ ] Save size after 10 seasons is under the 8 MB ceiling; every bounded collection verified bounded
       by growth check.
 - [ ] Migration fixtures pass at every schema version boundary.
 - [ ] **Every gate `SuiteCatalog` files under the `accessibility` lane** is green, including

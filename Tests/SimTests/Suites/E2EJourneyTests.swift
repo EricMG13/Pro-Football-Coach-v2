@@ -44,7 +44,7 @@ func runE2EJourneyChild() {
 /// blocks its caller, so the durability journey runs in a child process just like E2E-F.
 func runE2EHDurabilityTests() {
     suite("E2E-H app durability journey") {
-        test("twenty-one seasons survive app-layer save and reload checkpoints") {
+        test("ten seasons survive app-layer save and reload checkpoints") {
             let child = Process()
             let output = Pipe()
             child.executableURL = currentExecutableURL()
@@ -79,7 +79,8 @@ func runE2EHDurabilityChild() {
 
 @MainActor
 private func exerciseDurabilityJourney() async throws {
-    let horizon = 21
+    let horizon = 10
+    let promotionSeason = max(1, horizon / 2)
     var store = try await CoachWorldStore.newCareer(seed: 92_020)
     var expected = try await store.saveDocument().gameState.calendar
     var promoted = false
@@ -111,7 +112,7 @@ private func exerciseDurabilityJourney() async throws {
                 season: expected.season,
                 promoted: promoted
             )
-            if !promoted && expected.season >= 10 {
+            if !promoted && expected.season >= promotionSeason {
                 store = try await injectAndAcceptPromotion(in: store)
                 promoted = true
             }

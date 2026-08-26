@@ -91,7 +91,7 @@ grows a row that no test backs.
 | Reduce Motion honoured on every animation | `ReduceMotionContractTest` |
 | VoiceOver on every data row and control | `VoiceOverLabelTest` |
 | 44 pt touch targets | `TouchTargetTest` |
-| A save stays bounded across 20 seasons | `M1SoakTests` + `M2SoakTests` |
+| A save stays bounded across 10 seasons | `M1SoakTests` + `M2SoakTests` |
 | Same seed, same league, across app launches | `DeterminismTests` + source scan |
 | All identities fictional and original | `LegalTests` |
 | The simulation and the off-screen model agree | `TwoTierConsistencyTests` |

@@ -9,6 +9,10 @@ The honest picture: what exists, what is verified, what is not.
 > The 6–8 hour season target remains product direction, not a required human sign-off; the
 > `--agency-budget` command is an optional diagnostic.
 
+> **2026-08-26 — season-gate policy.** Required season-running SimTests now use a 10-season
+> horizon for M1/M2/M3/M7 and E2E-H. Longer 20/30+ season runs remain optional diagnostics; the
+> product's 20-season durability direction is not a release gate.
+
 > **2026-08-22 — Match Day moves like football now, and one engine defect is escalated.** The owner
 > watched the 2D animation on a booted iPhone 17e and rejected it: players stopped moving after the
 > play, did not follow it to the end, and tackles did not read as tackles. Measured over 200

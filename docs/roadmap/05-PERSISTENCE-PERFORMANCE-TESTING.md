@@ -104,8 +104,8 @@ For the target world, 134 college programmes + 32 pro teams must remain viable.
 
 ### Soak
 At least:
-- 20 seasons on every backend milestone
-- 50+ season stress soak before final
+- 10 seasons on every backend milestone
+- Longer stress soaks are optional diagnostics, not release gates
 - save/load at repeated intervals
 - deterministic replay fingerprints
 

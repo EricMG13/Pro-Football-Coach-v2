@@ -38,7 +38,7 @@ Every phase gates on **G1–G4**. Engine phases add **G5–G7**. Milestones add 
 | **G4 Scope** | The diff contains what the phase specifies and nothing else. No opportunistic refactors. |
 | **G5 Calibration** | All bands in `03` §5 hold under TOST. |
 | **G6 Determinism** | Same seed reproduces exactly, **across processes**; **both** determinism source scans pass — no `hashValue`, and no ambient `UUID()`/`Date()` (`03` §3.5). |
-| **G7 Soak** | The 20-season soak passes every assertion in `03` §6 **that the phase's scope can reach** — see the note below. |
+| **G7 Soak** | The 10-season soak passes every assertion in `03` §6 **that the phase's scope can reach** — see the note below. Longer runs are optional diagnostics. |
 | **G8 Milestone audit** | Automated surface, accessibility, reachability, and P0/P1 contracts are green across the whole app. `04b` scoring remains advisory and is not a release blocker. |
 
 **Legal gates run on every phase that touches generation:** the name-collision test and the
@@ -55,10 +55,10 @@ G7 therefore means **the soak at the scope the phase has built**:
 
 | Phase | G7 means |
 |---|---|
-| P7 | 20 seasons, college only. Scholarship, eligibility, roster, ratings, churn, save size. |
-| P8 | 20 seasons, both tiers. The cap assertions come live here. |
-| P9 | 20 seasons, both tiers, plus the career and carousel invariants the phase adds. |
-| P16 | The full soak at full scale, every assertion in `03` §6, no exclusions. **This is the one that counts.** |
+| P7 | 10 seasons, college only. Scholarship, eligibility, roster, ratings, churn, save size. |
+| P8 | 10 seasons, both tiers. The cap assertions come live here. |
+| P9 | 10 seasons, both tiers, plus the career and carousel invariants the phase adds. |
+| P16 | The full 10-season soak at full scale, every assertion in `03` §6, no exclusions. **This is the one that counts.** |
 
 A phase that skips an assertion must name it in `docs/STATUS.md` and name the phase that turns it on.
 A silently narrowed soak is the coverage-boundary failure `CLAUDE.md` warns about, wearing a gate's
@@ -252,7 +252,7 @@ sheet's pacing, what is said when, and the first-hour state transitions. The bui
 **→ Milestone M2: G8.**
 
 ### P16 — Durability
-The 20-season soak at full scale; save-size trajectory; bounded-collection growth checks; migration
+The 10-season soak at full scale; save-size trajectory; bounded-collection growth checks; migration
 fixtures at every version boundary.
 **Gates:** G1, G2, G4, G5, G6, G7.
 

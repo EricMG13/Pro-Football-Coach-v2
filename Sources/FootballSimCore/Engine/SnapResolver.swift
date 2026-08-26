@@ -132,7 +132,8 @@ public enum SnapResolver {
                 schemeFit: 0,
                 situationModifier: homeFieldAdvantage
                     - defensiveCall.coverage.help(against: offensiveCall.passDepth)
-                    + defensiveCall.coverageDrain,
+                    + defensiveCall.coverageDrain
+                    - defensiveCall.aggression * MatchupRules.aggressionCoverageBonus,
                 ratingWeight: MatchupRules.passMatchupRatingWeight,
                 rng: &rng
             )
@@ -325,7 +326,8 @@ public enum SnapResolver {
                 - (rules.tier == .college ? MatchupRules.collegeBreakTackleRelief : 0),
             yardsPerBreak: MatchupRules.brokenTackleYards,
             laterBreakMultiplier: 1,
-            decay: MatchupRules.brokenTackleDecay,
+            decay: MatchupRules.brokenTackleDecay
+                + (rules.tier == .college ? MatchupRules.collegeBrokenTackleDecay : 0),
             performance: performance,
             rng: &rng
         )

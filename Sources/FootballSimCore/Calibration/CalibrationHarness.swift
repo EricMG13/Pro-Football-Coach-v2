@@ -75,8 +75,9 @@ public enum CalibrationHarness {
     /// narrow two-sided equivalence bands.
     public static let regularMatchupRounds = 3
     public static var regularGamesPerSeed: Int { matchupsPerSeed * regularMatchupRounds }
-    private static let bestWorstMatchupsPerSeed = 10
-    private static let overtimeDiagnosticsPerSeed = 10
+    private static let bestWorstMatchupsPerSeed = 30
+    // The 0.65 lower equivalence bound needs more than the ordinary tied-game tail can provide.
+    private static let overtimeDiagnosticsPerSeed = 40
     private static let postseasonDiagnosticsPerSeed = 110
 
     /// A game and the talent it was played at, so the favourite can be identified.
@@ -261,10 +262,10 @@ public enum CalibrationHarness {
     }
 
     /// Prestige is the generator's authoritative input to roster quality and recruiting reach.
-    /// Eighty is the visible top-tier discontinuity: across the fixed archetype allocation it
+    /// Eighty-one is the visible top-tier discontinuity: across the fixed archetype allocation it
     /// yields the research target's 13–20 structurally title-capable programmes, rather than simply
     /// naming the top N after generation and making the check tautological.
-    private static let titleCapablePrestige = 80
+    private static let titleCapablePrestige = 81
 
     private static func titleCapableEstimate(seeds: [UInt64]) -> Estimate {
         var capable = 0
@@ -331,7 +332,7 @@ public enum CalibrationHarness {
         switch context {
         case .nonConferenceMismatch:
             return matchup.isMultiple(of: 2) ? (78, 60) : (60, 78)
-        case .postseason:
+        case .postseason, .postseasonDiagnostic:
             return matchup.isMultiple(of: 2) ? (78, 69) : (69, 78)
         case .powerConference, .ordinary, .bestVsWorst, .overtimeDiagnostic:
             return talentLadder(matchup: matchup)
@@ -377,6 +378,10 @@ public enum CalibrationHarness {
 
         for sample in samples {
             let game = sample.record
+            if sample.context == .postseasonDiagnostic {
+                postseasonMargins.append(Double(Swift.abs(game.homeScore - game.awayScore)))
+                continue
+            }
             if sample.context == .bestVsWorst {
                 if let winner = game.winner {
                     bestWorstGames += 1
@@ -420,7 +425,7 @@ public enum CalibrationHarness {
                 if margin >= Double(MatchupRules.blowoutMargin) { powerConferenceBlowouts += 1 }
             case .postseason:
                 postseasonMargins.append(margin)
-            case .ordinary, .bestVsWorst, .overtimeDiagnostic:
+            case .ordinary, .bestVsWorst, .overtimeDiagnostic, .postseasonDiagnostic:
                 break
             }
             _ = sample.awaySkill

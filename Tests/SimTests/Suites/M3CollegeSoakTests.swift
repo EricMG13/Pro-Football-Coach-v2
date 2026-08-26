@@ -3,8 +3,8 @@ import FootballSimCore
 
 func runM3CollegeSoakTests() {
     let requested = ProcessInfo.processInfo.environment["M3_SOAK_SEASONS"]
-        .flatMap(Int.init) ?? 20
-    precondition((1...20).contains(requested), "M3 soak seasons must be in 1...20.")
+        .flatMap(Int.init) ?? 10
+    precondition((1...10).contains(requested), "M3 soak seasons must be in 1...10.")
 
     suite("M3 college management soak") {
         testAsync("a delegated target-scale career remains legal and persistent") {

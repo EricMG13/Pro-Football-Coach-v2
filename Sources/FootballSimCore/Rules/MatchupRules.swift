@@ -121,6 +121,9 @@ public enum MatchupRules {
     public static let poiseSackRelief = 0.22
     public static let sackYards = -7
     public static let blitzPressureBonus = 0.14
+    /// Defensive aggression is both rush timing and tighter route breaks; reading it only in pass
+    /// protection made a jump-route call unable to affect the coverage matchup it names.
+    public static let aggressionCoverageBonus = 0.32
     public static let pressureThrowPenalty = 0.30
     /// How much being open helps the throw, in leverage units at full openness.
     public static let opennessThrowHelp = 0.30
@@ -150,7 +153,7 @@ public enum MatchupRules {
     /// team-level signal there while the pro tier keeps individual variance from becoming a rout.
     public static let proThrowAccuracyWeight = 0.16
     public static let collegeThrowAccuracyWeight = 0.35
-    public static let collegePassBaselineBonus = 0.02
+    public static let collegePassBaselineBonus = 0.026
 
     /// Where each depth starts, in leverage units, for a reference passer with nobody open and no
     /// pressure. Solved from the completion share each depth held before the rebalance.
@@ -224,7 +227,7 @@ public enum MatchupRules {
     /// threshold meant tuning the run's tail moved the explosive-pass rate with it — `01` §6.5 bands
     /// those separately (0.105–0.130 run against 0.125–0.150 pass in the pro tier), so one constant
     /// could not serve both.
-    public static let catchBreakTackleThreshold = 0.47
+    public static let catchBreakTackleThreshold = 0.483
     /// Once a receiver has broken the first tackle, open-field pursuit is less likely to reset the
     /// chain than a runner's box pursuit. This shapes the long-play tail without inflating every
     /// completed pass.
@@ -243,9 +246,8 @@ public enum MatchupRules {
     /// **0.05 until 2026-08-23.** `Assignment.atTheSecondLevel` puts a linebacker in front of the
     /// carrier exactly when the lane was won, and a linebacker tackles better than the lineman he
     /// replaced, so college explosive runs fell from 0.1395 to 0.1360 against a 0.1350 floor -- a
-    /// band already sitting on its floor with 0.0022 to spare before any of this moved. 0.08
-    /// re-centres it at 0.1488 against a band midpoint of 0.150. This is the tier-local lever the
-    /// paragraph above was written for, used for the thing it was written for.
+    /// band already sitting on its floor with 0.0022 to spare before any of this moved. This is the
+    /// tier-local lever described above, used only for the college explosive-run tail.
     public static let collegeBreakTackleRelief = 0.025
     /// Lane quality above which the carrier is met at the second level rather than at the line,
     /// and above which he is into the secondary rather than either.
@@ -285,6 +287,8 @@ public enum MatchupRules {
     /// Each successive break is harder. Bounded, because an unbounded chain is a hang with a small
     /// probability and `03` §7's frame budget has no room for one.
     public static let brokenTackleDecay = 0.18
+    /// College keeps the first broken tackle but slightly reduces the multi-break explosive tail.
+    public static let collegeBrokenTackleDecay = 0.008
     public static let maximumBrokenTackles = 4
 
     // MARK: - Kicks

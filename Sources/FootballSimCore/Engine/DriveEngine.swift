@@ -153,7 +153,8 @@ public struct BaselinePlayCaller: PlayCaller, Sendable {
             && situation.quarter > rules.quarters
             && situation.scoreDifferential <= -MatchupRules.touchdownPoints
         if overtimeTouchdownRequired {
-            return DefensiveCall(coverage: .prevent, rushers: MatchupRules.baseRushers)
+            return DefensiveCall(coverage: .prevent, rushers: MatchupRules.baseRushers,
+                                 aggression: 1)
         }
         if situation.isTwoMinute(rules: rules), situation.scoreDifferential < 0 {
             return DefensiveCall(coverage: .prevent, rushers: MatchupRules.baseRushers)

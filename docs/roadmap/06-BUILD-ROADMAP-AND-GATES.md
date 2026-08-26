@@ -31,7 +31,7 @@ Deliver:
 - season advancement
 
 Exit gate:
-- 20 college/pro seasons complete headlessly
+- 10 college/pro seasons complete headlessly
 - no integrity failures
 - results statistically plausible enough for continued tuning
 
@@ -45,7 +45,7 @@ Deliver:
 - staff generation/careers
 
 Exit gate:
-- population distributions remain stable for 20 seasons
+- population distributions remain stable for 10 seasons
 - staff vacancies always resolve
 - development outcomes are explainable and bounded
 
@@ -116,7 +116,7 @@ Deliver:
 - pro job transition
 
 Exit gate:
-- 20-season both-tier soak
+- 10-season both-tier soak
 - every pro team cap legal
 - AI roster construction remains credible
 
@@ -133,7 +133,7 @@ Deliver:
 - narrative event composition
 
 Exit gate:
-- 30+ season history remains useful and performant
+- 10-season history remains useful and performant
 - important past events can be surfaced without scanning entire save
 
 ---

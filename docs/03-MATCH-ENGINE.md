@@ -200,7 +200,7 @@ hold is to fix the model or state the margin honestly, never to widen until gree
 
 ## 6. The soak
 
-Twenty seasons, seeded, run headless, asserting:
+Ten seasons, seeded, run headless, asserting:
 
 - Ratings distribution stays inside band across all ~134 college programmes and 32 pro teams.
 - Age and roster-size distributions stay legal; no roster illegal at any week boundary.
@@ -225,7 +225,7 @@ iPhone 15-class device per the 2026-08-11 platform baseline.
 | Week advance, pro | 0.3 s | 0.6 s |
 | Full-season sim, college | 20 s | 35 s |
 | Match render frame | 8 ms | **16.7 ms** |
-| Save size, 20 seasons | 4 MB | **8 MB** |
+| Save size, 10 seasons | 4 MB | **8 MB** |
 | Cold launch to playable | 1.2 s | 2.0 s |
 | Save write (never on the main actor) | 150 ms | 400 ms |
 

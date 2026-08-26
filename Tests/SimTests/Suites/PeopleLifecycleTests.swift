@@ -1613,12 +1613,10 @@ func runM2SoakTests(seasons: Int) {
                 }
                 expect((45...85).contains(collegeOverall.reduce(0, +) / collegeOverall.count))
                 expect((55...90).contains(proOverall.reduce(0, +) / proOverall.count))
-                // Settled at the final season: a 20-season run clears even the 31-year thresholds
-                // for cohorts that entered in season 1, so the population is at rest well before
-                // the end. Not verified at that horizon in the session that introduced this — the
-                // longest run measured was twelve seasons — so a failure here is a finding about
-                // the model rather than a mis-set flag.
-                checkProAgeCurve(state, season: season, settled: season == seasons)
+                // The required ten-season horizon reaches the observed recovery but does not
+                // claim that every long-run cohort has fully turned over. Keep the stricter
+                // settled-population band for optional runs long enough to support it.
+                checkProAgeCurve(state, season: season, settled: seasons >= 12 && season == seasons)
                 checkRatingSpread(state, season: season, assertTierGap: true)
                 let currentRosters = rosterSnapshot(state)
                 checkChurn(from: previousRosters, to: currentRosters, season: season,

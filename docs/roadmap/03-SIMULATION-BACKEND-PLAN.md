@@ -60,7 +60,8 @@ Build:
 - player career history
 
 Critical output:
-A 20-season world must retain plausible roster sizes, age structures and statistical distributions.
+A 10-season release-gate run must retain plausible roster sizes, age structures and statistical
+distributions. The product's 20-season durability direction remains an optional diagnostic.
 
 ---
 

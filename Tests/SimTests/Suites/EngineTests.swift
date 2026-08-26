@@ -35,8 +35,8 @@ import FootballSimCore
 /// file rather than a computed value.
 ///
 /// Every value here reproduced across three independent debug processes and a release build.
-private let PINNED_PRO_GAME_FINGERPRINT: UInt64 = 15_295_482_185_907_425_422
-private let PINNED_COLLEGE_GAME_FINGERPRINT: UInt64 = 2_955_826_901_363_617_613
+private let PINNED_PRO_GAME_FINGERPRINT: UInt64 = 12_885_352_638_595_568_582
+private let PINNED_COLLEGE_GAME_FINGERPRINT: UInt64 = 4_944_418_517_511_382_355
 
 func runEngineTests() {
     suite("Leverage") {
