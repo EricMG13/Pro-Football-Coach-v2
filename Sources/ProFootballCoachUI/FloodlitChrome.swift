@@ -413,14 +413,8 @@ struct FloodlitIdentityHeader: View {
     }
 
     private var navigatorGround: some View {
-        LinearGradient(
-            stops: [
-                .init(color: (identity?.field ?? CoachWorldTokens.Floodlit.clubField).color.opacity(0.92), location: 0),
-                .init(color: (identity?.field ?? CoachWorldTokens.Floodlit.clubField).color.opacity(0.42), location: 0.52),
-                .init(color: .clear, location: 1),
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
+        CoachWorldTokens.Floodlit.navigatorGround(
+            field: identity?.field ?? CoachWorldTokens.Floodlit.clubField
         )
     }
 

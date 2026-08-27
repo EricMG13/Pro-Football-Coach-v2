@@ -109,11 +109,6 @@ public enum DevelopmentSystem {
         return DevelopmentTransition(players: players, people: people, eventPayloads: payloads)
     }
 
-    private struct CoachGroupKey: Hashable {
-        let organisationID: UUID
-        let group: String
-    }
-
     private struct PlayerDevelopmentContext {
         let coachRating: Int
         let practiceValue: Int
@@ -235,5 +230,26 @@ public enum DevelopmentSystem {
             let rhs = player.attributes[$1].value
             return lhs == rhs ? $0.rawValue < $1.rawValue : lhs > rhs
         }.first
+    }
+}
+
+/// In-memory only, and conformed anyway — as an `extension`, which is the form the engine-wide
+/// scan reads. The scan flags every dictionary key type without asking whether that particular map
+/// is ever encoded, because "this one is never persisted" is exactly the judgement that stops being
+/// true without anyone noticing.
+private struct CoachGroupKey: Hashable {
+    let organisationID: UUID
+    let group: String
+}
+
+extension CoachGroupKey: CodingKeyRepresentable {
+    var codingKey: any CodingKey {
+        StringCodingKey("\(organisationID.uuidString)|\(group)")
+    }
+
+    init?<K: CodingKey>(codingKey: K) {
+        let parts = codingKey.stringValue.split(separator: "|", maxSplits: 1)
+        guard parts.count == 2, let id = UUID(uuidString: String(parts[0])) else { return nil }
+        self.init(organisationID: id, group: String(parts[1]))
     }
 }

@@ -1385,39 +1385,46 @@ func runPortalTransactionTests() {
                 return state
             }
 
+            // Pruned the way the world prunes. `SeasonLifecycleSystem.advance` does not bound the
+            // departed set and never has -- `WorldScheduler.saveGrowthAndIntegrity` does, by
+            // calling `pruneDepartedPlayers` with `retainedIdentityIDs` as its protected set. This
+            // used to assert the bound against `advance`, which meant the count check had been red
+            // since it was written *and* the protection checks below it passed vacuously: nothing
+            // was evicting, so of course no entrant was evicted.
+            func pruned(_ live: GameState) -> PeopleState {
+                var people = live.people
+                people.pruneDepartedPlayers(
+                    protecting: SeasonLifecycleSystem.retainedIdentityIDs(in: live)
+                )
+                return people
+            }
+
             for key in portalEvents.keys.sorted() {
                 let live = buildState(retainedEvent: portalEvents[key])
-                let transition = try SeasonLifecycleSystem.advance(
-                    after: live.calendar,
-                    in: live
-                )
+                let people = pruned(live)
                 expect(
-                    entrantIDs.allSatisfy { transition.people.departedPlayers[$0] != nil },
+                    entrantIDs.allSatisfy { people.departedPlayers[$0] != nil },
                     "a portal entrant was evicted while the window's \(key) event was still live"
                 )
                 expectEqual(
-                    transition.people.departedPlayers.count,
+                    people.departedPlayers.count,
                     PeopleRules.departedPlayerRetentionLimit
                 )
             }
 
             // Simulates every event for the postseason window having aged out of the bounded hot
             // journal after enough later seasons of unrelated activity.
-            let agedOutCompletion = buildState(retainedEvent: nil)
-            let agedOutTransition = try SeasonLifecycleSystem.advance(
-                after: agedOutCompletion.calendar,
-                in: agedOutCompletion
-            )
+            let agedOutPeople = pruned(buildState(retainedEvent: nil))
             expect(
-                entrantIDs.allSatisfy { agedOutTransition.people.departedPlayers[$0] == nil },
+                entrantIDs.allSatisfy { agedOutPeople.departedPlayers[$0] == nil },
                 "a portal entrant outlived every trace of its window once the completion event aged out"
             )
             expect(
-                entrantIDs.allSatisfy { agedOutTransition.people.playerCareers[$0] == nil },
+                entrantIDs.allSatisfy { agedOutPeople.playerCareers[$0] == nil },
                 "eviction dropped the departed identity but kept its paired career record"
             )
             expectEqual(
-                agedOutTransition.people.departedPlayers.count,
+                agedOutPeople.departedPlayers.count,
                 PeopleRules.departedPlayerRetentionLimit
             )
         }

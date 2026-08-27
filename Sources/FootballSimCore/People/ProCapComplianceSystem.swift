@@ -6,9 +6,36 @@ public struct ProCapComplianceDecision: Codable, Sendable, Equatable, Identifiab
     public let createdAt: CalendarState
 
     public init(id: UUID, teamID: UUID, createdAt: CalendarState) {
+        precondition(
+            Self.isValid(createdAt: createdAt),
+            "A cap-compliance decision requires a supported calendar."
+        )
         self.id = id
         self.teamID = teamID
         self.createdAt = createdAt
+    }
+
+    /// Validated on decode like every other persisted decision in this package. `WorldIntegrity`
+    /// would refuse a malformed one a moment later, but refusing here keeps the reason at the field
+    /// that carries it rather than reporting an unopenable save.
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let decodedCreatedAt = try container.decode(CalendarState.self, forKey: .createdAt)
+        guard Self.isValid(createdAt: decodedCreatedAt) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .createdAt,
+                in: container,
+                debugDescription: "A cap-compliance decision holds an unsupported calendar."
+            )
+        }
+        id = try container.decode(UUID.self, forKey: .id)
+        teamID = try container.decode(UUID.self, forKey: .teamID)
+        createdAt = decodedCreatedAt
+    }
+
+    private static func isValid(createdAt: CalendarState) -> Bool {
+        (0..<SharedRules.maximumCareerSeasons).contains(createdAt.season)
+            && (1...SharedRules.inSeasonWeeks).contains(createdAt.week)
     }
 }
 
@@ -88,8 +115,12 @@ public enum ProCapComplianceSystem {
             by: \Player.position
         ).mapValues(\.count)
         var actions: [ProLegalActionProjection] = []
-        for playerID in (team.rosterIDs + team.practiceSquadIDs)
-            .sorted(by: { $0.uuidString < $1.uuidString }) {
+        // Deduplicated rather than concatenated: `ProLegalActionProjection.id` is
+        // `playerID|kind`, so a player named by both lists would emit two rows sharing one
+        // identity. `capSnapshot` refuses that overlap a call earlier, and this does not rely on it.
+        let projectedPlayerIDs = Set(team.rosterIDs + team.practiceSquadIDs)
+            .sorted { $0.uuidString < $1.uuidString }
+        for playerID in projectedPlayerIDs {
             guard let player = state.players[playerID] else { continue }
             let currentCapHit = player.contract?.capHit(atSeason: state.calendar.season) ?? 0
             let releaseDeadMoney = player.contract?.deadMoney(
@@ -168,7 +199,9 @@ public enum ProCapComplianceSystem {
                 kind: .extendContract,
                 currentCapHit: currentCapHit,
                 projectedRemainingCap: extensionCommitted.map { cap.capLimit - $0 },
-                projectedDeadMoney: extensionCommitted.map { _ in cap.deadMoney },
+                // An extension replaces a cap hit; it discharges nothing, so dead money is
+                // unchanged by construction rather than unprojected.
+                projectedDeadMoney: cap.deadMoney,
                 reason: extensionReason,
                 action: negotiation.map {
                     .management(.acceptNegotiation(negotiationID: $0.id))
@@ -193,10 +226,21 @@ public enum ProCapComplianceSystem {
                 action: .market(.promoteFromPracticeSquad(playerID: playerID, teamID: teamID))
             ))
 
-            let waiverReason: String? = state.proMarket.waivers.contains {
-                $0.playerID == playerID
-            } ? "The player is already on waivers." : player.contract == nil
-                ? "The player has no contract to waive." : nil
+            // Waiving only opens an entry: the player stays on the roster and in `committedCap`
+            // until the claim resolves in a later week. While the team is over the cap that is a
+            // remedy that cannot work -- `refresh` clears the blocking decision only once the cap
+            // is legal, and `IntentResolver` refuses the week until it is -- so offering it as
+            // eligible hands the player a dead end. Released, not waived, is the way out.
+            let waiverReason: String?
+            if state.proMarket.waivers.contains(where: { $0.playerID == playerID }) {
+                waiverReason = "The player is already on waivers."
+            } else if player.contract == nil {
+                waiverReason = "The player has no contract to waive."
+            } else if !cap.isWithinCap {
+                waiverReason = "Waivers do not clear this season's cap overage; release instead."
+            } else {
+                waiverReason = nil
+            }
             actions.append(row(
                 playerID: playerID,
                 kind: .placeOnWaivers,

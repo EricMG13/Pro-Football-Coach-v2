@@ -473,7 +473,10 @@ private func codingKeyRepresentableTypes(in files: [(path: String, text: String)
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard trimmed.hasPrefix("extension ") else { continue }
             let rest = trimmed.dropFirst("extension ".count).drop(while: { $0 == " " })
-            conformed.insert(String(rest.prefix { $0.isLetter || $0.isNumber || $0 == "_" }))
+            // The last dotted component, not the first: `extension Outer.Inner:` names `Inner`,
+            // and reading `Outer` meant nesting a key type silently exempted it from this scan.
+            let name = rest.prefix { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "." }
+            conformed.insert(String(name.split(separator: ".").last ?? ""))
         }
     }
     return conformed

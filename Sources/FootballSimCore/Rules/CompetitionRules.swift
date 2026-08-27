@@ -58,6 +58,11 @@ public enum CompetitionRules {
     /// Bounds a drawn play count to something a game can actually contain. A tail beyond this is
     /// the gaussian's, not football's.
     public static let playCountRange: ClosedRange<Int> = 40...105
+    /// **[ASSUMPTION]** Completion, sack, turnover, explosive-play and offensive-yard means for
+    /// the abstracted simulator, re-fitted on the tuning worlds on 2026-08-26 rather than
+    /// transcribed from `01` §6.5. They are the model's own centres, not a research band, and the
+    /// calibration harness does not hold any of them to a source. Replace them as a set when
+    /// disjoint tuning and holdout seeds are available; the closure plan requires exactly that.
     public static let baselineCompletionProbability = 0.642
     public static let collegeBaselineCompletionProbability = 0.682
     public static let strengthCompletionProbabilityScale = 0.003
@@ -79,6 +84,23 @@ public enum CompetitionRules {
     public static let turnoverRange: ClosedRange<Int> = 0...4
     public static let touchdownPointEstimate = 10
     public static let playerAwardTouchdownValue = 50
+    /// **[ASSUMPTION]** The abstracted simulator's target distribution. Re-fitted on the tuning
+    /// worlds on 2026-08-26; `01` has no target-share row, so none of these is transcribed and all
+    /// five must be replaced together the moment it grows one.
+    ///
+    /// **`wr3PlusTargetShare` is 0.0 because the detailed engine's is, and it is a defect in both.**
+    /// `Assignment.swift` sends four players into a route -- `prefix(2)` wide receivers, one tight
+    /// end, one back, capped at `MatchupRules.receiversInRoute` -- so WR3 and below are never in a
+    /// pattern and can never be targeted on screen. This constant was brought to zero to make the
+    /// off-screen model agree, which `TwoTierConsistencyGateTests` requires and which is the right
+    /// call while the two must match: raising it here alone breaks that gate and makes the two
+    /// models disagree, which is strictly worse than agreeing on something wrong.
+    ///
+    /// What it costs while it stands: every WR3+ in the league records no reception, no receiving
+    /// yard and no receiving touchdown for an entire career, and development, awards, statistics
+    /// leaders and draft evaluation all read that hole as fact. Fixing it means widening the route
+    /// distribution in the detailed engine first -- a `03` question and a calibration re-run -- and
+    /// only then giving this constant the share that follows.
     public static let wr1TargetShare = 0.34
     public static let wr2TargetShare = 0.27
     public static let wr3PlusTargetShare = 0.0

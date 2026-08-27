@@ -475,13 +475,27 @@ public struct CareerControlState: Codable, Sendable, Equatable {
         pro = nil
     }
 
+    /// Evicts oldest-first at the bound rather than refusing, the way `recordDelegatedActivity`
+    /// below does.
+    ///
+    /// Refusing was the wrong overflow policy for this collection specifically: every caller reads
+    /// `false` as fatal -- `CareerSession.resolveDecision` throws on it, and
+    /// `CareerMandatoryDecisionSystem.refresh` silently skips a delegation -- so a full list stops
+    /// decisions resolving, and a week cannot advance while one is pending. That is a save that
+    /// locks rather than one that forgets. Appends are chronological, and the only reader that
+    /// looks a resolution up (`CollegePortalPolicyV1.makeMarketSnapshot`) wants the current
+    /// window's, so dropping from the front costs nothing it can see.
     @discardableResult
     mutating func recordResolution(_ resolution: MandatoryDecisionResolution) -> Bool {
-        guard mandatoryDecisionResolutions.count < Self.maximumMandatoryDecisionResolutions,
-              !mandatoryDecisionResolutions.contains(where: {
-                  $0.decisionID == resolution.decisionID
-              }) else { return false }
+        guard !mandatoryDecisionResolutions.contains(where: {
+            $0.decisionID == resolution.decisionID
+        }) else { return false }
         mandatoryDecisionResolutions.append(resolution)
+        if mandatoryDecisionResolutions.count > Self.maximumMandatoryDecisionResolutions {
+            mandatoryDecisionResolutions.removeFirst(
+                mandatoryDecisionResolutions.count - Self.maximumMandatoryDecisionResolutions
+            )
+        }
         return true
     }
 

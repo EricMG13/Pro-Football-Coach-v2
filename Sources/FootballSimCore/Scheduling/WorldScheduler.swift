@@ -84,6 +84,10 @@ public enum WorldSchedulerError: Error, Equatable {
     case eventAppendFailed
     case aiRecruitingActionFailed(RecruitingActionError)
     case collegeCycleFailed
+    /// A user-owned portal responsibility has retention decisions the save has not answered.
+    /// Carried out rather than refused blind, because the decisions can only be derived here:
+    /// `CareerSession` enqueues them against the week the advance was refused on.
+    case portalDecisionsRequired(CollegePortalWindow, [MandatoryDecision])
     case portalMarketFailed(CollegePortalWindow)
     case portalCommitFailed(CollegePortalWindow)
     case professionalMarketFailed(ProMarketError)
@@ -1209,6 +1213,16 @@ public enum WorldScheduler {
         emittedEvents: inout [DomainEvent]
     ) throws {
         let control = state.career.college
+        // Before the market, not after it: `makeMarketSnapshot` requires a resolution for every
+        // player a user-owned baseline would retain, and it can only answer "missing" as a flat
+        // `nil`. Deriving them here is what makes the refusal actionable.
+        let required = CareerMandatoryDecisionSystem.unresolvedPortalRetentionDecisions(
+            window: window,
+            in: state
+        )
+        guard required.isEmpty else {
+            throw WorldSchedulerError.portalDecisionsRequired(window, required)
+        }
         guard let market = CollegePortalPolicyV1.makeMarketSnapshot(
             targetSeason: state.college.recruitingSeason,
             window: window,

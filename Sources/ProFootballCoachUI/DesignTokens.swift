@@ -413,6 +413,28 @@ public enum CoachWorldTokens {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
+
+        /// The navigator's ground: the club's field colour fading out across the band.
+        ///
+        /// Here rather than in the view for the same reason `goldField` is. It takes its colour at
+        /// runtime because it follows the save's own club, which is the only thing that stops it
+        /// being a plain constant -- the alphas and stops are fixed, and a fixed value written in a
+        /// view is a value that drifts from the one place that is supposed to hold it.
+        public static func navigatorGround(field: ColorValue = clubField) -> LinearGradient {
+            LinearGradient(
+                stops: [
+                    .init(color: field.color.opacity(navigatorGroundLead), location: 0),
+                    .init(color: field.color.opacity(navigatorGroundFade), location: navigatorGroundMidpoint),
+                    .init(color: .clear, location: 1),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
+
+        private static let navigatorGroundLead = 0.92
+        private static let navigatorGroundFade = 0.42
+        private static let navigatorGroundMidpoint = 0.52
     }
 
     /// Glass, as the handoff states it: a fill, a hairline, and a directional sheen. Held as alphas

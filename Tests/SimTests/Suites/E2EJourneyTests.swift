@@ -144,6 +144,7 @@ private func finishControlledMatch(in store: CoachWorldStore) async throws {
         await store.matchControl(.init(rawValue: "match|\(fixtureID.uuidString)|\(revision)|takeover"))
         revision += 1
     }
+    var lastSyncedRevision = revision
     for snap in 1...MatchupRules.maximumDrivesPerGame * MatchupRules.maximumPlaysPerDrive {
         await store.matchControl(.init(rawValue: "match|\(fixtureID.uuidString)|\(revision)|advance"))
         revision += 1
@@ -154,8 +155,31 @@ private func finishControlledMatch(in store: CoachWorldStore) async throws {
             throw JourneyError("controlled match has no fixture identity")
         }
         revision = match.revision
+        // A refused advance leaves the persisted checkpoint where it was, and the driver's local
+        // revision then runs ahead until this resync -- so every later refusal reads as a stale
+        // checkpoint and overwrites the real one. Fail on the first frozen window, against a
+        // freshly synced revision, so the message is the refusal that actually stopped the match.
+        guard snap == 16 || match.revision != lastSyncedRevision else {
+            await store.matchControl(
+                .init(rawValue: "match|\(fixtureID.uuidString)|\(revision)|advance")
+            )
+            throw JourneyError(
+                "controlled match stopped advancing at \(document.gameState.calendar) "
+                    + "revision \(match.revision): \(store.statusMessage ?? "no refusal")"
+            )
+        }
+        lastSyncedRevision = match.revision
     }
-    throw JourneyError("controlled match exceeded its bounded snap budget")
+    let stalled = try await store.saveDocument().gameState
+    throw JourneyError(
+        "controlled match exceeded its bounded snap budget at \(stalled.calendar): "
+            + "completed \(stalled.matchSession?.completed.description ?? "no session"), "
+            + "paused \(stalled.matchSession?.isPaused.description ?? "-"), "
+            + "takeover \(stalled.matchSession?.isTakeover.description ?? "-"), "
+            + "callIn \(stalled.matchSession?.pendingCallIn == nil ? "none" : "pending"), "
+            + "revision \(stalled.matchSession?.revision.description ?? "-"), "
+            + "status \(store.statusMessage ?? "no refusal")"
+    )
 }
 
 @MainActor

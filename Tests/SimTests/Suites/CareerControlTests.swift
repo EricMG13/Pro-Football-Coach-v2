@@ -998,6 +998,121 @@ func runCareerPortalDecisionTests() {
             }
             expectEqual(persistedResolution?.action, .portalRelease)
         }
+
+        testAsync("a user-owned postseason portal holds the season boundary open") {
+            var state = GameState.bootstrap(seed: 98_002)
+            for _ in 0..<(SharedRules.inSeasonWeeks - 1) {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            expectEqual(
+                state.calendar,
+                CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            )
+
+            // The postseason window's own inputs -- the career season rows the lifecycle writes and
+            // the recruiting season the cycle opens -- exist only part-way through the boundary
+            // step, so the fixture is read off that step rather than off the week entering it.
+            let capture = BoundaryCapture()
+            WorldScheduler.transactionObserver = { label, observed in
+                guard label == "collegeCycle.closeAndOpen" else { return }
+                capture.first(observed)
+            }
+            _ = try WorldScheduler.advanceWeek(state)
+            WorldScheduler.transactionObserver = nil
+            guard let boundary = capture.state else {
+                expect(false, "the season boundary never reached the college cycle")
+                return
+            }
+
+            guard let snapshot = CollegePortalPolicyV1.makeSnapshot(
+                targetSeason: boundary.calendar.season + 1,
+                window: .postseason,
+                in: boundary
+            ) else {
+                expect(false, "the boundary did not expose an authoritative postseason snapshot")
+                return
+            }
+            // Idle for the same reason the spring case is: a controlled programme with an unplayed
+            // fixture pauses the week at its match and never reaches the portal at all.
+            let playingProgrammeIDs = Set(
+                state.competition.currentSchedule.games
+                    .filter {
+                        $0.season == state.calendar.season
+                            && $0.week == state.calendar.week
+                            && $0.result == nil
+                    }
+                    .flatMap { [$0.homeID, $0.awayID] }
+            )
+            guard let retainedIntent = snapshot.intents.first(where: { intent in
+                guard !playingProgrammeIDs.contains(intent.sourceProgrammeID),
+                      let programme = boundary.college.programmes[intent.sourceProgrammeID],
+                      let transition = CollegePortalPolicyV1.resolveRetention(
+                          for: intent.sourceProgrammeID,
+                          programme: programme,
+                          using: snapshot
+                      ) else { return false }
+                return transition.resolutions[intent.playerID]?.outcome == .retained
+            }) else {
+                expect(false, "the boundary produced no retainable intent at an idle programme")
+                return
+            }
+
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: retainedIntent.sourceProgrammeID,
+                in: state
+            ).state
+            let session = try CareerSession(state: controlled)
+            expect(await session.projection().mandatoryDecisions.isEmpty)
+
+            do {
+                _ = try await session.resolve(.advanceWeek)
+                expect(false, "the boundary advanced without a user-owned retention answer")
+            } catch let error as IntentResolutionError {
+                guard case let .unresolvedMandatoryDecisions(count) = error else {
+                    expect(false, "wrong boundary refusal: \(error)")
+                    return
+                }
+                expect(count > 0)
+            }
+
+            let queued = await session.projection().mandatoryDecisions
+            expect(queued.contains {
+                $0.subject == .portalRetention(
+                    playerID: retainedIntent.playerID,
+                    window: .postseason
+                )
+            })
+            expect(queued.allSatisfy { $0.deadline == state.calendar && $0.owner == .user })
+            expectEqual(await session.snapshot().calendar, state.calendar)
+
+            for decision in queued {
+                _ = try await session.resolve(.mandatoryDecision(
+                    decisionID: decision.id,
+                    optionID: decision.recommendedOptionID
+                ))
+            }
+            _ = try await session.resolve(.advanceWeek)
+            let advanced = await session.snapshot()
+            expectEqual(advanced.calendar, CalendarState(season: 1, week: 1))
+            expectEqual(advanced.college.portal.phase, .awaitingSpring)
+            expect(advanced.career.mandatoryDecisionResolutions.contains {
+                $0.subject == .portalRetention(
+                    playerID: retainedIntent.playerID,
+                    window: .postseason
+                )
+            })
+        }
+    }
+}
+
+/// The weekly transaction observer is a `@Sendable` closure, so the boundary root it hands back
+/// needs somewhere reference-shaped to land.
+private final class BoundaryCapture: @unchecked Sendable {
+    private(set) var state: GameState?
+
+    func first(_ observed: GameState) {
+        guard state == nil else { return }
+        state = observed
     }
 }
 

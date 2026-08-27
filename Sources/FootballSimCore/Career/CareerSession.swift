@@ -34,6 +34,11 @@ public enum CareerSessionError: Error, Sendable, Equatable {
     case missingDecisionOption
     case decisionActionFailed
     case responsibilityUpdateFailed
+    /// Delegation is atomic across every decision the responsibility has waiting, and one of them
+    /// could not be applied -- most often because the recommended options together want more of a
+    /// weekly budget than the week has left. Nothing was delegated, including the decision the
+    /// player asked about.
+    case delegationIncomplete
     case invalidState
     case matchInProgress
     case matchNotStarted
@@ -184,11 +189,24 @@ public actor CareerSession {
     public func snapshot() -> GameState { state }
 
     /// Captures the app's per-save pacing preference in the resumable match checkpoint atomically.
+    ///
+    /// Only into a checkpoint *this call* installed. It is the one write in this actor that does
+    /// not go through `MatchReducer`, so it does not move `revision`: two checkpoints differing
+    /// only in their pacing target would otherwise share one revision, and `resolveMatch`
+    /// authenticates on `(fixtureID, revision)`. Stamping a session before its first snap makes
+    /// that unobservable -- the pair is unique from the moment anything can read it. A session
+    /// already under way keeps the target it started with, which is also what `04` promises: the
+    /// preference applies to the next match, not to one in progress.
     public func advanceWeek(callInsPerGame: Int) throws -> CareerSessionReceipt {
         let receipt = try resolve(.advanceWeek)
-        guard var match = state.matchSession else { return receipt }
+        guard case .matchStarted = receipt.result, var match = state.matchSession else {
+            return receipt
+        }
         match.setCallInTarget(callInsPerGame)
-        state.matchSession = match
+        var candidate = state
+        candidate.matchSession = match
+        guard WorldIntegrity.check(candidate).isValid else { return receipt }
+        state = candidate
         return CareerSessionReceipt(
             projection: Self.makeProjection(from: state),
             result: receipt.result
@@ -468,12 +486,18 @@ public actor CareerSession {
                 }) else {
                     throw CareerSessionError.missingDecisionOption
                 }
-                candidate = try applyDecision(
-                    queuedDecision,
-                    option: option,
-                    control: control,
-                    in: candidate
-                )
+                do {
+                    candidate = try applyDecision(
+                        queuedDecision,
+                        option: option,
+                        control: control,
+                        in: candidate
+                    )
+                } catch {
+                    // Every sibling or none: a partial delegation would leave the responsibility
+                    // owned by staff with decisions the staff never answered.
+                    throw CareerSessionError.delegationIncomplete
+                }
                 guard candidate.pending.removeDecision(id: queuedDecision.id) != nil,
                       candidate.career.recordResolution(MandatoryDecisionResolution(
                           decisionID: queuedDecision.id,
@@ -493,6 +517,12 @@ public actor CareerSession {
                 }
                 if queuedDecision.id == decisionID { delegatedOptionID = option.id }
             }
+            // Delegation resolves each sibling with its *recommended* option and then flips the
+            // owner below, which is what makes `CollegePortalPolicyV1.makeMarketSnapshot` stop
+            // reading those resolutions as overrides and recompute the baseline instead. The two
+            // agree today only because the recommendation is the baseline. That equivalence cannot
+            // be checked from here -- the baseline is a boundary-state computation -- so it is
+            // asserted where it can actually fail, in `makeMarketSnapshot`'s delegated branch.
             guard let delegatedOptionID,
                   CareerControlSystem.setResponsibility(
                       decision.responsibility,
@@ -560,7 +590,20 @@ public actor CareerSession {
                 control: control
             )
         }
-        let resolved = try IntentResolver.resolve(coachIntent, in: resolutionState)
+        let resolved: ResolvedIntent
+        do {
+            resolved = try IntentResolver.resolve(coachIntent, in: resolutionState)
+        } catch let error as WorldSchedulerError {
+            guard case let .portalDecisionsRequired(_, decisions) = error else { throw error }
+            // Committed against `state`, not `resolutionState`: the advance is refused, so the week
+            // stays where it was and the only thing that carries forward is the queue the user now
+            // has to answer. `preparedForWeekAdvance` cannot have changed anything here anyway --
+            // the scheduler reaches the portal only on a week with no unplayed controlled fixture.
+            state = try enqueueing(decisions, or: error, in: state)
+            throw IntentResolutionError.unresolvedMandatoryDecisions(
+                count: state.pending.mandatoryDecisions.count
+            )
+        }
         try Task.checkCancellation()
         state = ProCapComplianceSystem.refresh(
             in: CareerMandatoryDecisionSystem.refresh(in: resolved.state)
@@ -694,6 +737,24 @@ public actor CareerSession {
         ))
     }
 
+    /// Queues decisions the scheduler derived at a boundary the session cannot reach itself.
+    ///
+    /// Refuses rather than repairs when the result would not stand: an enqueue that `WorldIntegrity`
+    /// rejects means the derivation and the week it is being queued against disagree, and the honest
+    /// answer to that is the scheduler's own error, not a queue nothing can ever drain.
+    private func enqueueing(
+        _ decisions: [MandatoryDecision],
+        or error: WorldSchedulerError,
+        in source: GameState
+    ) throws -> GameState {
+        var candidate = source
+        for decision in decisions {
+            guard candidate.pending.enqueue(decision) else { throw error }
+        }
+        guard WorldIntegrity.check(candidate).isValid else { throw error }
+        return candidate
+    }
+
     private func runCruise(from source: GameState) throws -> GameState {
         var next = source
         for _ in 0..<CareerCruiseState.maximumWeeks {
@@ -723,7 +784,15 @@ public actor CareerSession {
                 next.career.stopCruise(.matchRequiresControl)
                 return next
             }
-            let resolved = try IntentResolver.resolve(.advanceWeek, in: preparation.state)
+            let resolved: ResolvedIntent
+            do {
+                resolved = try IntentResolver.resolve(.advanceWeek, in: preparation.state)
+            } catch let error as WorldSchedulerError {
+                guard case let .portalDecisionsRequired(_, decisions) = error else { throw error }
+                next = try enqueueing(decisions, or: error, in: next)
+                next.career.stopCruise(.mandatoryDecision)
+                return next
+            }
             next = ProCapComplianceSystem.refresh(
                 in: CareerMandatoryDecisionSystem.refresh(in: resolved.state)
             )

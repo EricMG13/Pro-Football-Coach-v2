@@ -617,6 +617,21 @@ public final class CoachWorldStore {
     /// sentence that explains it.
     public nonisolated static func refusalMessage(for error: Error) -> String {
         guard let refusal = error as? CareerSessionError else {
+            // The switch below is exhaustive on purpose, and this guard used to defeat it: every
+            // refusal that is not a `CareerSessionError` -- the resolver's, the scheduler's, the
+            // reducer's -- fell through to one sentence that said nothing. That is not a
+            // hypothetical. A season boundary refused by `integrityFailed([invalidPortalState])`
+            // reached the player as "That action could not be completed", and finding out what it
+            // actually was took a diagnostic build.
+            if let refusal = error as? IntentResolutionError {
+                return message(for: refusal)
+            }
+            if let refusal = error as? WorldSchedulerError {
+                return message(for: refusal)
+            }
+            if let refusal = error as? MatchReducerError {
+                return matchMessage(for: refusal)
+            }
             return "That action could not be completed. Nothing was changed."
         }
         switch refusal {
@@ -633,6 +648,9 @@ public final class CoachWorldStore {
             return "That option is no longer available on this decision."
         case .decisionActionFailed:
             return "The decision could not be committed. Nothing was changed."
+        case .delegationIncomplete:
+            return "That staff member could not take every decision waiting on this "
+                + "responsibility. Decide some yourself, then delegate the rest."
         case .responsibilityUpdateFailed:
             return "That responsibility could not be reassigned. Nothing was changed."
         case .invalidState:
@@ -647,6 +665,90 @@ public final class CoachWorldStore {
             return "The match could not accept that action. The recorded moment is unchanged."
         case .careerComplete:
             return "Your \(SharedRules.maximumCareerSeasons)-season career is complete."
+        }
+    }
+
+    private nonisolated static func message(for refusal: IntentResolutionError) -> String {
+        switch refusal {
+        case let .unresolvedMandatoryDecisions(count):
+            return count == 1
+                ? "One decision is waiting. Answer it before the week advances."
+                : "\(count) decisions are waiting. Answer them before the week advances."
+        case let .unresolvedWeeklyPreparation(requirements):
+            let work = requirements.map(Self.preparationName).joined(separator: " and ")
+            return "Set the \(work) before the week can advance."
+        case .recruitingUnavailableDuringPortal:
+            return "Recruiting is closed while the transfer portal is open."
+        case .tacticalPlanUnavailable, .personnelPlanUnavailable:
+            return "That plan cannot be set right now."
+        case .tacticalCalendarMismatch, .careerCalendarMismatch, .professionalCalendarMismatch,
+             .professionalMarketCalendarMismatch:
+            return "The week moved on before that was submitted. Try it again."
+        case .careerArcUnavailable:
+            return "That career move is not available right now."
+        case .coachSeasonRecordingFailed:
+            return "Your season record could not be written. Nothing was changed."
+        case .professionalManagementUnavailable, .professionalMarketUnavailable:
+            return "You do not manage a professional roster right now."
+        case .professionalTransactionFailed, .professionalMarketActionFailed:
+            return "The league refused that roster move. Nothing was changed."
+        case .eventAppendFailed:
+            return "The news ledger is full for this season. Nothing was changed."
+        case .integrityFailed:
+            return "That would have left the world in an unsupported state. Nothing was changed."
+        }
+    }
+
+    private nonisolated static func message(for refusal: WorldSchedulerError) -> String {
+        switch refusal {
+        case .controlledMatchRequired:
+            return "Your own fixture has to be played before the week advances."
+        case .careerComplete:
+            return "Your \(SharedRules.maximumCareerSeasons)-season career is complete."
+        case .unresolvedProfessionalCapCompliance:
+            return "Get under the salary cap before the week advances."
+        case let .portalDecisionsRequired(_, decisions):
+            return decisions.count == 1
+                ? "One transfer-portal decision is waiting. Answer it before the season turns."
+                : "\(decisions.count) transfer-portal decisions are waiting. Answer them "
+                    + "before the season turns."
+        case .integrityFailed:
+            return "That would have left the world in an unsupported state. Nothing was changed."
+        case .scheduledGameMissing, .scheduledGameResultMissing, .scheduleResultRecordingFailed:
+            return "That fixture could not be recorded. Nothing was changed."
+        case .coachSeasonRecordingFailed:
+            return "Your season record could not be written. Nothing was changed."
+        case .eventAppendFailed:
+            return "The news ledger is full for this season. Nothing was changed."
+        case .aiRecruitingActionFailed, .collegeCycleFailed:
+            return "The college off-season could not be completed. Nothing was changed."
+        case .portalMarketFailed, .portalCommitFailed:
+            return "The transfer portal could not be settled. Nothing was changed."
+        case .professionalMarketFailed, .capComplianceFailed:
+            return "The professional market could not be settled. Nothing was changed."
+        }
+    }
+
+    private nonisolated static func matchMessage(for refusal: MatchReducerError) -> String {
+        switch refusal {
+        case .completed:
+            return "That match has already finished."
+        case .paused:
+            return "The match is paused. Resume it to play on."
+        case .awaitingCallIn:
+            return "Your coordinator is waiting on an answer before the next snap."
+        case .revisionOverflow:
+            return "That match has recorded as many moments as it can hold."
+        case .unavailableTakeover:
+            return "You have no side to take over in this match."
+        case .unavailableTactics:
+            return "You have no side to adjust in this match."
+        case .noPendingCallIn:
+            return "There is no call-in waiting."
+        case .invalidCallInState:
+            return "That call-in is no longer the one on the field."
+        case let .unavailableCallIn(action):
+            return "\(action.rawValue) is not one of the choices offered."
         }
     }
 
