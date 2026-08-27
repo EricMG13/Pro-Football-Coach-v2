@@ -474,6 +474,18 @@ Pressure is continuous, legible, and comes from named people.
 - The AD or general manager sets a **preseason expectation** the player can see. Job security moves
   **weekly** against expectation, not raw record. (The prior build recomputed it once a year, so it
   could not move for ~20 weeks.)
+- **The expectation is a season standing, and it is measured as one every week** (added 2026-08-27).
+  The target says where in the league a club expects to finish, so what moves support each week is
+  where the club *is* standing, not the margin of that week's game. A single result still colours the
+  reaction -- winning, and keeping it close, are what the boosters, the fanbase and the locker room
+  each answer to on their own -- but the weight of the movement comes from the standing.
+
+  Recorded because the code compared the two on different scales and nothing said so. The weekly
+  pass scored a single game as `50 + margin x 2` and held it against a target meaning "finish around
+  this level", which silently turned "finish in the top thirty per cent" into "win this game by ten
+  points". A club expected to do well then lost support for winning by a touchdown, and the bar rose
+  with prestige -- so the better the job, the faster it burned, and a coach promoted into a strong
+  club could not survive a season played to its own expectation.
 - Four stakeholder groups — the AD/GM, a booster or ownership bloc, the fanbase, the locker room —
   each with a visible disposition and their own triggers.
 - **Everything arrives as an inbound event.** §6.0's second finding was that the previous build had
@@ -481,6 +493,20 @@ Pressure is continuous, legible, and comes from named people.
   and always has something requiring an answer.
 - Firing can happen in-season. The carousel can never dead-end: there is always at least one offer or
   an explicit year out of the game.
+- **Support is a relationship with one organisation, and it does not travel** (added 2026-08-27).
+  Taking a new job resets all four dispositions to their neutral opening value. These are the AD or
+  GM, the boosters or ownership, the fanbase and the locker room *of a particular club*: none of
+  them has met the incoming coach, and none of them holds the last club's grievance. A coach who
+  leaves a job under pressure therefore starts the next one level, and the season expectation the
+  new employer signs is what they are judged against.
+
+  Recorded because the code did the opposite and nothing said so. `acceptOpportunity` re-seated the
+  expectation for the new organisation and cleared the championship result, then carried the old
+  employer's support across unchanged, which made a promotion earned after two hard seasons close to
+  unsurvivable: the arriving coach was already near the firing threshold on the strength of a
+  relationship with a club they had left. What a new club knows of a coach's reputation is a
+  separate question this clause does not answer; it may later seed the opening value from prestige
+  or record, and until it does, neutral is the answer.
 
 ---
 

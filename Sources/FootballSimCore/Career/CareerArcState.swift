@@ -320,6 +320,10 @@ public struct CareerArcState: Codable, Sendable, Equatable {
     public static let maximumJobHistory = 64
     public static let maximumOpportunities = 32
     public static let supportRange: ClosedRange<Int> = 0...100
+    /// What every stakeholder thinks of a coach who has just walked in: neutral, and the same at
+    /// every club. `02` section 7 -- what a new employer knows of a reputation is a separate
+    /// question, and until it is answered this is the answer.
+    public static let openingSupport = 60
 
     public private(set) var currentJob: CareerJob?
     public private(set) var jobHistory: [CareerJobHistoryEntry]
@@ -339,7 +343,7 @@ public struct CareerArcState: Codable, Sendable, Equatable {
         currentJob: CareerJob? = nil,
         jobHistory: [CareerJobHistoryEntry] = [],
         stakeholderSupport: [CareerStakeholder: Int] = Dictionary(
-            uniqueKeysWithValues: CareerStakeholder.allCases.map { ($0, 60) }
+            uniqueKeysWithValues: CareerStakeholder.allCases.map { ($0, CareerArcState.openingSupport) }
         ),
         stakeholderLastMovement: [CareerStakeholder: Int] = [:],
         opportunities: [CareerOpportunity] = [],
@@ -569,6 +573,18 @@ public struct CareerArcState: Codable, Sendable, Equatable {
             signedAt: calendar
         )
         currentChampionshipResult = nil
+        // `02` section 7: support is a relationship with one organisation and does not travel. The
+        // four dispositions belong to the club, not to the coach -- none of them has met the
+        // arriving coach, and none of them holds the last club's grievance. Carrying it made an
+        // earned promotion close to unsurvivable: a coach who left under pressure arrived already
+        // near the firing threshold, on the strength of a relationship with a club they had left.
+        //
+        // The last movement goes with it. It exists to say *why* support moved, and a reason that
+        // belongs to a previous employer explains nothing about this one.
+        stakeholderSupport = Dictionary(
+            uniqueKeysWithValues: CareerStakeholder.allCases.map { ($0, Self.openingSupport) }
+        )
+        stakeholderLastMovement = [:]
         opportunities.remove(at: index)
         status = .employed
         return true
@@ -707,7 +723,18 @@ public enum CareerArcSystem {
             opponentScore = result.homeScore
         }
         let margin = organisationScore - opponentScore
-        let performance = min(100, max(0, 50 + margin * 2))
+        // `02` section 7: the target is a season standing, so the weight of the movement is where
+        // the club stands, measured the same way the season end measures it. It used to be
+        // `50 + margin x 2` -- a single game held against a season target, which silently read
+        // "finish in the top thirty per cent" as "win this game by ten points", and rose with
+        // prestige, so the better the job the faster it burned.
+        //
+        // The result still colours the reaction below: winning, and keeping it close, are what the
+        // boosters, the fanbase and the locker room answer to on their own.
+        let performance = seasonPerformance(
+            organisationID: job.organisationID,
+            ranking: ranking(for: job, in: state)
+        )
         let delta = min(4, max(-4, (performance - expectation.target) / 10))
         let won = organisationScore > opponentScore
         let closeGame = abs(margin) <= 7

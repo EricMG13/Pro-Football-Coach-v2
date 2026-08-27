@@ -1453,6 +1453,135 @@ func runWeeklyAuthorityTests() {
                 completed.projection.whileAway.activities.count
             )
         }
+
+        test("a controlled first week of a season settles the spring portal before it is played") {
+            // `WorldIntegrity` refuses an `awaitingSpring` portal once any game of its target
+            // season carries a result, because the spring window still moves players between
+            // programmes for that season. The scheduler satisfies that by settling the window in
+            // `marketInteractions`, ahead of every game. A controlled fixture is installed before
+            // the week advances at all, so without settling it first the coach plays the game and
+            // then cannot record it -- the match completes, `finalizeControlledMatch` refuses, and
+            // the app can only re-refuse until the snap budget runs out.
+            var state = GameState.bootstrap(seed: 92_020)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            expectEqual(state.calendar, CalendarState(season: 1, week: 1))
+            expectEqual(state.college.portal.phase, .awaitingSpring)
+            guard let fixture = state.competition.currentSchedule.games.first(where: {
+                $0.season == 1 && $0.week == 1 && $0.result == nil
+                    && state.programmes[$0.homeID] != nil
+            }) else {
+                expect(false, "the fixture has no college game in season 1 week 1")
+                return
+            }
+            var controlled = try CareerControlSystem.startCollegeCareer(
+                at: fixture.homeID,
+                in: state
+            ).state
+            // Delegated, so the window has no user answers to wait for: this test is about the
+            // ordering, and the user-owned case is the test below.
+            let staffID = controlled.programmes[fixture.homeID]!.staffIDs.first {
+                controlled.staff[$0]?.role != .headCoach
+            }!
+            expect(CareerControlSystem.setResponsibility(
+                .portalAndRetention,
+                owner: .delegated(staffID: staffID),
+                in: &controlled
+            ))
+            expect(controlled.tactical.setPlan(
+                .balanced,
+                for: fixture.homeID,
+                at: controlled.calendar
+            ))
+            expect(controlled.tactical.setPracticePlan(
+                .balanced,
+                for: fixture.homeID,
+                at: controlled.calendar
+            ))
+            controlled = try WorldScheduler.prepareControlledMatch(in: controlled)
+            expectEqual(controlled.college.portal.phase, .closed)
+            guard var session = controlled.matchSession else {
+                expect(false, "no controlled match was installed")
+                return
+            }
+            // Handed back to the coordinator, as the durability journey does: this test is about
+            // recording the result, and a takeover pauses on call-ins it has no answer for.
+            if session.isTakeover {
+                _ = try MatchReducer.reduce(.toggleTakeover, state: &session)
+            }
+            while !session.completed {
+                _ = try MatchReducer.reduce(.advance, state: &session)
+            }
+            controlled.matchSession = session
+            guard let completion = session.completion else {
+                expect(false, "the controlled match never produced a completion")
+                return
+            }
+            let recorded = try WorldScheduler.finalizeControlledMatch(completion, in: controlled)
+            expect(WorldIntegrity.check(recorded).isValid)
+            expect(recorded.matchSession == nil)
+            expect(recorded.competition.currentSchedule.games.contains {
+                $0.id == fixture.id && $0.result != nil
+            })
+        }
+
+        testAsync("a user-owned spring portal blocks the first week rather than being played past") {
+            // The controlled-match branch of `.advanceWeek` returns before `IntentResolver` runs,
+            // so a decision waiting on this week has to stop the fixture being installed at all.
+            // It used to be stepped over: the match started, the answers stayed queued, and the
+            // week could not advance afterwards because the game had already been recorded against
+            // an open portal.
+            var state = GameState.bootstrap(seed: 92_020)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            expectEqual(state.college.portal.phase, .awaitingSpring)
+            guard let fixture = state.competition.currentSchedule.games.first(where: {
+                $0.season == 1 && $0.week == 1 && $0.result == nil
+                    && state.programmes[$0.homeID] != nil
+            }) else {
+                expect(false, "the fixture has no college game in season 1 week 1")
+                return
+            }
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: fixture.homeID,
+                in: state
+            ).state
+            let session = try CareerSession(state: controlled)
+            _ = try await session.resolve(.tacticalPlan(.balanced))
+            _ = try await session.resolve(.practicePlan(.balanced))
+
+            do {
+                _ = try await session.resolve(.advanceWeek)
+                expect(false, "the controlled fixture was installed over a waiting portal decision")
+            } catch let error as IntentResolutionError {
+                guard case let .unresolvedMandatoryDecisions(count) = error else {
+                    expect(false, "wrong refusal: \(error)")
+                    return
+                }
+                expect(count > 0)
+            }
+            let queued = await session.projection().mandatoryDecisions
+            expect(queued.contains {
+                if case let .portalRetention(_, window) = $0.subject { return window == .spring }
+                return false
+            })
+            expect(await session.snapshot().matchSession == nil)
+
+            for decision in queued {
+                _ = try await session.resolve(.mandatoryDecision(
+                    decisionID: decision.id,
+                    optionID: decision.recommendedOptionID
+                ))
+            }
+            let receipt = try await session.resolve(.advanceWeek)
+            guard case .matchStarted = receipt.result else {
+                expect(false, "the answered week did not start its controlled fixture")
+                return
+            }
+            expectEqual(await session.snapshot().college.portal.phase, .closed)
+        }
     }
 }
 

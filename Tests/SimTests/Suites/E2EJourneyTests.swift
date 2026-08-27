@@ -227,9 +227,22 @@ private func assertDurabilityCheckpoint(
         !restored.availableScreens.contains { $0.family == family && $0.isCanonicalTask }
     }
     guard missingFamilies.isEmpty else {
+        // Names the career state, not just the absent routes. Every family here is gated on the
+        // coach holding an organisation, so "missing" and "no longer employed" look identical from
+        // the outside -- and one is a product defect while the other is this fixture assuming a
+        // job it never checked the coach still had.
+        let job = state.careerArc.currentJob
         throw JourneyError(
             "season \(season) missing operable screen families: "
                 + missingFamilies.map(\.canonicalName).sorted().joined(separator: ", ")
+                + " | arc status \(state.careerArc.status)"
+                + ", job \(job.map { "\($0.tier) \($0.organisationID)" } ?? "none")"
+                + ", college control \(state.career.college == nil ? "none" : "seated")"
+                + ", pro control \(state.career.pro == nil ? "none" : "seated")"
+                + ", coach \(state.career.coachID.map { state.staff[$0] == nil ? "missing" : "present" } ?? "unset")"
+                + " | support \(state.careerArc.stakeholderSupport.sorted { $0.key.rawValue < $1.key.rawValue }.map { "\($0.key.rawValue)=\($0.value)" }.joined(separator: ","))"
+                + ", expectation \(state.careerArc.seasonExpectation.map { "season \($0.season) target \($0.target)" } ?? "none")"
+                + ", jobs \(state.careerArc.jobHistory.map { "\($0.job.tier)@\($0.endedAt.season):\($0.reason)" }.joined(separator: " "))"
         )
     }
     print(String(

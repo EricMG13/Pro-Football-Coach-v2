@@ -330,7 +330,21 @@ public actor CareerSession {
                 throw CareerSessionError.careerComplete
             }
             guard state.matchSession == nil else { throw CareerSessionError.matchInProgress }
-            let preparation = try preparedForWeekAdvance(from: state)
+            let preparation: CareerWeekAdvancePreparation
+            do {
+                preparation = try preparedForWeekAdvance(from: state)
+            } catch let error as WorldSchedulerError {
+                // Installing a controlled fixture now settles the spring window first, so this is
+                // where a user-owned portal responsibility is asked for its answers. It matters
+                // that it refuses *here*: the branch below returns `.matchStarted` before
+                // `IntentResolver` ever runs, so a decision queued for this week would otherwise be
+                // stepped over by the match rather than blocking it.
+                guard case let .portalDecisionsRequired(_, decisions) = error else { throw error }
+                state = try enqueueing(decisions, or: error, in: state)
+                throw IntentResolutionError.unresolvedMandatoryDecisions(
+                    count: state.pending.mandatoryDecisions.count
+                )
+            }
             if let match = preparation.state.matchSession, let fixtureID = match.fixtureID {
                 state = preparation.state
                 return CareerSessionReceipt(
@@ -749,6 +763,13 @@ public actor CareerSession {
     ) throws -> GameState {
         var candidate = source
         for decision in decisions {
+            // Already queued is the goal, not a collision. The spring window's decisions are
+            // enqueued a week ahead by `CareerMandatoryDecisionSystem.refresh`, so the scheduler's
+            // derivation names decisions this root already holds -- which is the two agreeing, and
+            // is exactly what the shared derivation exists to guarantee.
+            if candidate.pending.mandatoryDecisions.contains(where: { $0.id == decision.id }) {
+                continue
+            }
             guard candidate.pending.enqueue(decision) else { throw error }
         }
         guard WorldIntegrity.check(candidate).isValid else { throw error }

@@ -2,6 +2,123 @@ import Foundation
 import FootballSimCore
 
 func runCareerArcTests() {
+    suite("Career arc stakeholder support") {
+        test("support does not follow a coach to a new organisation") {
+            // `02` section 7: the four dispositions belong to one club. None of them has met the
+            // incoming coach, and none of them holds the last club's grievance.
+            //
+            // This carried across until 2026-08-27, which made an earned promotion close to
+            // unsurvivable: `acceptOpportunity` re-seated the season expectation for the new
+            // organisation and cleared the championship result, then handed the arriving coach the
+            // support they had eroded somewhere else -- near the firing threshold before the new
+            // employer had seen them work a single week.
+            let source = GameState.bootstrap(seed: 98_040)
+            let programmeID = source.programmes.ids[0]
+            let proTeam = source.proTeams.values[0]
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: programmeID,
+                    tier: .college,
+                    startedAt: source.calendar
+                ),
+                status: .employed
+            )
+            let opening = arc.stakeholderSupport
+            expect(arc.applySupport(deltas: Dictionary(
+                uniqueKeysWithValues: CareerStakeholder.allCases.map { ($0, -30) }
+            )))
+            expect(arc.averageSupport < 40, "the fixture did not actually erode support")
+
+            let opportunity = CareerOpportunity(
+                id: UUID(uuidString: "00000000-0000-4000-8000-000000000A40")!,
+                organisationID: proTeam.id,
+                tier: .professional,
+                offeredAt: source.calendar,
+                expiresAt: source.calendar.advancedWeek(),
+                prestige: proTeam.prestige,
+                rationale: .staffRecommendation
+            )
+            expect(arc.addOpportunity(opportunity))
+            expect(arc.acceptOpportunity(id: opportunity.id, at: source.calendar))
+
+            expectEqual(arc.stakeholderSupport, opening)
+            expect(arc.stakeholderLastMovement.isEmpty,
+                   "the new club inherited a movement it never caused")
+        }
+
+        test("a week is judged on where the club stands, not the margin of one game") {
+            // `02` section 7: the target is a season standing, so the weight of the weekly movement
+            // comes from the standing. It used to come from `50 + margin x 2`, which held a single
+            // game against a season target and so demanded a `(target - 50) / 2` point winning
+            // margin every week just to stand still -- a bar that rose with prestige, so the better
+            // the club the faster its coach burned.
+            //
+            // Built as the top club in the league winning a one-score game. Under the old reading
+            // that is a losing week; under this one it is a coach exceeding a standing they already
+            // top.
+            var state = GameState.bootstrap(seed: 98_041)
+            // Deliberately a *strong* club. The old reading's bar was `(target - 50) / 2` points and
+            // the target rises with prestige, so a low-prestige programme is not punished for a
+            // three-point win and the fixture would pass without exercising anything. Stated as a
+            // requirement rather than drawn, so it cannot go quiet later.
+            guard let game = state.competition.currentSchedule.games
+                .filter({
+                    $0.season == state.calendar.season
+                        && $0.week == state.calendar.week
+                        && $0.tier == .college
+                        && $0.result == nil
+                        && (state.programmes[$0.homeID]?.prestige.value ?? 0) >= 57
+                })
+                .max(by: {
+                    (state.programmes[$0.homeID]?.prestige.value ?? 0)
+                        < (state.programmes[$1.homeID]?.prestige.value ?? 0)
+                }) else {
+                expect(false, "the fixture has no unplayed college game for a high-prestige club")
+                return
+            }
+            let programmeID = game.homeID
+            state.competition.rankings[.college] = [programmeID]
+                + state.programmes.ids.filter { $0 != programmeID }
+            let isHome = game.homeID == programmeID
+            let winnerStatistics = TeamGameStatistics(
+                points: 24, offensiveYards: 380, passingYards: 240,
+                rushingYards: 140, turnovers: 1
+            )
+            let loserStatistics = TeamGameStatistics(
+                points: 21, offensiveYards: 350, passingYards: 230,
+                rushingYards: 120, turnovers: 1
+            )
+            state.competition.currentSchedule = try careerArcRecording(
+                ScheduledGameResult(
+                    gameID: game.id,
+                    summary: GameSummary(
+                        homeScore: isHome ? 24 : 21,
+                        awayScore: isHome ? 21 : 24,
+                        homeStatistics: isHome ? winnerStatistics : loserStatistics,
+                        awayStatistics: isHome ? loserStatistics : winnerStatistics,
+                        playerStatistics: []
+                    )
+                ),
+                in: state.competition.currentSchedule
+            )
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: programmeID,
+                    tier: .college,
+                    startedAt: state.calendar
+                ),
+                status: .employed
+            )
+            let opening = arc.averageSupport
+            CareerArcSystem.evaluateWeek(after: state.calendar, in: state, arc: &arc)
+            expect(
+                arc.averageSupport > opening,
+                "the league's top club did not gain support for winning: "
+                    + "\(opening) -> \(arc.averageSupport)"
+            )
+        }
+    }
+
     suite("M5 career arc") {
         test("career arc state is bounded and save-stable") {
             let arc = CareerArcState()

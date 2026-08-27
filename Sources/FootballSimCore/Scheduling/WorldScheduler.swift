@@ -144,6 +144,35 @@ public enum WorldScheduler {
         }
 
         var next = state
+        // The spring window settles here, before the fixture is installed, and only for a week
+        // that installs one.
+        //
+        // `WorldIntegrity` refuses an `awaitingSpring` portal once any game of its target season
+        // carries a result, because that window still moves players between programmes for that
+        // season. The weekly transaction satisfies that by committing the window in
+        // `marketInteractions`, ahead of every game. A controlled fixture does not go through the
+        // weekly transaction: it is installed before the week advances at all, played, and
+        // recorded by `finalizeControlledMatch` -- which would then be recording a season-one
+        // result against a portal that is still open, and refusing its own root.
+        //
+        // Settling it here rather than splitting the week is what the spring window makes
+        // possible: unlike the postseason window, whose intents read career rows and a recruiting
+        // season that only exist part-way through the season-boundary step, spring's inputs all
+        // exist on this root -- which is exactly why `CareerMandatoryDecisionSystem.refresh` can
+        // enqueue its decisions a week ahead of it. `marketInteractions` then finds the phase
+        // already closed and skips, so the window still commits exactly once.
+        //
+        // The cost, stated: these events are appended to history by the portal transition itself,
+        // but they are committed outside the weekly transaction, so the `WeekSnapshot` this week
+        // eventually produces does not name them.
+        if next.college.portal.phase == .awaitingSpring {
+            var portalEvents: [DomainEvent] = []
+            try resolveAndCommitPortal(
+                window: .spring,
+                state: &next,
+                emittedEvents: &portalEvents
+            )
+        }
         next.matchSession = makeMatchSession(for: game, controlledID: controlledID, in: &next)
         let integrity = WorldIntegrity.check(next)
         guard integrity.isValid else {
