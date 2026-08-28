@@ -95,6 +95,24 @@ private struct NewsItemFingerprintDTO: Codable, Equatable {
 /// The values below are from a clean worktree checked out at this branch's own commit, with
 /// nothing else applied.
 ///
+/// **All five pins moved on 2026-08-28.**
+///
+/// The cause is this branch's own engine work, which is deliberate and canon-backed: the abstracted
+/// simulator's constants were re-fitted (`CompetitionRules` -- completion, sack, turnover, yardage
+/// and target shares) and the detailed engine moved with `MatchupRules`, `SnapResolver` and
+/// `DriveEngine`. Every one of those changes what a scheduled week produces, so every digest taken
+/// over a root the scheduler has touched shifts. The branch changed the engine and never re-pinned;
+/// these five had been failing since, which means the determinism contract they exist to guard had
+/// stopped being checked at five of its six anchors.
+///
+/// Each value was reproduced in three independent release processes and in debug, and cross-checked
+/// at the commit before this branch's last two engine changes to confirm those did not move them --
+/// they did not, which is why the yardage fix is not among the causes above.
+///
+/// Measured with `swift run -c release -Xswiftc -enable-testing SimTests --architecture-only`, which
+/// is the command `03b` section 5 and `05` G2 already require -- the flag is not optional, because a
+/// plain release build fails on `@testable import` in `CalibrationTests` and a dozen other suites.
+///
 /// Every value below was reproduced in three or more independent release processes -- four for
 /// the four pins the contaminated tree did not affect, three for the two it did -- before being
 /// written here.
@@ -113,11 +131,11 @@ private struct NewsItemFingerprintDTO: Codable, Equatable {
 /// active seat now passes its pick instead of ending the round for the thirty-one behind it.
 /// Reproduced in three independent release processes before being written, and verified in two more
 /// after.
-private let pinnedRootFingerprint: UInt64 = 14_966_525_689_567_373_066
+private let pinnedRootFingerprint: UInt64 = 17_329_441_859_777_191_614
 
 /// Moved when abstracted summaries gained offensive-play counts and tier-specific calibration.
 /// Reproduced in two independent release processes before re-pinning.
-private let pinnedAdvancedRootFingerprint: UInt64 = 15_973_944_470_769_367_769
+private let pinnedAdvancedRootFingerprint: UInt64 = 11_874_482_299_830_978_402
 
 /// The professional contract-negotiation ledger (`ProMarketState.contractNegotiations`) is part of
 /// the schema-13 root, but neither pin above ever exercises it: bootstrap starts with it empty, and
@@ -134,7 +152,7 @@ private let pinnedAdvancedRootFingerprint: UInt64 = 15_973_944_470_769_367_769
 /// job 96287645557), not independently reproduced -- no toolchain exists here to do that.
 /// It moved again in PR #9's merged tree because the blocklist's legitimate colour retries changed
 /// the generated inputs; the value below is from the same release run as the root pins.
-private let pinnedNegotiationLedgerFingerprint: UInt64 = 2_332_108_019_713_563_340
+private let pinnedNegotiationLedgerFingerprint: UInt64 = 5_847_527_922_250_023_113
 
 /// `GameState.matchSession` is part of the schema-13 root, but neither pin above ever exercises a
 /// populated one: `bootstrap` leaves it `nil` by construction, and `WorldScheduler.advanceWeek`
@@ -148,7 +166,7 @@ private let pinnedNegotiationLedgerFingerprint: UInt64 = 2_332_108_019_713_563_3
 /// Moved on 2026-08-20 for the same reason as the negotiation-ledger pin above:
 /// `CareerArcState.stakeholderLastMovement`, copied verbatim from the same CI run, same caveat.
 /// PR #9's new trade-dress retries moved it again; this value came from the merged release run.
-private let pinnedMatchSessionFingerprint: UInt64 = 9_422_984_374_695_328_061
+private let pinnedMatchSessionFingerprint: UInt64 = 1_893_886_842_952_474_714
 
 /// `NewsFeedReadModel` is derived from `GameState.history`, not stored in it, so none of the three
 /// pins above ever exercise it: they hash the root or a projection of it, never the read-model
@@ -183,7 +201,25 @@ private let pinnedNewsFeedFingerprint: UInt64 = 15_792_896_265_198_872_985
 /// copied verbatim from the same CI run, same caveat.
 /// PR #9's new trade-dress retries moved this generated archive fixture again; this value came from
 /// the merged release run.
-private let pinnedArchivedLedgerFingerprint: UInt64 = 9_134_642_366_837_657_455
+private let pinnedArchivedLedgerFingerprint: UInt64 = 8_707_323_750_154_115_545
+
+/// Bootstrap and the scheduler fingerprint both leave `PendingQueues.mandatoryDecisions` empty.
+/// This controlled-college fixture builds two real recruiting decisions from the generated
+/// programme and prospect entities, reverses their insertion order, and pins the persisted queue.
+/// The array hash therefore covers both the UUID ordering imposed by `PendingQueues` and every
+/// durable decision field: subject, calendar, authority, options, recommendation and reasons.
+///
+/// Ported from `62897c9` on main, which this branch predates -- the closure plan lists it as a
+/// candidate for exactly that reason, and this branch reworked mandatory decisions more than
+/// any other surface. The fixture is hand-built and touches no floating-point path, so it does not
+/// carry the debug/release divergence the advanced-root pin exposes.
+///
+/// The value is main's, unchanged: this branch reworked mandatory decisions more than any other
+/// surface and the persisted queue still hashes identically, which is the useful thing the pin
+/// says.
+///
+/// Verified in three independent release processes and in debug, like the pins above it.
+private let pinnedMandatoryDecisionQueueFingerprint: UInt64 = 9_411_499_220_108_685_895
 
 /// Hashes the canonical JSON body, not the save envelope.
 ///
@@ -365,6 +401,80 @@ func runArchitectureTests() {
 
             let dtoItems = items.map(NewsItemFingerprintDTO.init)
             expectEqual(try architectureFingerprint(dtoItems), pinnedNewsFeedFingerprint)
+        }
+
+        test("the mandatory-decision queue is pinned across processes") {
+            let source = GameState.bootstrap(seed: 20_260_823)
+            let programmeID = source.programmes.ids[0]
+            var state = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let prospects = Array(state.prospects.ids.prefix(2))
+            expectEqual(prospects.count, 2)
+
+            let decisions = prospects.enumerated().map { index, prospectID in
+                let decisionID = DomainEvent.deterministicID(
+                    rootSeed: 20_260_823,
+                    sequence: index + 1
+                )
+                let primaryOptionID = DomainEvent.deterministicID(
+                    rootSeed: 20_260_823,
+                    sequence: 10 + index * 2
+                )
+                let alternateOptionID = DomainEvent.deterministicID(
+                    rootSeed: 20_260_823,
+                    sequence: 11 + index * 2
+                )
+                return MandatoryDecision(
+                    id: decisionID,
+                    programmeID: programmeID,
+                    subject: .recruiting(prospectID: prospectID),
+                    createdAt: state.calendar,
+                    deadline: state.calendar.advancedWeek(),
+                    owner: .user,
+                    options: index == 0
+                        ? [
+                            MandatoryDecisionOption(
+                                id: primaryOptionID,
+                                action: .recruiting(.offerScholarship)
+                            ),
+                            MandatoryDecisionOption(
+                                id: alternateOptionID,
+                                action: .recruiting(.withdraw)
+                            ),
+                        ]
+                        : [
+                            MandatoryDecisionOption(
+                                id: primaryOptionID,
+                                action: .recruiting(.contact(points: 5))
+                            ),
+                            MandatoryDecisionOption(
+                                id: alternateOptionID,
+                                action: .recruiting(.addToBoard)
+                            ),
+                        ],
+                    recommendedOptionID: primaryOptionID,
+                    reasons: [
+                        MandatoryDecisionReason(
+                            code: index == 0 ? .rosterNeed : .fit,
+                            value: index == 0 ? 8 : 6,
+                            relatedEntityID: prospectID
+                        ),
+                        MandatoryDecisionReason(code: .deadline, value: 1),
+                    ]
+                )
+            }
+            state.pending = PendingQueues(mandatoryDecisions: decisions.reversed())
+
+            expectEqual(
+                state.pending.mandatoryDecisions.map(\.id),
+                decisions.map(\.id).sorted { $0.uuidString < $1.uuidString }
+            )
+            expectEqual(
+                try architectureFingerprint(state.pending.mandatoryDecisions),
+                pinnedMandatoryDecisionQueueFingerprint
+            )
         }
 
         test("the archived-season ledger is pinned across processes") {

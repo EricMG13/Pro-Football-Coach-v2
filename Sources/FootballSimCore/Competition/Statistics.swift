@@ -349,9 +349,14 @@ public struct TeamSeasonStatistics: Codable, Sendable, Equatable {
     ) {
         self.games = max(0, games)
         self.points = max(0, points)
-        self.offensiveYards = max(0, offensiveYards)
-        self.passingYards = max(0, passingYards)
-        self.rushingYards = max(0, rushingYards)
+        // `03` section 7a, and consistent with `record(_:)` below, which accumulates with `+=` and
+        // clamps nothing: a season's yardage is the sum of games whose own figures are net of
+        // sacks. Flooring here would have broken the identity the accumulator preserves, for the
+        // same reason it broke `TeamGameStatistics`. No live call site reaches it -- the only one
+        // constructs zeros -- so this is closing the trap rather than fixing a fault.
+        self.offensiveYards = offensiveYards
+        self.passingYards = passingYards
+        self.rushingYards = rushingYards
         self.turnovers = max(0, turnovers)
     }
 

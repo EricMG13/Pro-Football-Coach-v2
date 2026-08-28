@@ -2299,6 +2299,24 @@ func runContractTests() {
                 statistics.offensiveYards,
                 "a negative passing net broke the yardage identity integrity enforces"
             )
+
+            // The season total is the sum of games, so it inherits the same arithmetic. Its
+            // accumulator never clamped; its initialiser did, which made the two disagree.
+            var season = TeamSeasonStatistics()
+            season.record(statistics)
+            expectEqual(
+                season.passingYards + season.rushingYards,
+                season.offensiveYards,
+                "a season total broke the identity its own accumulator preserves"
+            )
+            expectEqual(
+                TeamSeasonStatistics(
+                    games: 1, points: 17, offensiveYards: 95, passingYards: -5, rushingYards: 100,
+                    turnovers: 1
+                ).passingYards,
+                -5,
+                "an explicitly built season total floored a legitimate negative passing net"
+            )
         }
 
         test("every dictionary key type in the engine encodes as a JSON object") {
