@@ -640,6 +640,9 @@ public enum CareerControlSystem {
             organisationID: programmeID,
             at: state.calendar
         )
+        // The appointment itself, so `02` section 7's reset happens here rather than inside
+        // `establishCollegeJob` -- which is also the weekly recovery path and must not wipe support.
+        next.careerArc.arriveAtNewOrganisation()
         CareerArcSystem.prepareSeasonExpectation(in: next, arc: &next.careerArc)
         guard WorldIntegrity.check(next).isValid else {
             throw CareerControlError.missingHeadCoach

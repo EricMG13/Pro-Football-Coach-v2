@@ -93,6 +93,11 @@ private func exerciseDurabilityJourney() async throws {
     var promoted = false
 
     for step in 1...(horizon * SharedRules.inSeasonWeeks) {
+        // `02` section 7: the carousel never dead-ends, and a durability journey has to walk it
+        // rather than assume the first job lasts ten seasons. A coach sacked on merit is offered
+        // the rebuild at the season boundary, and taking it is what keeps the remaining seasons
+        // exercising a coach with an organisation instead of an empty career.
+        try await takeAnyOfferIfUnemployed(in: store)
         var advanced = false
         for attempt in 0..<4 {
             await store.prepareWeek()
@@ -106,14 +111,61 @@ private func exerciseDurabilityJourney() async throws {
                 break
             }
             if attempt == 3 {
+                let stalled = try await store.saveDocument().gameState
+                // The pre-advance root cannot answer why the portal refused: the postseason window
+                // reads a recruiting season the college cycle opens part-way through the boundary
+                // step. So replay the week under the transaction observer, catch the root the
+                // scheduler itself hands the portal, and ask the two snapshots on that.
+                let capture = JourneyBoundaryCapture()
+                WorldScheduler.transactionObserver = { label, observed in
+                    guard label == "collegeCycle.closeAndOpen" else { return }
+                    capture.first(observed)
+                }
+                _ = try? WorldScheduler.advanceWeek(stalled)
+                WorldScheduler.transactionObserver = nil
+                let boundaryReport: String
+                if let boundary = capture.state {
+                    let target = boundary.calendar.season + 1
+                    let policy = CollegePortalPolicyV1.makeSnapshot(
+                        targetSeason: target, window: .postseason, in: boundary
+                    )
+                    let market = CollegePortalPolicyV1.makeMarketSnapshot(
+                        targetSeason: target, window: .postseason, in: boundary
+                    )
+                    boundaryReport = " | boundary target \(target)"
+                        + ", recruiting \(boundary.college.recruitingSeason)"
+                        + ", phase \(boundary.college.portal.phase)"
+                        + ", snapshot \(policy == nil ? "nil" : "ok")"
+                        + ", market \(market == nil ? "nil" : "ok")"
+                        + ", intents \(policy?.intents.count ?? -1)"
+                } else {
+                    boundaryReport = " | boundary never reached the college cycle"
+                }
                 throw JourneyError(
                     "app-layer advance stalled at \(expected): "
                         + "\(store.statusMessage ?? "no refusal")"
+                        + " | portal \(stalled.college.portal.phase)"
+                        + " target \(stalled.college.portal.targetSeason)"
+                        + ", recruiting season \(stalled.college.recruitingSeason)"
+                        + ", control \(stalled.career.college.map { "\($0.programmeID)" } ?? "none")"
+                        + ", portal owner \(stalled.career.college?.responsibilityOwners[.portalAndRetention].map { "\($0)" } ?? "none")"
+                        + ", job \(stalled.careerArc.currentJob.map { "\($0.tier)" } ?? "none")"
+                        + ", pending \(stalled.pending.mandatoryDecisions.count)"
+                        + " | arc \(stalled.careerArc.status)"
+                        + ", support \(stalled.careerArc.stakeholderSupport.sorted { $0.key.rawValue < $1.key.rawValue }.map { "\($0.key.rawValue)=\($0.value)" }.joined(separator: ","))"
+                        + ", pro seat \(stalled.career.pro == nil ? "none" : "seated")"
+                        + ", jobs \(stalled.careerArc.jobHistory.map { "\($0.job.tier)@\($0.endedAt.season):\($0.reason)" }.joined(separator: " "))"
+                        + ", offers \(stalled.careerArc.opportunities.count)"
+                        + boundaryReport
                 )
             }
         }
         guard advanced else { throw JourneyError("app-layer advance produced no calendar step") }
 
+        // Before the checkpoint, not only at the top of the next step: a coach is sacked by the
+        // season-end evaluation inside the advance that just ran, so the carousel's offer is
+        // waiting now and the checkpoint would otherwise assert an unemployed shape one week early.
+        try await takeAnyOfferIfUnemployed(in: store)
         if step % SharedRules.inSeasonWeeks == 0 {
             try await assertDurabilityCheckpoint(
                 store: store,
@@ -128,6 +180,22 @@ private func exerciseDurabilityJourney() async throws {
     }
 
     guard promoted else { throw JourneyError("durability horizon never exercised promotion") }
+}
+
+/// Takes the carousel's offer through the same control the Career Hub uses, when the coach is out
+/// of work. Silent when they are employed.
+@MainActor
+private func takeAnyOfferIfUnemployed(in store: CoachWorldStore) async throws {
+    let arc = try await store.saveDocument().gameState.careerArc
+    guard arc.currentJob == nil, let offer = arc.opportunities.first else { return }
+    await store.acceptCareerOpportunity(offer.id.uuidString)
+    let after = try await store.saveDocument().gameState.careerArc
+    guard after.currentJob != nil else {
+        throw JourneyError(
+            "an unemployed coach could not take the offer it was given: "
+                + "\(store.statusMessage ?? "no refusal")"
+        )
+    }
 }
 
 /// Durability advances use the public match controls to hand the game back to the coordinator
@@ -219,9 +287,12 @@ private func assertDurabilityCheckpoint(
         throw JourneyError("season \(season) exceeded a bounded collection")
     }
 
+    // Read off the job the coach actually holds, not a latch set when a promotion was accepted.
+    // `promoted` only ever said "a promotion happened at some point", so once the carousel could
+    // return a sacked coach to college it started demanding professional screens of a college job.
     let requiredFamilies: Set<CoachWorldSurfaceFamily> = [
         .weeklyCommand, .personnel, .league, .career,
-        promoted ? .proManagement : .recruiting,
+        state.careerArc.currentJob?.tier == .professional ? .proManagement : .recruiting,
     ]
     let missingFamilies = requiredFamilies.filter { family in
         !restored.availableScreens.contains { $0.family == family && $0.isCanonicalTask }
@@ -394,5 +465,16 @@ private struct JourneyError: Error, CustomStringConvertible {
 
     init(_ description: String) {
         self.description = description
+    }
+}
+
+/// The weekly transaction observer is a `@Sendable` closure, so the boundary root it hands back
+/// needs somewhere reference-shaped to land.
+private final class JourneyBoundaryCapture: @unchecked Sendable {
+    private(set) var state: GameState?
+
+    func first(_ observed: GameState) {
+        guard state == nil else { return }
+        state = observed
     }
 }

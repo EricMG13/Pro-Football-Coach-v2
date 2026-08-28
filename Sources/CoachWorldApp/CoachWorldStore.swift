@@ -722,8 +722,10 @@ public final class CoachWorldStore {
             return "The news ledger is full for this season. Nothing was changed."
         case .aiRecruitingActionFailed, .collegeCycleFailed:
             return "The college off-season could not be completed. Nothing was changed."
-        case .portalMarketFailed, .portalCommitFailed:
-            return "The transfer portal could not be settled. Nothing was changed."
+        case .portalMarketFailed:
+            return "The transfer portal could not be matched. Nothing was changed."
+        case .portalCommitFailed:
+            return "The transfer portal could not be committed. Nothing was changed."
         case .professionalMarketFailed, .capComplianceFailed:
             return "The professional market could not be settled. Nothing was changed."
         }

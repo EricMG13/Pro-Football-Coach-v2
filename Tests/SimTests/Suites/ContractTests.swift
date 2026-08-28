@@ -2277,6 +2277,30 @@ func runContractTests() {
             }
         }
 
+        test("a team's yardage identity survives a negative passing net") {
+            // `WorldIntegrity` requires `passingYards + rushingYards == offensiveYards` for every
+            // recorded result. Sack yardage is negative and the detailed builder adds it to both
+            // the team's total and its passing line, so a side that is sacked more than it gains
+            // through the air nets negative passing -- which real football reports as-is, team
+            // passing yards being net of sacks.
+            //
+            // Clamping each field independently broke the identity rather than the sign: passing
+            // floored at zero while the total kept the loss, and the game the coach had just played
+            // could not be recorded at all.
+            let statistics = TeamGameStatistics(
+                points: 17,
+                offensiveYards: 95,
+                passingYards: -5,
+                rushingYards: 100,
+                turnovers: 1
+            )
+            expectEqual(
+                statistics.passingYards + statistics.rushingYards,
+                statistics.offensiveYards,
+                "a negative passing net broke the yardage identity integrity enforces"
+            )
+        }
+
         test("every dictionary key type in the engine encodes as a JSON object") {
             // Swift keys a JSON object only when the key is String, Int or CodingKeyRepresentable.
             // Anything else encodes as a flat [key, value, key, value] array in DICTIONARY ORDER,

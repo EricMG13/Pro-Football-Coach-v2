@@ -235,6 +235,22 @@ met, D14's fallback reduces the programme count rather than loosening the ceilin
 
 ---
 
+## 7a. Team yardage is net of sacks (added 2026-08-27)
+
+A team's **passing yards are net of sack yardage**, as the sport reports them, so a side sacked more
+than it gains through the air has a negative passing figure and the recorded result says so. The same
+holds for the team total: `passingYards + rushingYards == offensiveYards` is an identity the detailed
+builder produces by construction and `WorldIntegrity` enforces on every recorded game.
+
+Stated because the two disagreed in code and the identity lost. `TeamGameStatistics` floored each
+figure at zero independently, so a negative passing net became `0` while the total kept the loss --
+`0 + 100 != 95` -- and integrity refused the game. The coach who had just played it could not record
+it, and the app could only refuse the same snap until the match ran out of budget. Flooring a figure
+whose real range includes negatives is not a defence against a corrupt save; it is a way of making a
+legitimate game unrecordable.
+
+---
+
 ## 8. Known gaps in this document
 
 Stated plainly rather than papered over:

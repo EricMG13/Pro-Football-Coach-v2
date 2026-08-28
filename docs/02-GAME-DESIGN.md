@@ -493,6 +493,20 @@ Pressure is continuous, legible, and comes from named people.
   and always has something requiring an answer.
 - Firing can happen in-season. The carousel can never dead-end: there is always at least one offer or
   an explicit year out of the game.
+- **How the carousel actually turns** (added 2026-08-27). A coach fired during a season is *seeking*
+  from the end of that season -- the rest of that season is the time out of the game -- and a seeking
+  coach is offered at least one job at every season end, so there is always a way back in. The offer
+  is the **lowest-prestige programme** in the college tier, tie-broken on identifier: the rebuild is
+  the job that opens to someone out of work, and starting again at the bottom is what makes the
+  promotion arc mean something the second time. Accepting seats the coach exactly as a new career
+  does, keeping their own identity and record.
+
+  Recorded because the clause above was stated and never built. `addOpportunity` was reachable from
+  one place, gated on being an employed college coach already performing well, so the only coach the
+  game ever made an offer to was one who did not need it. `fired` was a terminal status with no
+  transition out, and both weekly and season-end evaluation opened by returning early on it, so a
+  sacked coach was permanently out of the game -- the dead end this section forbids, reached by a
+  save that had done nothing wrong.
 - **Support is a relationship with one organisation, and it does not travel** (added 2026-08-27).
   Taking a new job resets all four dispositions to their neutral opening value. These are the AD or
   GM, the boosters or ownership, the fanbase and the locker room *of a particular club*: none of

@@ -372,6 +372,30 @@ public enum IntentResolver {
             let applied: Bool
             switch request.action {
             case let .acceptOpportunity(opportunityID):
+                // `02` section 7's carousel offers a coach out of work the rebuild, which is a
+                // college job, and `CareerArcState.acceptOpportunity` is the promotion path -- it
+                // seats a professional job and refuses anything else. A college offer is instead
+                // the ordinary way a career starts, so it goes through the seating the game
+                // already trusts: `startCollegeCareer` establishes the arc job, moves the chair and
+                // writes the staff assignment, and reuses `career.coachID`, so the coach comes back
+                // as themselves rather than as a new person.
+                let opportunity = nextState.careerArc.opportunities.first { $0.id == opportunityID }
+                if opportunity?.tier == .college {
+                    guard let opportunity,
+                          nextState.careerArc.removeOpportunity(id: opportunityID) else {
+                        throw IntentResolutionError.careerArcUnavailable
+                    }
+                    do {
+                        nextState = try CareerControlSystem.startCollegeCareer(
+                            at: opportunity.organisationID,
+                            in: nextState
+                        ).state
+                    } catch {
+                        throw IntentResolutionError.careerArcUnavailable
+                    }
+                    applied = true
+                    break
+                }
                 applied = nextState.careerArc.acceptOpportunity(
                     id: opportunityID,
                     at: request.calendar

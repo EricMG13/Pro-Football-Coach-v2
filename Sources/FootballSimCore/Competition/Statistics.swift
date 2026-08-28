@@ -163,9 +163,15 @@ public struct TeamGameStatistics: Codable, Sendable, Equatable {
         fieldGoals: FieldGoalStatistics = FieldGoalStatistics()
     ) {
         self.points = max(0, points)
-        self.offensiveYards = max(0, offensiveYards)
-        self.passingYards = max(0, passingYards)
-        self.rushingYards = max(0, rushingYards)
+        // `03` section 7a: yardage is net of sacks and its real range includes negatives, so
+        // these three are stored as given. Flooring them independently broke the identity
+        // `passingYards + rushingYards == offensiveYards` that the detailed builder produces
+        // by construction and `WorldIntegrity` enforces on every recorded game -- a side sacked
+        // more than it threw for had its passing floored to zero while its total kept the loss,
+        // so the game the coach had just played could not be recorded at all.
+        self.offensiveYards = offensiveYards
+        self.passingYards = passingYards
+        self.rushingYards = rushingYards
         self.turnovers = max(0, turnovers)
         self.offensivePlays = max(0, offensivePlays)
         self.passAttempts = max(0, passAttempts)

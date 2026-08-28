@@ -453,6 +453,46 @@ public struct CareerArcState: Codable, Sendable, Equatable {
         return true
     }
 
+    /// `02` section 7: support is a relationship with one organisation and does not travel. Shared
+    /// by both ways into a job, because arriving is arriving -- a coach hired at a college club
+    /// after being sacked starts as level with their new stakeholders as one promoted does.
+    ///
+    /// Called by the two paths that *appoint* a coach, never by `establishCollegeJob`. That method
+    /// looks like the arrival and is not: `prepareSeasonExpectation` calls it every week to rebuild
+    /// a missing job record from the seated control, so resetting inside it wipes support
+    /// continuously and keeps a coach employed who has lost the room.
+    mutating func arriveAtNewOrganisation() {
+        stakeholderSupport = Dictionary(
+            uniqueKeysWithValues: CareerStakeholder.allCases.map { ($0, Self.openingSupport) }
+        )
+        stakeholderLastMovement = [:]
+    }
+
+    /// Drops offers whose deadline has passed. They cannot be accepted -- `acceptOpportunity`
+    /// refuses one -- so keeping them only hides that the coach has nothing to take.
+    @discardableResult
+    mutating func dropExpiredOpportunities(at calendar: CalendarState) -> Int {
+        let before = opportunities.count
+        opportunities.removeAll { Self.occurs($0.expiresAt, before: calendar) }
+        return before - opportunities.count
+    }
+
+    /// Drops an offer the coach is taking through a seating path that does not consume it itself.
+    @discardableResult
+    public mutating func removeOpportunity(id: UUID) -> Bool {
+        guard let index = opportunities.firstIndex(where: { $0.id == id }) else { return false }
+        opportunities.remove(at: index)
+        return true
+    }
+
+    /// The season out of the game is over: a sacked coach can be hired again.
+    @discardableResult
+    public mutating func markSeeking() -> Bool {
+        guard status == .fired, currentJob == nil else { return false }
+        status = .seeking
+        return true
+    }
+
     @discardableResult
     public mutating func signSeasonExpectation(
         for organisationID: UUID,
@@ -581,10 +621,7 @@ public struct CareerArcState: Codable, Sendable, Equatable {
         //
         // The last movement goes with it. It exists to say *why* support moved, and a reason that
         // belongs to a previous employer explains nothing about this one.
-        stakeholderSupport = Dictionary(
-            uniqueKeysWithValues: CareerStakeholder.allCases.map { ($0, Self.openingSupport) }
-        )
-        stakeholderLastMovement = [:]
+        arriveAtNewOrganisation()
         opportunities.remove(at: index)
         status = .employed
         return true
@@ -758,7 +795,22 @@ public enum CareerArcSystem {
         in state: GameState,
         arc: inout CareerArcState
     ) {
-        guard calendar.week == SharedRules.inSeasonWeeks, arc.status != .fired else { return }
+        guard calendar.week == SharedRules.inSeasonWeeks else { return }
+        // `02` section 7: the carousel can never dead-end. Whoever is out of work when a season
+        // ends is seeking when it ends and is offered a way back in -- which is what stops a save
+        // that has done nothing wrong from ending here.
+        //
+        // Deferred to the end of this pass so the rule is the same whichever evaluation issued the
+        // firing. Running it first would have caught a week-21 firing from `evaluateWeek`, which
+        // has already happened by now, but not one this pass is about to issue -- the same coach
+        // waiting a season or none depending on which line sacked them. A coach sacked in week 8
+        // has sat out thirteen weeks by the time this runs; one sacked at week 21 has sat out the
+        // only thing left to sit out, which is nothing.
+        defer {
+            if arc.markSeeking() {
+                offerRebuild(at: calendar, in: state, arc: &arc)
+            }
+        }
         prepareSeasonExpectation(in: state, arc: &arc)
         guard arc.status == .employed,
               let job = arc.currentJob,
@@ -809,6 +861,48 @@ public enum CareerArcSystem {
             expiresAt: CalendarState(season: calendar.season + 1, week: 2),
             prestige: team.prestige,
             rationale: .sustainedCollegeSuccess
+        ))
+    }
+
+    /// The job that opens to a coach out of work: the weakest programme in the college tier.
+    ///
+    /// `02` section 7 -- the rebuild is what is available to someone nobody is competing for, and
+    /// starting again at the bottom is what makes the promotion arc mean something the second time.
+    /// Deterministic on prestige then identifier, so the same save offers the same job in every
+    /// process.
+    private static func offerRebuild(
+        at calendar: CalendarState,
+        in state: GameState,
+        arc: inout CareerArcState
+    ) {
+        // `02` section 7 promises at least one *offer*, not at least one entry in the list. An
+        // offer whose deadline has passed cannot be accepted, so a stale one left over from an
+        // earlier season would otherwise stand in for the rebuild and leave the coach holding a
+        // list they cannot act on -- the dead end this exists to close, reached by a technicality.
+        arc.dropExpiredOpportunities(at: calendar)
+        guard arc.opportunities.isEmpty,
+              let programme = state.programmes.values.min(by: {
+                  $0.prestige.value == $1.prestige.value
+                      ? $0.id.uuidString < $1.id.uuidString
+                      : $0.prestige.value < $1.prestige.value
+              }) else { return }
+        var rng = SeededRandom(seed: SeededRandom.derive(
+            from: SeededRandom.derive(
+                from: state.league.seed,
+                scope: .personnel,
+                identifier: programme.id
+            ),
+            scope: .season,
+            ordinal: calendar.season
+        ))
+        _ = arc.addOpportunity(CareerOpportunity(
+            id: rng.uuid(),
+            organisationID: programme.id,
+            tier: .college,
+            offeredAt: calendar,
+            expiresAt: CalendarState(season: calendar.season + 1, week: 2),
+            prestige: programme.prestige,
+            rationale: .staffRecommendation
         ))
     }
 

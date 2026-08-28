@@ -762,12 +762,15 @@ public enum WorldScheduler {
                     pendingCoachSeason = evaluatedCoachSeason
                 }
                 let coachWasEmployed = nextState.careerArc.status == .employed
+                // Captured before the evaluation, so the revocation below fires on a job lost in
+                // *this* pass rather than on a coach who was already out of work.
+                let coachHadNoJobBefore = nextState.careerArc.currentJob == nil
                 CareerArcSystem.evaluateWeek(
                     after: completed,
                     in: nextState,
                     arc: &nextState.careerArc
                 )
-                if nextState.careerArc.status == .fired {
+                if nextState.careerArc.currentJob == nil, !coachHadNoJobBefore {
                     if coachWasEmployed && completed.week != SharedRules.inSeasonWeeks {
                         guard let evaluatedCoachSeason,
                               nextState.people.recordCoachSeason(
@@ -867,7 +870,16 @@ public enum WorldScheduler {
                         in: nextState,
                         arc: &nextState.careerArc
                     )
-                    if nextState.careerArc.status == .fired {
+                    if nextState.careerArc.currentJob == nil {
+                        // Keyed on holding no job rather than on reading `fired`, which is the
+                        // invariant `WorldIntegrity.checkCareerArc` actually enforces: a seated
+                        // control with no current job is an invalid root. `02` section 7's carousel
+                        // moves a sacked coach to `seeking` in the same pass that sacks them, so a
+                        // status test here saw `seeking`, skipped the revocation, and left the seat
+                        // held by a coach who no longer had the job -- which the college portal's
+                        // own season-projected integrity check then refused, three steps away from
+                        // the cause.
+                        //
                         // Do this before the lifecycle snapshot so its replacement seat and
                         // career record are carried forward instead of overwritten by the
                         // transition's wholesale staff assignment.

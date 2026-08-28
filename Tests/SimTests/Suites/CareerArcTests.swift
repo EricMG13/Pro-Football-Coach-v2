@@ -117,6 +117,162 @@ func runCareerArcTests() {
                     + "\(opening) -> \(arc.averageSupport)"
             )
         }
+
+        test("losing the job revokes the seat, whatever status the carousel leaves behind") {
+            // `WorldIntegrity.checkCareerArc` refuses a seated control with no current job. The
+            // scheduler used to revoke on `status == .fired`, and `02` section 7's carousel moves a
+            // sacked coach to `seeking` in the same pass that sacks them -- so the test read
+            // `seeking`, skipped the revocation, and left an invalid root that surfaced three steps
+            // away as the college portal refusing to commit.
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: UUID(uuidString: "00000000-0000-4000-8000-0000000000A1")!,
+                    tier: .college,
+                    startedAt: CalendarState(season: 0, week: 1)
+                ),
+                status: .employed
+            )
+            expect(arc.markFired(at: CalendarState(season: 0, week: 8)))
+            expect(arc.markSeeking())
+            expectEqual(arc.status, .seeking)
+            expect(arc.currentJob == nil,
+                   "a coach who lost the job still holds one, so no revocation can be keyed on it")
+        }
+
+        test("a fired coach is offered a way back in") {
+            // `02` section 7: the carousel can never dead-end. `fired` used to be terminal -- both
+            // evaluations returned early on it and nothing ever added an opportunity for a coach
+            // out of work -- so a sacked save was permanently out of the game.
+            var state = GameState.bootstrap(seed: 98_042)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            let seasonEnd = CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: state.programmes.ids[0],
+                    tier: .college,
+                    startedAt: CalendarState(season: 0, week: 1)
+                ),
+                status: .employed
+            )
+            expect(arc.markFired(at: seasonEnd))
+            expectEqual(arc.status, .fired)
+            expect(arc.opportunities.isEmpty)
+
+            CareerArcSystem.evaluateSeasonEnd(after: seasonEnd, in: state, arc: &arc)
+            expectEqual(arc.status, .seeking)
+            expect(!arc.opportunities.isEmpty, "a sacked coach was left with no way back in")
+            guard let offer = arc.opportunities.first else { return }
+            expectEqual(offer.tier, .college)
+            // The rebuild, deterministically: the weakest programme in the tier.
+            let weakest = state.programmes.values.min {
+                $0.prestige.value == $1.prestige.value
+                    ? $0.id.uuidString < $1.id.uuidString
+                    : $0.prestige.value < $1.prestige.value
+            }
+            expectEqual(offer.organisationID, weakest?.id)
+        }
+
+        test("a stale offer does not stand in for the rebuild") {
+            // `02` section 7 promises at least one *offer*, not at least one entry in the list.
+            // `offerRebuild` guards on the list being empty, so an offer whose deadline has passed
+            // -- which `acceptOpportunity` refuses -- would otherwise hold the slot and leave a
+            // sacked coach with a list they cannot act on. The dead end, reached by a technicality.
+            var state = GameState.bootstrap(seed: 98_044)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            let seasonEnd = CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: state.programmes.ids[0],
+                    tier: .college,
+                    startedAt: CalendarState(season: 0, week: 1)
+                ),
+                status: .employed
+            )
+            let stale = CareerOpportunity(
+                id: UUID(uuidString: "00000000-0000-4000-8000-000000000A44")!,
+                organisationID: state.proTeams.ids[0],
+                tier: .professional,
+                offeredAt: CalendarState(season: 0, week: 2),
+                expiresAt: CalendarState(season: 0, week: 3),
+                prestige: state.proTeams.values[0].prestige,
+                rationale: .staffRecommendation
+            )
+            expect(arc.addOpportunity(stale))
+            expect(arc.markFired(at: seasonEnd))
+
+            CareerArcSystem.evaluateSeasonEnd(after: seasonEnd, in: state, arc: &arc)
+            expectEqual(arc.status, .seeking)
+            expect(!arc.opportunities.contains { $0.id == stale.id },
+                   "an offer the coach can no longer accept was kept")
+            guard let offer = arc.opportunities.first else {
+                expect(false, "a stale offer stood in for the rebuild")
+                return
+            }
+            expectEqual(offer.tier, .college)
+            expect(offer.expiresAt.season > seasonEnd.season
+                       || (offer.expiresAt.season == seasonEnd.season
+                           && offer.expiresAt.week >= seasonEnd.week),
+                   "the rebuild was offered with a deadline already gone")
+        }
+
+        testAsync("a seeking coach can take the offer and is seated by it") {
+            var state = GameState.bootstrap(seed: 98_043)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            let seasonEnd = CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            let coach = StaffPopulationGenerator.replacement(
+                rootSeed: state.league.seed,
+                season: 0,
+                organisationID: state.programmes.ids[0],
+                prestige: state.programmes.values[0].prestige,
+                role: .headCoach,
+                positionGroup: nil,
+                ordinal: 90_001
+            )
+            state.staff.insert(coach)
+            state.career = CareerControlState(coachID: coach.id)
+            var arc = state.careerArc
+            arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: state.programmes.ids[0],
+                    tier: .college,
+                    startedAt: CalendarState(season: 0, week: 1)
+                ),
+                status: .employed
+            )
+            expect(arc.markFired(at: seasonEnd))
+            CareerArcSystem.evaluateSeasonEnd(after: seasonEnd, in: state, arc: &arc)
+            state.careerArc = arc
+            guard let offer = state.careerArc.opportunities.first else {
+                expect(false, "no offer to accept")
+                return
+            }
+
+            let accepted = try IntentResolver.resolve(
+                .career(CareerArcRequest(
+                    calendar: state.calendar,
+                    action: .acceptOpportunity(opportunityID: offer.id)
+                )),
+                in: state
+            ).state
+            expectEqual(accepted.careerArc.status, .employed)
+            expectEqual(accepted.careerArc.currentJob?.organisationID, offer.organisationID)
+            expectEqual(accepted.careerArc.currentJob?.tier, .college)
+            expectEqual(accepted.career.college?.programmeID, offer.organisationID)
+            expectEqual(accepted.career.coachID, coach.id)
+            // The college appointment is its own arrival, and its own reset site since
+            // `establishCollegeJob` cannot hold one -- `prepareSeasonExpectation` calls that every
+            // week to rebuild a missing job record, so a reset inside it wipes support continuously.
+            expect(accepted.careerArc.stakeholderSupport.values
+                .allSatisfy { $0 == CareerArcState.openingSupport })
+            expect(accepted.careerArc.stakeholderLastMovement.isEmpty)
+            expect(WorldIntegrity.check(accepted).isValid)
+        }
     }
 
     suite("M5 career arc") {
@@ -438,7 +594,9 @@ func runCareerArcTests() {
                 state = try WorldScheduler.advanceWeek(state).state
             }
             expectEqual(state.calendar, CalendarState(season: 1, week: 1))
-            expect(state.careerArc.status == .employed || state.careerArc.status == .fired)
+            // `.seeking` joined the reachable set when `02` section 7's carousel was built: a coach
+            // sacked during the season is out of work at the boundary rather than stuck on `fired`.
+            expect([.employed, .fired, .seeking].contains(state.careerArc.status))
             expect(WorldIntegrity.check(state).isValid)
         }
 
