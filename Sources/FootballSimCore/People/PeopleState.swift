@@ -892,6 +892,13 @@ public struct StaffCareerAssignment: Codable, Sendable, Equatable {
 /// current season, and a `SeasonArchive` keeps champions and rankings but no per-organisation
 /// win-loss, so there is nothing to compute a career record from once a season is archived.
 public struct CoachSeasonRecord: Codable, Sendable, Equatable {
+    private enum CodingKeys: String, CodingKey {
+        case season, organisationID, wins, losses, ties
+        case tier, finalRank, conferenceFinish, postseasonFinish, recruitingClassRank
+        case contractYear, finalPerformance, expectationTarget, expectationDelta
+        case milestones, nextPhase, decisionDeadline, championshipResult
+    }
+
     private static var maximumGames: Int {
         max(CollegeRules.maximumGamesPerSeason, ProRules.maximumGamesPerSeason)
     }
@@ -901,24 +908,78 @@ public struct CoachSeasonRecord: Codable, Sendable, Equatable {
     public let wins: Int
     public let losses: Int
     public let ties: Int
+    public let tier: CareerJobTier?
+    public let finalRank: Int?
+    public let conferenceFinish: CareerConferenceFinish?
+    public let postseasonFinish: CareerPostseasonFinish?
+    public let recruitingClassRank: Int?
+    public let contractYear: Int?
+    public let finalPerformance: Int?
+    public let expectationTarget: Int?
+    public let expectationDelta: Int?
+    public let milestones: [CareerSeasonMilestone]
+    public let nextPhase: CareerNextPhase?
+    public let decisionDeadline: CalendarState?
+    public let championshipResult: CareerChampionshipResult?
 
-    public init(season: Int, organisationID: UUID, wins: Int, losses: Int, ties: Int) {
-        precondition(
-            season >= 0
-                && wins >= 0
-                && losses >= 0
-                && ties >= 0
-                && wins <= Self.maximumGames
-                && losses <= Self.maximumGames
-                && ties <= Self.maximumGames
-                && wins + losses + ties <= Self.maximumGames,
-            "Coach season records require a supported season and game total."
-        )
+    public init(
+        season: Int,
+        organisationID: UUID,
+        wins: Int,
+        losses: Int,
+        ties: Int,
+        tier: CareerJobTier? = nil,
+        finalRank: Int? = nil,
+        conferenceFinish: CareerConferenceFinish? = nil,
+        postseasonFinish: CareerPostseasonFinish? = nil,
+        recruitingClassRank: Int? = nil,
+        contractYear: Int? = nil,
+        finalPerformance: Int? = nil,
+        expectationTarget: Int? = nil,
+        expectationDelta: Int? = nil,
+        milestones: [CareerSeasonMilestone] = [],
+        nextPhase: CareerNextPhase? = nil,
+        decisionDeadline: CalendarState? = nil,
+        championshipResult: CareerChampionshipResult? = nil
+    ) {
+        precondition(Self.isValid(
+            season: season,
+            wins: wins,
+            losses: losses,
+            ties: ties,
+            tier: tier,
+            finalRank: finalRank,
+            conferenceFinish: conferenceFinish,
+            postseasonFinish: postseasonFinish,
+            recruitingClassRank: recruitingClassRank,
+            contractYear: contractYear,
+            finalPerformance: finalPerformance,
+            expectationTarget: expectationTarget,
+            expectationDelta: expectationDelta,
+            milestones: milestones,
+            nextPhase: nextPhase,
+            decisionDeadline: decisionDeadline,
+            organisationID: organisationID,
+            championshipResult: championshipResult
+        ), "Coach season records require a bounded, internally consistent outcome.")
         self.season = season
         self.organisationID = organisationID
         self.wins = wins
         self.losses = losses
         self.ties = ties
+        self.tier = tier
+        self.finalRank = finalRank
+        self.conferenceFinish = conferenceFinish
+        self.postseasonFinish = postseasonFinish
+        self.recruitingClassRank = recruitingClassRank
+        self.contractYear = contractYear
+        self.finalPerformance = finalPerformance
+        self.expectationTarget = expectationTarget
+        self.expectationDelta = expectationDelta
+        self.milestones = milestones
+        self.nextPhase = nextPhase
+        self.decisionDeadline = decisionDeadline
+        self.championshipResult = championshipResult
     }
 
     public init(from decoder: any Decoder) throws {
@@ -927,25 +988,161 @@ public struct CoachSeasonRecord: Codable, Sendable, Equatable {
         let decodedWins = try container.decode(Int.self, forKey: .wins)
         let decodedLosses = try container.decode(Int.self, forKey: .losses)
         let decodedTies = try container.decode(Int.self, forKey: .ties)
-        guard decodedSeason >= 0,
-              decodedWins >= 0,
-              decodedLosses >= 0,
-              decodedTies >= 0,
-              decodedWins <= Self.maximumGames,
-              decodedLosses <= Self.maximumGames,
-              decodedTies <= Self.maximumGames,
-              decodedWins + decodedLosses + decodedTies <= Self.maximumGames else {
+        let decodedTier = try container.decodeIfPresent(CareerJobTier.self, forKey: .tier)
+        let decodedFinalRank = try container.decodeIfPresent(Int.self, forKey: .finalRank)
+        let decodedConferenceFinish = try container.decodeIfPresent(
+            CareerConferenceFinish.self,
+            forKey: .conferenceFinish
+        )
+        let decodedPostseasonFinish = try container.decodeIfPresent(
+            CareerPostseasonFinish.self,
+            forKey: .postseasonFinish
+        )
+        let decodedRecruitingRank = try container.decodeIfPresent(
+            Int.self,
+            forKey: .recruitingClassRank
+        )
+        let decodedContractYear = try container.decodeIfPresent(Int.self, forKey: .contractYear)
+        let decodedPerformance = try container.decodeIfPresent(Int.self, forKey: .finalPerformance)
+        let decodedTarget = try container.decodeIfPresent(Int.self, forKey: .expectationTarget)
+        let decodedDelta = try container.decodeIfPresent(Int.self, forKey: .expectationDelta)
+        let decodedMilestones = try container.decodeIfPresent(
+            [CareerSeasonMilestone].self,
+            forKey: .milestones
+        ) ?? []
+        let decodedNextPhase = try container.decodeIfPresent(CareerNextPhase.self, forKey: .nextPhase)
+        let decodedDeadline = try container.decodeIfPresent(
+            CalendarState.self,
+            forKey: .decisionDeadline
+        )
+        let decodedChampionship = try container.decodeIfPresent(
+            CareerChampionshipResult.self,
+            forKey: .championshipResult
+        )
+        let decodedOrganisationID = try container.decode(UUID.self, forKey: .organisationID)
+        guard Self.isValid(
+            season: decodedSeason,
+            wins: decodedWins,
+            losses: decodedLosses,
+            ties: decodedTies,
+            tier: decodedTier,
+            finalRank: decodedFinalRank,
+            conferenceFinish: decodedConferenceFinish,
+            postseasonFinish: decodedPostseasonFinish,
+            recruitingClassRank: decodedRecruitingRank,
+            contractYear: decodedContractYear,
+            finalPerformance: decodedPerformance,
+            expectationTarget: decodedTarget,
+            expectationDelta: decodedDelta,
+            milestones: decodedMilestones,
+            nextPhase: decodedNextPhase,
+            decisionDeadline: decodedDeadline,
+            organisationID: decodedOrganisationID,
+            championshipResult: decodedChampionship
+        ) else {
             throw DecodingError.dataCorruptedError(
                 forKey: .season,
                 in: container,
-                debugDescription: "A coach season record holds a negative count."
+                debugDescription: "A coach season record is malformed or internally inconsistent."
             )
         }
         season = decodedSeason
-        organisationID = try container.decode(UUID.self, forKey: .organisationID)
+        organisationID = decodedOrganisationID
         wins = decodedWins
         losses = decodedLosses
         ties = decodedTies
+        tier = decodedTier
+        finalRank = decodedFinalRank
+        conferenceFinish = decodedConferenceFinish
+        postseasonFinish = decodedPostseasonFinish
+        recruitingClassRank = decodedRecruitingRank
+        contractYear = decodedContractYear
+        finalPerformance = decodedPerformance
+        expectationTarget = decodedTarget
+        expectationDelta = decodedDelta
+        milestones = decodedMilestones
+        nextPhase = decodedNextPhase
+        decisionDeadline = decodedDeadline
+        championshipResult = decodedChampionship
+    }
+
+    private static func isValid(
+        season: Int,
+        wins: Int,
+        losses: Int,
+        ties: Int,
+        tier: CareerJobTier?,
+        finalRank: Int?,
+        conferenceFinish: CareerConferenceFinish?,
+        postseasonFinish: CareerPostseasonFinish?,
+        recruitingClassRank: Int?,
+        contractYear: Int?,
+        finalPerformance: Int?,
+        expectationTarget: Int?,
+        expectationDelta: Int?,
+        milestones: [CareerSeasonMilestone],
+        nextPhase: CareerNextPhase?,
+        decisionDeadline: CalendarState?,
+        organisationID: UUID,
+        championshipResult: CareerChampionshipResult?
+    ) -> Bool {
+        let expectationIsConsistent: Bool
+        switch (finalPerformance, expectationTarget, expectationDelta) {
+        case (nil, nil, nil): expectationIsConsistent = true
+        case let (.some(performance), .some(target), .some(delta)):
+            expectationIsConsistent = (0...100).contains(performance)
+                && (0...100).contains(target)
+                && delta == performance - target
+        default: expectationIsConsistent = false
+        }
+        let phaseMatchesTier = switch (tier, nextPhase) {
+        case (_, nil), (nil, _): true
+        case (.college, .collegeOffseason), (.professional, .professionalOffseason): true
+        default: false
+        }
+        let championshipMatches = championshipResult.map { result in
+            result.season == season
+                && (tier.map { ($0 == .college ? Tier.college : Tier.pro) == result.tier }
+                    ?? false)
+                && (result.homeID == organisationID || result.awayID == organisationID)
+        } ?? true
+        let hasTierBackedOutcome = finalRank != nil
+            || conferenceFinish != nil
+            || postseasonFinish != nil
+            || recruitingClassRank != nil
+            || contractYear != nil
+            || finalPerformance != nil
+            || nextPhase != nil
+            || decisionDeadline != nil
+            || championshipResult != nil
+            || !milestones.isEmpty
+        let maximumFinalRank = tier.map {
+            $0 == .college ? CollegeRules.programmeCount : ProRules.teamCount
+        } ?? CollegeRules.programmeCount
+        let maximumRecordGames = tier.map {
+            $0 == .college
+                ? CollegeRules.maximumGamesPerSeason
+                : ProRules.maximumGamesPerSeason
+        } ?? maximumGames
+        return season >= 0
+            && wins >= 0
+            && losses >= 0
+            && ties >= 0
+            && wins <= maximumRecordGames
+            && losses <= maximumRecordGames
+            && ties <= maximumRecordGames
+            && wins + losses + ties <= maximumRecordGames
+            && finalRank.map({ (1...maximumFinalRank).contains($0) }) ?? true
+            && recruitingClassRank.map({ (1...CollegeRules.programmeCount).contains($0) }) ?? true
+            && (recruitingClassRank == nil || tier == .college)
+            && contractYear.map({ (1...SharedRules.maximumCareerSeasons).contains($0) }) ?? true
+            && expectationIsConsistent
+            && milestones.count <= CareerSeasonMilestone.allCases.count
+            && Set(milestones).count == milestones.count
+            && (!hasTierBackedOutcome || tier != nil)
+            && phaseMatchesTier
+            && decisionDeadline.map({ $0.season >= season }) ?? true
+            && championshipMatches
     }
 }
 

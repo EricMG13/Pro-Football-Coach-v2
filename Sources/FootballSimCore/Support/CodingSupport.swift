@@ -38,6 +38,11 @@ extension Tier: CodingKeyRepresentable {}
 extension Side: CodingKeyRepresentable {}
 extension RecruitingPitch: CodingKeyRepresentable {}
 extension CollegeCareerResponsibility: CodingKeyRepresentable {}
+// `ProCareerControl.responsibilityOwners` is persisted, so without this its map encoded as a flat
+// array in per-process hash order -- the same defect the college side was fixed for, reintroduced
+// by the tier that arrived later. No migration is needed: the type does not exist before this
+// branch, so no save carries the flat form.
+extension ProCareerResponsibility: CodingKeyRepresentable {}
 
 /// Minimal string-backed coding key, needed only by the conformance above.
 public struct StringCodingKey: CodingKey {

@@ -1,7 +1,7 @@
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **Pro-Football-Coach** (18859 symbols, 87924 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **Pro-Football-Coach-v2** (20959 symbols, 93694 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -25,10 +25,10 @@ This project is indexed by GitNexus as **Pro-Football-Coach** (18859 symbols, 87
 
 | Resource | Use for |
 |----------|---------|
-| `gitnexus://repo/Pro-Football-Coach/context` | Codebase overview, check index freshness |
-| `gitnexus://repo/Pro-Football-Coach/clusters` | All functional areas |
-| `gitnexus://repo/Pro-Football-Coach/processes` | All execution flows |
-| `gitnexus://repo/Pro-Football-Coach/process/{name}` | Step-by-step execution trace |
+| `gitnexus://repo/Pro-Football-Coach-v2/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/Pro-Football-Coach-v2/clusters` | All functional areas |
+| `gitnexus://repo/Pro-Football-Coach-v2/processes` | All execution flows |
+| `gitnexus://repo/Pro-Football-Coach-v2/process/{name}` | Step-by-step execution trace |
 
 ## CLI
 

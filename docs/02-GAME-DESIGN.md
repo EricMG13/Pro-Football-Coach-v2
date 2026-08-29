@@ -474,6 +474,18 @@ Pressure is continuous, legible, and comes from named people.
 - The AD or general manager sets a **preseason expectation** the player can see. Job security moves
   **weekly** against expectation, not raw record. (The prior build recomputed it once a year, so it
   could not move for ~20 weeks.)
+- **The expectation is a season standing, and it is measured as one every week** (added 2026-08-27).
+  The target says where in the league a club expects to finish, so what moves support each week is
+  where the club *is* standing, not the margin of that week's game. A single result still colours the
+  reaction -- winning, and keeping it close, are what the boosters, the fanbase and the locker room
+  each answer to on their own -- but the weight of the movement comes from the standing.
+
+  Recorded because the code compared the two on different scales and nothing said so. The weekly
+  pass scored a single game as `50 + margin x 2` and held it against a target meaning "finish around
+  this level", which silently turned "finish in the top thirty per cent" into "win this game by ten
+  points". A club expected to do well then lost support for winning by a touchdown, and the bar rose
+  with prestige -- so the better the job, the faster it burned, and a coach promoted into a strong
+  club could not survive a season played to its own expectation.
 - Four stakeholder groups — the AD/GM, a booster or ownership bloc, the fanbase, the locker room —
   each with a visible disposition and their own triggers.
 - **Everything arrives as an inbound event.** §6.0's second finding was that the previous build had
@@ -481,6 +493,38 @@ Pressure is continuous, legible, and comes from named people.
   and always has something requiring an answer.
 - Firing can happen in-season. The carousel can never dead-end: there is always at least one offer or
   an explicit year out of the game.
+- **How the carousel actually turns** (added 2026-08-27). A coach fired during a season is *seeking*
+  from the end of that season -- the rest of that season is the time out of the game -- and a seeking
+  coach is offered at least one job at every season end, so there is always a way back in. The offer
+  is the **lowest-prestige programme** in the college tier, tie-broken on identifier: the rebuild is
+  the job that opens to someone out of work, and starting again at the bottom is what makes the
+  promotion arc mean something the second time. Accepting seats the coach exactly as a new career
+  does, keeping their own identity and record.
+
+  Recorded because the clause above was stated and never built. `addOpportunity` was reachable from
+  one place, gated on being an employed college coach already performing well, so the only coach the
+  game ever made an offer to was one who did not need it. `fired` was a terminal status with no
+  transition out, and both weekly and season-end evaluation opened by returning early on it, so a
+  sacked coach was permanently out of the game -- the dead end this section forbids, reached by a
+  save that had done nothing wrong.
+- **Support does not survive losing a job, and does survive earning one** (added 2026-08-27,
+  amended 2026-08-29). The four dispositions belong to a particular club -- the AD or GM, the
+  boosters or ownership, the fanbase, the locker room -- so a coach who arrives having *lost* their
+  last job starts level: all four reset to the neutral opening value, and the season expectation the
+  new employer signs is what they are judged against. None of those people holds the last club's
+  grievance.
+
+  A **promotion carries it**. A coach hired out of a job they were succeeding in is hired *because*
+  of that, and arriving neutral would take away the standing they had just earned -- the reset would
+  punish the successful case to fix the failing one. The distinction is what the coach was doing the
+  moment before: employed and moving up carries, out of work and hired back does not.
+
+  Recorded because the code carried support across every arrival without distinguishing the two,
+  which made re-entry after a sacking close to unsurvivable: the coach arrived already near the
+  firing threshold on the strength of a relationship with a club they had left. The first fix reset
+  on *every* arrival, which traded that for the opposite error -- stripping a promoted coach of the
+  standing that earned them the job -- and contradicted the round-trip test that had guarded the
+  promotion case since before this branch. Hence the split above.
 
 ---
 

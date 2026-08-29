@@ -108,7 +108,7 @@ public enum ProClockRules: ClockRules {
     public static let quarters = 4
     public static let quarterSeconds = 900
     public static let playClockSeconds = 40
-    public static let normalTempoSnapSeconds = 32
+    public static let normalTempoSnapSeconds = 31
     public static let hurryTempoSnapSeconds = 14
     public static let bleedTempoSnapSeconds = 38
     public static let inBoundsPlaySeconds = 6

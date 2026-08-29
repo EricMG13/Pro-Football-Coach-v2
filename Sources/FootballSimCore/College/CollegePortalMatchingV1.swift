@@ -194,6 +194,19 @@ extension CollegePortalPolicyV1 {
             }
         }
 
+        // Read once, not once per programme.
+        var recordedRetentions: [UUID: CollegePortalRetentionOutcome] = [:]
+        for resolution in state.career.mandatoryDecisionResolutions {
+            guard resolution.decidedAt == policy.evaluatedAt,
+                  case let .portalRetention(playerID, window) = resolution.subject,
+                  window == policy.window else { continue }
+            switch resolution.action {
+            case .portalRelease: recordedRetentions[playerID] = .released
+            case .portalRetention: recordedRetentions[playerID] = .retained
+            default: return nil
+            }
+        }
+
         var postRetentionProgrammes = state.college.programmes
         var retentionByPlayerID: [UUID: CollegePortalRetentionResolution] = [:]
         for programmeID in programmeIDs {
@@ -233,6 +246,23 @@ extension CollegePortalPolicyV1 {
                     programme: actualProgramme,
                     using: policy
                 ) else { return nil }
+                // A delegated responsibility recomputes the baseline and ignores any resolution
+                // the save already holds for this window. `CareerSession.delegateDecision` records
+                // one per sibling before it flips the owner, so the two only agree while a
+                // delegate's choice is the recommendation -- which is the baseline. Refuse rather
+                // than quietly overrule a recorded decision the moment that stops being true.
+                //
+                // Only the controlled programme can hold one: every resolution is recorded against
+                // `control.programmeID`. Checked here rather than inside the scan, because this
+                // runs once per programme on the season-boundary week and the resolution list is
+                // bounded at ten thousand.
+                if state.career.college?.programmeID == programmeID {
+                    for (playerID, recorded) in recordedRetentions {
+                        guard automatic.resolutions[playerID]?.outcome == recorded else {
+                            return nil
+                        }
+                    }
+                }
                 transition = automatic
             }
             postRetentionProgrammes[programmeID] = transition.programme

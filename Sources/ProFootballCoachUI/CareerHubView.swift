@@ -370,13 +370,13 @@ public struct CareerHubView: View, CoachWorldChromedSurface {
                     .padding(.horizontal, CoachWorldTokens.Space.sm)
                     .background(
                         isSelected
-                            ? palette.collegeIdentity.color.opacity(0.18)
+                            ? palette.contentPrimary.color.opacity(0.18)
                             : palette.raised.color.opacity(0.45)
                     )
                     .overlay(
                         Rectangle()
                             .stroke(
-                                isSelected ? palette.collegeIdentity.color : .clear,
+                                isSelected ? palette.contentPrimary.color : .clear,
                                 lineWidth: CoachWorldTokens.Shape.hairline
                             )
                     )
@@ -397,7 +397,7 @@ public struct CareerHubView: View, CoachWorldChromedSurface {
         if let opportunity = selectedOpportunity {
             VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.smPlus) {
                 FloodlitLabel3("Selected offer", palette: palette,
-                               tint: palette.collegeIdentity.color)
+                               tint: palette.contentPrimary.color)
                 Text(opportunity.team.name.uppercased())
                     .coachWorldDisplay(CoachWorldTokens.DisplaySize.action, weight: .bold)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)

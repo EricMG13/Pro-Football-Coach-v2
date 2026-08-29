@@ -35,8 +35,8 @@ import FootballSimCore
 /// file rather than a computed value.
 ///
 /// Every value here reproduced across three independent debug processes and a release build.
-private let PINNED_PRO_GAME_FINGERPRINT: UInt64 = 15_295_482_185_907_425_422
-private let PINNED_COLLEGE_GAME_FINGERPRINT: UInt64 = 2_955_826_901_363_617_613
+private let PINNED_PRO_GAME_FINGERPRINT: UInt64 = 12_885_352_638_595_568_582
+private let PINNED_COLLEGE_GAME_FINGERPRINT: UInt64 = 4_944_418_517_511_382_355
 
 func runEngineTests() {
     suite("Leverage") {
@@ -310,6 +310,21 @@ func testPersonnel(offenseSkill: Int, defenseSkill: Int) -> SnapPersonnel {
     return SnapPersonnel(offense: offense, defense: defense)
 }
 
+private func testPersonnel(
+    _ personnel: SnapPersonnel,
+    adding trait: Trait,
+    to playerID: UUID
+) -> SnapPersonnel {
+    SnapPersonnel(
+        offense: personnel.offense.map {
+            var player = $0
+            if player.id == playerID { player.add(trait) }
+            return player
+        },
+        defense: personnel.defense
+    )
+}
+
 func runSnapResolverTests() {
     let rules = Tier.pro.clockRules
     let even = testPersonnel(offenseSkill: 70, defenseSkill: 70)
@@ -488,6 +503,14 @@ func runSnapResolverTests() {
                 assignment.routes.contains { runningBackIDs.contains($0.receiver.id) },
                 "pass assignment excluded every running back from the route progression"
             )
+            let groups = assignment.routes.map(\.receiver.position.group)
+            expectEqual(groups.filter { $0 == .receivers }.count, 3,
+                        "the route progression did not contain the three receiver positions")
+            expectEqual(groups.filter { $0 == .runningBacks }.count, 1,
+                        "the route progression gave more than one read to running backs")
+            let positions = assignment.routes.map(\.receiver.position)
+            expectEqual(positions.filter { $0 == .wideReceiver }.count, 2)
+            expectEqual(positions.filter { $0 == .tightEnd }.count, 1)
         }
 
         test("designed runs reach the primary back, reserve back, and quarterback") {
@@ -528,6 +551,118 @@ func runSnapResolverTests() {
                 )
             }
             expectEqual(once(), once(), "a snap is not reproducible from its seed and state")
+        }
+
+        test("ice in veins raises a player's fourth-quarter execution only") {
+            let playerID = even.offensive(group: .offensiveLine)[0].id
+            let withTrait = testPersonnel(even, adding: .iceInVeins, to: playerID)
+            func leverage(_ personnel: SnapPersonnel, quarter: Int) -> Double {
+                var rng = SeededRandom(seed: 556)
+                return SnapResolver.resolve(
+                    offensiveCall: OffensiveCall(playType: .pass),
+                    defensiveCall: DefensiveCall(coverage: .man),
+                    personnel: personnel,
+                    situation: Situation(quarter: quarter),
+                    rules: rules,
+                    rng: &rng
+                ).matchups.first {
+                    $0.kind == .passProtection && $0.attackerID == playerID
+                }!.leverage
+            }
+
+            expect(leverage(withTrait, quarter: 4) > leverage(even, quarter: 4))
+            expectEqual(leverage(withTrait, quarter: 1), leverage(even, quarter: 1))
+        }
+
+        test("ice in veins raises a player's postseason execution") {
+            let home = testPersonnel(offenseSkill: 70, defenseSkill: 70)
+            let away = testPersonnel(offenseSkill: 69, defenseSkill: 69)
+            let playerID = home.offensive(group: .offensiveLine)[0].id
+            let withTrait = testPersonnel(home, adding: .iceInVeins, to: playerID)
+            func leverage(_ personnel: SnapPersonnel, stage: CompetitionStage) throws -> Double {
+                var state = MatchReducer.start(
+                    tier: .pro,
+                    stage: stage,
+                    home: personnel,
+                    away: away,
+                    seed: 557,
+                    initialSituation: Situation(yardLine: 24)
+                )
+                let receipt = try MatchReducer.reduce(.advance, state: &state)
+                return receipt.play!.outcome.matchups.first {
+                    $0.kind == .passProtection && $0.attackerID == playerID
+                }!.leverage
+            }
+
+            expect(try leverage(withTrait, stage: .championship)
+                > leverage(home, stage: .championship))
+            expectEqual(
+                try leverage(withTrait, stage: .regularSeason),
+                try leverage(home, stage: .regularSeason)
+            )
+        }
+
+        test("front runner lowers a player's execution only in a hostile road venue") {
+            let playerID = even.offensive(group: .offensiveLine)[0].id
+            let withTrait = testPersonnel(even, adding: .frontRunner, to: playerID)
+            func leverage(_ personnel: SnapPersonnel, advantage: Double) -> Double {
+                let values = (558..<622).map { seed in
+                    var rng = SeededRandom(seed: UInt64(seed))
+                    return SnapResolver.resolve(
+                        offensiveCall: OffensiveCall(playType: .pass),
+                        defensiveCall: DefensiveCall(coverage: .man),
+                        personnel: personnel,
+                        situation: Situation(),
+                        rules: rules,
+                        homeFieldAdvantage: advantage,
+                        rng: &rng
+                    ).matchups.first {
+                        $0.kind == .passProtection && $0.attackerID == playerID
+                    }!.leverage
+                }
+                return values.reduce(0, +) / Double(values.count)
+            }
+
+            let roadTrait = leverage(withTrait, advantage: -MatchupRules.proHomeAdvantage)
+            let roadBaseline = leverage(even, advantage: -MatchupRules.proHomeAdvantage)
+            expect(roadTrait < roadBaseline,
+                   "front runner leverage \(roadTrait) did not fall below \(roadBaseline)")
+            expectEqual(leverage(withTrait, advantage: 0), leverage(even, advantage: 0))
+        }
+
+        test("front runner applies to the road defense without affecting neutral venues") {
+            let playerID = even.defense.first { $0.position == .edgeRusher }!.id
+            let withTrait = SnapPersonnel(
+                offense: even.offense,
+                defense: even.defense.map {
+                    var player = $0
+                    if player.id == playerID { player.add(.frontRunner) }
+                    return player
+                }
+            )
+            func leverage(_ personnel: SnapPersonnel, advantage: Double) -> Double {
+                let values = (622..<686).map { seed in
+                    var rng = SeededRandom(seed: UInt64(seed))
+                    return SnapResolver.resolve(
+                        offensiveCall: OffensiveCall(playType: .pass),
+                        defensiveCall: DefensiveCall(coverage: .man),
+                        personnel: personnel,
+                        situation: Situation(),
+                        rules: rules,
+                        homeFieldAdvantage: advantage,
+                        rng: &rng
+                    ).matchups.first {
+                        $0.kind == .passProtection && $0.defenderID == playerID
+                    }!.leverage
+                }
+                return values.reduce(0, +) / Double(values.count)
+            }
+
+            let roadTrait = leverage(withTrait, advantage: MatchupRules.proHomeAdvantage)
+            let roadBaseline = leverage(even, advantage: MatchupRules.proHomeAdvantage)
+            expect(roadTrait > roadBaseline,
+                   "front runner defender leverage \(roadTrait) did not exceed \(roadBaseline)")
+            expectEqual(leverage(withTrait, advantage: 0), leverage(even, advantage: 0))
         }
 
         test("a snap consumes the same number of draws whatever it produced") {
@@ -725,6 +860,10 @@ func runSnapResolverTests() {
             let sharpSecond = SnapResolver.weightedTarget(0.9, order: 1, decision: 0.95)
             let sharpFirst = SnapResolver.weightedTarget(0.2, order: 0, decision: 0.95)
             expect(sharpSecond > sharpFirst, "a sharp decider missed the open man")
+            let openFourth = SnapResolver.weightedTarget(0.7, order: 3, decision: 0.5)
+            let coveredFirstAtAverage = SnapResolver.weightedTarget(0.2, order: 0, decision: 0.5)
+            expect(openFourth > coveredFirstAtAverage,
+                   "an average passer could not progress from a covered first read to an open fourth")
         }
 
         test("a long field goal is harder than a short one") {
@@ -846,16 +985,14 @@ func runSnapResolverTests() {
             let blocked = Double(carries(offense: 82, defense: 62).reduce(0, +)) / 8_000
             let swarmed = Double(carries(offense: 62, defense: 82).reduce(0, +)) / 8_000
             //
-            // Direction, not magnitude, and deliberately so: this fixture currently reads +8.3 and
-            // -4.4 yards a carry for a 20-point edge either way, which is not football — a real
-            // 20-point gap is worth about a yard and a half. That is `Leverage`'s curve rather than
-            // these two constants (the same over-amplification reads as a 0.73 blowout rate and a
-            // 0.85 favourite win rate in --calibration-gate), so pinning the magnitude here would
-            // pin a defect in place.
             expect(blocked > mean + 1,
                    "a 20-point blocking edge is worth only \(blocked - mean) yards a carry")
             expect(swarmed < mean - 1,
                    "a 20-point front edge is worth only \(mean - swarmed) yards a carry")
+            expect(blocked < mean + 3,
+                   "a 20-point blocking edge adds \(blocked - mean) yards a carry")
+            expect(swarmed > mean - 3,
+                   "a 20-point front edge removes \(mean - swarmed) yards a carry")
         }
     }
 }
@@ -1039,6 +1176,60 @@ func runGameLoopTests() {
                            "a snap happened on down \(play.situation.down)")
                 }
             }
+        }
+
+        test("a college overtime team trailing by a touchdown does not settle for a field goal") {
+            let caller = BaselinePlayCaller()
+            let call = caller.offensiveCall(
+                for: Situation(
+                    down: 4,
+                    distance: 4,
+                    yardLine: CompetitionRules.overtimePossessionYardLine,
+                    possession: .away,
+                    homeScore: 28,
+                    awayScore: 21,
+                    quarter: CollegeClockRules.quarters + 1,
+                    secondsRemainingInQuarter: CompetitionRules.overtimePeriodSeconds
+                ),
+                rules: CollegeClockRules.self
+            )
+            expectEqual(call.playType, .pass,
+                        "a touchdown behind in college overtime settled for a field goal")
+            expectEqual(call.tempo, .hurry,
+                        "the overtime touchdown chase did not use urgent tempo")
+            let defensiveCall = caller.defensiveCall(
+                for: Situation(
+                    down: 4,
+                    distance: 4,
+                    yardLine: CompetitionRules.overtimePossessionYardLine,
+                    possession: .away,
+                    homeScore: 28,
+                    awayScore: 21,
+                    quarter: CollegeClockRules.quarters + 1,
+                    secondsRemainingInQuarter: CompetitionRules.overtimePeriodSeconds
+                ),
+                rules: CollegeClockRules.self
+            )
+            expectEqual(defensiveCall.coverage, .prevent,
+                        "the overtime leader did not protect against the required touchdown")
+        }
+
+        test("a trailing late-game offence adds urgency rather than only snapping faster") {
+            let call = BaselinePlayCaller().offensiveCall(
+                for: Situation(
+                    down: 3,
+                    distance: 8,
+                    yardLine: 55,
+                    possession: .away,
+                    homeScore: 24,
+                    awayScore: 17,
+                    quarter: 4,
+                    secondsRemainingInQuarter: 90
+                ),
+                rules: ProClockRules.self
+            )
+            expectEqual(call.tempo, .hurry, "the late deficit did not hurry the offence")
+            expectEqual(call.aggression, 1, "the late deficit did not add urgency to the call")
         }
 
         test("college games run more plays than pro games") {

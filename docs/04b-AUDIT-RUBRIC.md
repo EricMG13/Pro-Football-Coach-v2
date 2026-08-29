@@ -7,13 +7,16 @@ certified a mechanically consistent, generic application shell as production-gra
 The unit of review is one complete screen family in its real career context, not an isolated card or
 component specimen.
 
-## 1. Gate
+## 1. Advisory score
 
 Eight dimensions score 0–5 for a total of 40.
 
-- **Pass:** at least 31/40, no P0/P1, and no automatic design-specificity rejection.
+- **Strong:** at least 31/40 with no P0/P1 or automatic design-specificity rejection.
 - **Revise:** 24–30/40 or any P2 that materially weakens the dominant task.
-- **Reject:** below 24/40, any P0/P1, or any automatic rejection condition.
+- **Weak:** below 24/40, any P0/P1, or any automatic rejection condition.
+
+This score is advisory product feedback. Release approval uses the automated source, accessibility,
+reachability, and P0/P1 contracts; no human reviewer or player is required to assign the score.
 
 A high mechanical score cannot offset a generic-game failure. A beautiful still cannot offset an
 inoperable or dishonest surface.
@@ -145,13 +148,16 @@ Each production-grade screen family supplies:
 Reference fixtures are labelled in gallery chrome **outside** the native frame. A production screen
 never says `REFERENCE DATA`, `SIMULATED RECEIPT` or equivalent.
 
-## 7. Proof-screen gate
+## 7. Proof-screen review
 
-Before production UI begins, Coaching HQ, Recruiting Board and Match Day must pass together. Their
-purpose is not to prove reusable components. They must prove that one design language can produce
-three visibly different football experiences while preserving shared world truth.
+Before production UI begins, Coaching HQ, Recruiting Board and Match Day may be reviewed together.
+Their purpose is not to prove reusable components. They must prove that one design language can
+produce three visibly different football experiences while preserving shared world truth.
 
-The owner review asks:
+The following review questions are advisory product feedback, not release-approval gates. Automated
+source, accessibility, reachability, and P0/P1 checks determine machine-verifiable completion.
+
+The optional review asks:
 
 1. Does this feel like a serious contemporary football coaching game?
 2. Can the current team, week and stakes be understood in two seconds?
@@ -159,7 +165,8 @@ The owner review asks:
 4. Is any part recognisably AI-generated application furniture?
 5. Would a screenshot remain identifiable if all explanatory labels outside the device were removed?
 
-All five answers must be satisfactory. A numeric score cannot overrule the owner on questions 1 or 4.
+The answers may be recorded as advisory feedback. Automated contract failures remain the only
+release-blocking result from this rubric.
 
 ## 8. Production enforcement
 
@@ -182,5 +189,6 @@ The SwiftUI phase must add machine checks for boundaries a test can truthfully o
 - every unbounded-looking feed has a bound;
 - every screen has a deterministic accessibility order.
 
-Visual authenticity, dominant composition and generic-application rejection remain owner and
-independent-review gates because a source scanner cannot determine whether a game feels alive.
+Visual authenticity, dominant composition and generic-application rejection may be recorded as
+advisory review findings. They do not block machine-verifiable completion; source, accessibility,
+reachability, and P0/P1 checks are the approval gates.

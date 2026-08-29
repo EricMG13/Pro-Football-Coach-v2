@@ -46,7 +46,8 @@ public enum DevelopmentSystem {
         for id in state.players.ids {
             guard let player = players[id],
                   people.playerLifecycle[id]?.status == .active else { continue }
-            if let effects = context.practiceEffectsByPlayer[id] {
+            let playerContext = context[id]
+            if let effects = playerContext?.practiceEffects {
                 people.updatePlayerLifecycle(id) {
                     $0.applyPracticeEffects(
                         conditioningBenefit: effects.conditioningBenefit,
@@ -56,8 +57,10 @@ public enum DevelopmentSystem {
             }
             let components = componentsFor(
                 player,
-                coachRating: context.coachRatingByPlayer[id] ?? SharedRules.ratingRange.lowerBound,
-                practiceValue: context.practiceValueByPlayer[id] ?? TacticalPracticePlan.balanced.developmentValue(for: player),
+                coachRating: playerContext?.coachRating ?? SharedRules.ratingRange.lowerBound,
+                practiceValue: playerContext?.practiceValue
+                    ?? TacticalPracticePlan.balanced.developmentValue(for: player),
+                mentored: playerContext?.mentored ?? false,
                 played: (state.competition.playerStatistics[id]?.games ?? 0) > 0
             )
             let score = components.reduce(0) { $0 + $1.value }
@@ -106,54 +109,69 @@ public enum DevelopmentSystem {
         return DevelopmentTransition(players: players, people: people, eventPayloads: payloads)
     }
 
-    private struct Context {
-        let coachRatingByPlayer: [UUID: Int]
-        let practiceValueByPlayer: [UUID: Int]
-        let practiceEffectsByPlayer: [UUID: TacticalPracticeEffects]
+    private struct PlayerDevelopmentContext {
+        let coachRating: Int
+        let practiceValue: Int
+        let practiceEffects: TacticalPracticeEffects
+        let mentored: Bool
     }
+
+    private typealias Context = [UUID: PlayerDevelopmentContext]
 
     private static func developmentContext(
         _ state: GameState,
         tactical: inout TacticalState
     ) -> Context {
-        var coachByOrganisationAndGroup: [String: Int] = [:]
-        var practiceValueByPlayer: [UUID: Int] = [:]
-        var practiceEffectsByPlayer: [UUID: TacticalPracticeEffects] = [:]
+        var coachByOrganisationAndGroup: [CoachGroupKey: Int] = [:]
+        var context: Context = [:]
         let organisations = state.programmes.values
             .map { ($0.id, $0.rosterIDs, $0.staffIDs) }
             + state.proTeams.values.map { ($0.id, $0.rosterIDs, $0.staffIDs) }
         let orderedOrganisations = organisations.sorted { $0.0.uuidString < $1.0.uuidString }
-        var ratingByPlayer: [UUID: Int] = [:]
         for (organisationID, rosterIDs, staffIDs) in orderedOrganisations {
             for staffID in staffIDs {
                 guard let member = state.staff[staffID],
                       member.role == .positionCoach,
                       let group = member.positionGroup else { continue }
-                coachByOrganisationAndGroup["\(organisationID.uuidString)|\(group.rawValue)"] =
-                    member.rating(.development).value
+                coachByOrganisationAndGroup[
+                    CoachGroupKey(organisationID: organisationID, group: group.rawValue)
+                ] = member.rating(.development).value
             }
             let effects = tactical.consumePracticePlan(for: organisationID, at: state.calendar)
                 ?? TacticalPracticePlan.balanced.effects
+            var mentorAgeByPosition: [Position: Int] = [:]
+            for playerID in rosterIDs {
+                guard let player = state.players[playerID], player.has(.mentor) else { continue }
+                mentorAgeByPosition[player.position] = max(
+                    mentorAgeByPosition[player.position] ?? 0,
+                    player.age
+                )
+            }
             for playerID in rosterIDs {
                 guard let player = state.players[playerID] else { continue }
-                ratingByPlayer[playerID] = coachByOrganisationAndGroup[
-                    "\(organisationID.uuidString)|\(player.position.group.rawValue)"
-                ]
-                practiceValueByPlayer[playerID] = effects.developmentValue(for: player)
-                practiceEffectsByPlayer[playerID] = effects
+                let mentored = context[playerID]?.mentored == true
+                    || (mentorAgeByPosition[player.position] ?? 0) > player.age
+                context[playerID] = PlayerDevelopmentContext(
+                    coachRating: coachByOrganisationAndGroup[
+                        CoachGroupKey(
+                            organisationID: organisationID,
+                            group: player.position.group.rawValue
+                        )
+                    ] ?? SharedRules.ratingRange.lowerBound,
+                    practiceValue: effects.developmentValue(for: player),
+                    practiceEffects: effects,
+                    mentored: mentored
+                )
             }
         }
-        return Context(
-            coachRatingByPlayer: ratingByPlayer,
-            practiceValueByPlayer: practiceValueByPlayer,
-            practiceEffectsByPlayer: practiceEffectsByPlayer
-        )
+        return context
     }
 
     private static func componentsFor(
         _ player: Player,
         coachRating: Int,
         practiceValue: Int,
+        mentored: Bool,
         played: Bool
     ) -> [DevelopmentComponent] {
         let ageValue: Int
@@ -175,17 +193,21 @@ public enum DevelopmentSystem {
         } else {
             workValue = 0
         }
-        let coachValue = coachRating >= PeopleRules.strongCoachRating
+        let baseCoachValue = coachRating >= PeopleRules.strongCoachRating
             ? 2
             : (coachRating >= PeopleRules.competentCoachRating ? 1 : 0)
         return [
             DevelopmentComponent(reason: player.isDeclining ? .decline : .ageCurve, value: ageValue),
-            DevelopmentComponent(reason: .practice, value: practiceValue),
+            DevelopmentComponent(
+                reason: .practice,
+                value: min(2, practiceValue + (player.has(.workhorse) && practiceValue > 0 ? 1 : 0))
+            ),
             DevelopmentComponent(reason: .playingTime, value: played ? 1 : 0),
-            DevelopmentComponent(reason: .coaching, value: coachValue),
+            DevelopmentComponent(reason: .coaching, value: min(2, baseCoachValue + (mentored ? 1 : 0))),
             DevelopmentComponent(
                 reason: .schemeFit,
-                value: player.attributes[.schemeFit].value >= PeopleRules.schemeFitDevelopmentRating ? 1 : 0
+                value: player.attributes[.schemeFit].value >= PeopleRules.schemeFitDevelopmentRating
+                    || player.has(.adaptable) ? 1 : 0
             ),
             DevelopmentComponent(reason: .workEthic, value: workValue),
         ]
@@ -208,5 +230,26 @@ public enum DevelopmentSystem {
             let rhs = player.attributes[$1].value
             return lhs == rhs ? $0.rawValue < $1.rawValue : lhs > rhs
         }.first
+    }
+}
+
+/// In-memory only, and conformed anyway — as an `extension`, which is the form the engine-wide
+/// scan reads. The scan flags every dictionary key type without asking whether that particular map
+/// is ever encoded, because "this one is never persisted" is exactly the judgement that stops being
+/// true without anyone noticing.
+private struct CoachGroupKey: Hashable {
+    let organisationID: UUID
+    let group: String
+}
+
+extension CoachGroupKey: CodingKeyRepresentable {
+    var codingKey: any CodingKey {
+        StringCodingKey("\(organisationID.uuidString)|\(group)")
+    }
+
+    init?<K: CodingKey>(codingKey: K) {
+        let parts = codingKey.stringValue.split(separator: "|", maxSplits: 1)
+        guard parts.count == 2, let id = UUID(uuidString: String(parts[0])) else { return nil }
+        self.init(organisationID: id, group: String(parts[1]))
     }
 }

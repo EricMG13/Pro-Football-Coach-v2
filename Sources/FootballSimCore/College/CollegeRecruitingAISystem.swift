@@ -140,11 +140,16 @@ public enum RecruitingDecisionPolicy {
             }
         }
         let candidates: [Prospect]
-        if let diversified = rankedPositions.lazy.compactMap({ position in
+        if let diversified = rankedPositions.lazy.compactMap({ position -> [Prospect]? in
             let unsaturated = candidatesForPosition(position).filter {
                 (pursuitCounts[$0.id] ?? 0) < pursuitSaturation
             }
-            return unsaturated.isEmpty ? nil : unsaturated
+            guard let minimumPursuitCount = unsaturated.map({
+                pursuitCounts[$0.id] ?? 0
+            }).min() else { return nil }
+            return unsaturated.filter {
+                (pursuitCounts[$0.id] ?? 0) == minimumPursuitCount
+            }
         }).first {
             candidates = diversified
         } else if let fallback = rankedPositions.lazy.compactMap({ position in
@@ -333,10 +338,10 @@ public enum RecruitingDecisionPolicy {
                       weeklyEvaluationCount >= max(
                         1,
                         (CollegeRules.weeklyRecruitingContactPoints
-                            - CollegeRules.visitContactCost)
+                            - 3 * CollegeRules.visitContactCost)
                             / CollegeRules.aiEvaluationContactPoints
                       ) {
-                // Continue filling an empty pipeline, but mature existing pursuits before
+                // Keep enough weekly contact capacity to deepen three live pursuits before
                 // evaluating the rest of this week's zero-contact board additions.
                 balancedStage = 6
             } else {

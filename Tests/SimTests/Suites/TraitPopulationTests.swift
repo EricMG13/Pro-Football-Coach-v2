@@ -405,5 +405,5 @@ private func isCanonicalTraits(_ traits: [Trait]) -> Bool {
     traits == Trait.allCases.filter(traits.contains)
 }
 
-private let activePopulationTraits: Set<Trait> = [.ironman, .restless, .volatile]
+private let activePopulationTraits: Set<Trait> = Set(Trait.allCases)
 private let futureSimulationTraits = Trait.allCases.filter { !activePopulationTraits.contains($0) }

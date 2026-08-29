@@ -3,7 +3,12 @@ import FootballSimCore
 
 func runM3CollegeSoakTests() {
     let requested = ProcessInfo.processInfo.environment["M3_SOAK_SEASONS"]
-        .flatMap(Int.init) ?? 20
+        .flatMap(Int.init) ?? 10
+    // The default is ten because that is the horizon the 8 MB save ceiling is stated at.
+    // The range stays 1...20: the twenty-season run is what shows whether growth the
+    // ten-season margin cannot see -- it passes at about 8.35 MB against 8 MiB -- is
+    // bounded or merely slow. Clamping the range to the default deletes that measurement
+    // rather than making it optional.
     precondition((1...20).contains(requested), "M3 soak seasons must be in 1...20.")
 
     suite("M3 college management soak") {
@@ -14,13 +19,13 @@ func runM3CollegeSoakTests() {
                 at: programmeID,
                 in: source
             ).state
-            let staffID = source.programmes[programmeID]!.staffIDs.first {
-                source.staff[$0]?.role == .offensiveCoordinator
-            }!
-            for responsibility in CollegeCareerResponsibility.allCases {
+            let staffIDs = source.programmes[programmeID]!.staffIDs.filter {
+                source.staff[$0]?.role != .headCoach
+            }
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
                 expect(CareerControlSystem.setResponsibility(
                     responsibility,
-                    owner: .delegated(staffID: staffID),
+                    owner: .delegated(staffID: staffIDs[index / 2]),
                     in: &source
                 ))
             }

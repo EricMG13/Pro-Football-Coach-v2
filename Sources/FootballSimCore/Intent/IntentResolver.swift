@@ -173,9 +173,11 @@ public enum IntentResolver {
     public static func resolve(_ intent: CoachIntent, in state: GameState) throws -> ResolvedIntent {
         switch intent {
         case .advanceWeek:
-            guard state.pending.mandatoryDecisions.isEmpty else {
+            let pendingDecisionCount = state.pending.mandatoryDecisions.count
+                + (state.pending.professionalCapCompliance == nil ? 0 : 1)
+            guard pendingDecisionCount == 0 else {
                 throw IntentResolutionError.unresolvedMandatoryDecisions(
-                    count: state.pending.mandatoryDecisions.count
+                    count: pendingDecisionCount
                 )
             }
             if let organisationID = controlledOrganisationID(in: state),
@@ -370,6 +372,30 @@ public enum IntentResolver {
             let applied: Bool
             switch request.action {
             case let .acceptOpportunity(opportunityID):
+                // `02` section 7's carousel offers a coach out of work the rebuild, which is a
+                // college job, and `CareerArcState.acceptOpportunity` is the promotion path -- it
+                // seats a professional job and refuses anything else. A college offer is instead
+                // the ordinary way a career starts, so it goes through the seating the game
+                // already trusts: `startCollegeCareer` establishes the arc job, moves the chair and
+                // writes the staff assignment, and reuses `career.coachID`, so the coach comes back
+                // as themselves rather than as a new person.
+                let opportunity = nextState.careerArc.opportunities.first { $0.id == opportunityID }
+                if opportunity?.tier == .college {
+                    guard let opportunity,
+                          nextState.careerArc.removeOpportunity(id: opportunityID) else {
+                        throw IntentResolutionError.careerArcUnavailable
+                    }
+                    do {
+                        nextState = try CareerControlSystem.startCollegeCareer(
+                            at: opportunity.organisationID,
+                            in: nextState
+                        ).state
+                    } catch {
+                        throw IntentResolutionError.careerArcUnavailable
+                    }
+                    applied = true
+                    break
+                }
                 applied = nextState.careerArc.acceptOpportunity(
                     id: opportunityID,
                     at: request.calendar
@@ -401,6 +427,7 @@ public enum IntentResolver {
                     // former programme while the carousel evaluates the next job, and must not
                     // stay on its staff as its head coach either.
                     nextState.career.clearCollege()
+                    nextState.career.clearPro()
                     CareerControlSystem.vacateCurrentSeat(in: &nextState)
                 }
             }

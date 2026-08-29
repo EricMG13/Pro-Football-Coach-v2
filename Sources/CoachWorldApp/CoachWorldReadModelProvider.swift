@@ -44,6 +44,7 @@ public enum CoachWorldReadModelProvider {
         }
         let decisions = state.pending.mandatoryDecisions
             .filter { $0.programmeID == organisationID }
+        let userDecision = decisions.first { $0.owner == .user }
 
         return CoachingHQReadModel(
             snapshotID: snapshotID("hq", organisationID, calendar),
@@ -79,11 +80,10 @@ public enum CoachWorldReadModelProvider {
             unallocatedPracticeMinutes: unallocatedPracticeMinutes(organisationID, in: state),
             opponent: opponentID.map { teamReference($0, in: state) },
             obligations: decisions.map { obligation($0, in: state) },
-            decision: decisions.first { $0.owner == .user }
-                .flatMap { decision($0, in: state) },
-            // The root records a recommended option, but no staff author or confidence.
-            // Omit the verdict until the engine owns those facts.
-            staffRecommendation: nil,
+            decision: userDecision.flatMap { decision($0, in: state) },
+            staffRecommendation: userDecision.flatMap {
+                staffRecommendation($0, organisationID: organisationID, in: state)
+            },
             // No inbound-event or correspondence system exists — `WorldScheduler`'s
             // `expiringInboundEvents` step is inactive for exactly this reason.
             correspondence: [],
@@ -223,6 +223,7 @@ public enum CoachWorldReadModelProvider {
             provenance: .simulationSnapshot,
             team: team,
             weekLabel: weekLabel(state.calendar),
+            weeklyMinutes: TacticalPracticePlan.weeklyMinutes,
             currentPlan: state.tactical.practicePlan(for: organisationID, at: state.calendar),
             options: options
         )
@@ -238,6 +239,7 @@ public enum CoachWorldReadModelProvider {
             ?? state.proTeams[organisationID]?.rosterIDs
             ?? []
         let roster = rosterIDs.compactMap { state.players[$0] }
+        let numbers = JerseyNumbers.assign(roster)
         let unavailableIDs = Set(roster.compactMap { player in
             guard state.people.playerLifecycle[player.id]?.isAvailable == true else {
                 return player.id
@@ -259,7 +261,8 @@ public enum CoachWorldReadModelProvider {
         let positions = Position.allCases.compactMap { position -> DepthChartReadModel.PositionGroup? in
             guard let ids = resolved[position], !ids.isEmpty else { return nil }
             let slots = ids.enumerated().compactMap { index, playerID -> DepthChartReadModel.Slot? in
-                guard let player = state.players[playerID] else { return nil }
+                guard let player = state.players[playerID],
+                      let number = numbers[playerID] else { return nil }
                 // Match authority treats redshirt limits as unavailable even when the
                 // lifecycle flag is still healthy. Keep the row text and starter marker on
                 // that same bounded predicate so the screen cannot promise a player the
@@ -269,6 +272,12 @@ public enum CoachWorldReadModelProvider {
                     id: "\(position.rawValue)-\(playerID.uuidString)",
                     playerID: playerID.uuidString,
                     playerName: player.fullName,
+                    person: CoachWorldPersonReference(
+                        stableID: player.id.uuidString,
+                        name: player.fullName,
+                        role: positionLabel(position)
+                    ),
+                    number: number,
                     availability: available ? "Available" : "Unavailable · fallback applies",
                     isStarter: index == 0 && available,
                     isUnavailable: !available,
@@ -549,11 +558,49 @@ public enum CoachWorldReadModelProvider {
                     // A mandatory-decision option records no price. State that absence rather
                     // than turning its deadline into a cost or inventing a number.
                     cost: "No recorded cost",
-                    // The root records which option is recommended, but not a staff author.
-                    // A generated verdict without an owner and uncertainty is not display truth.
+                    // The option itself records no consequence; the attributed recommendation
+                    // beside this decision carries only evidence the root does own.
                     consequence: ""
                 )
             }
+        )
+    }
+
+    static func staffRecommendation(
+        _ decision: MandatoryDecision,
+        organisationID: UUID,
+        in state: GameState
+    ) -> CoachingHQReadModel.StaffRecommendation? {
+        guard case let .recruiting(prospectID) = decision.subject,
+              !decision.reasons.isEmpty,
+              let option = decision.options.first(where: {
+                  $0.id == decision.recommendedOptionID
+              }),
+              let observation = state.scouting.observation(
+                  observerID: organisationID,
+                  prospectID: prospectID
+              )
+        else { return nil }
+        let staff = staffMembers(for: organisationID, in: state)
+            .filter { $0.role != .headCoach }
+            .sorted { lhs, rhs in
+                let lhsRating = lhs.rating(.recruiting)
+                let rhsRating = rhs.rating(.recruiting)
+                return lhsRating == rhsRating
+                    ? lhs.id.uuidString < rhs.id.uuidString
+                    : lhsRating.value > rhsRating.value
+            }
+            .first
+        guard let staff else { return nil }
+        return CoachingHQReadModel.StaffRecommendation(
+            staff: CoachWorldPersonReference(
+                stableID: staff.id.uuidString,
+                name: staff.fullName,
+                role: label(staff.role)
+            ),
+            verdict: label(option.action),
+            reason: decision.reasons.map(evidence).joined(separator: "; "),
+            confidence: "\(observation.confidence)%"
         )
     }
 
@@ -584,6 +631,13 @@ public enum CoachWorldReadModelProvider {
     /// number is the engine's.
     static func evidence(_ reason: MandatoryDecisionReason) -> String {
         "\(label(reason.code)): \(reason.value)"
+    }
+
+    static func staffMembers(for organisationID: UUID, in state: GameState) -> [Staff] {
+        let ids = state.programmes[organisationID]?.staffIDs
+            ?? state.proTeams[organisationID]?.staffIDs
+            ?? []
+        return ids.compactMap { state.staff[$0] }.sorted { $0.id.uuidString < $1.id.uuidString }
     }
 
     // MARK: - Wording for engine enumerations

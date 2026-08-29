@@ -13,6 +13,14 @@ import FootballSimCore
 /// this does not know the speed of cannot fairly fail a build. The gate is the owner's, on the
 /// device, per `docs/OWNER-WALKTHROUGH.md` §4.
 func runWeekAdvanceTimingProbe(weeks: Int = 21) {
+    let weeks = ProcessInfo.processInfo.environment["WEEK_ADVANCE_TIMING_WEEKS"]
+        .flatMap(Int.init) ?? weeks
+    precondition((1...SharedRules.inSeasonWeeks).contains(weeks))
+    if let delay = ProcessInfo.processInfo.environment["WEEK_ADVANCE_TIMING_START_DELAY_SECONDS"]
+        .flatMap(Double.init) {
+        precondition((0...10).contains(delay))
+        Thread.sleep(forTimeInterval: delay)
+    }
     let clock = ContinuousClock()
     let bootstrapStarted = clock.now
     var state = GameState.bootstrap(seed: 20_260_813)

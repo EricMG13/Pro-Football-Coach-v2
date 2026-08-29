@@ -35,10 +35,9 @@ public enum CoachWorldTokens {
     /// management surface now uses that geometry. The content column gains 52 pt.
     public enum Stage {
         public static let contentLeading: CGFloat = Frame.leadingInset
-        public static let contentTop: CGFloat = 46
-        public static let headerTop: CGFloat = 3
-        public static let headerPrimaryRow: CGFloat = 22
-        public static let headerSecondaryRow: CGFloat = 16
+        public static let headerTop: CGFloat = Frame.topInset
+        public static let headerHeight: CGFloat = 34
+        public static let contentTop: CGFloat = 54
         /// `844 - 63 - 20`: the frame minus the leading inset and the trailing gutter. Derived,
         /// not chosen, so it stays right if the floor ever moves.
         public static let contentWidth: CGFloat =
@@ -90,6 +89,10 @@ public enum CoachWorldTokens {
         /// that is committing with it.
         public static let pressDim: Double = 0.12
         public static let disabledOpacity: Double = 0.4
+
+        public static func resolvedDisabledOpacity(for contrast: ColorSchemeContrast) -> Double {
+            contrast == .increased ? 0.62 : disabledOpacity
+        }
 
         // The curve constructor that turns these durations into an `Animation` lives in
         // `CoachWorldMotion.swift`, not here — this enum is data, per `04` section 6.7; scheduling
@@ -410,6 +413,28 @@ public enum CoachWorldTokens {
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
+
+        /// The navigator's ground: the club's field colour fading out across the band.
+        ///
+        /// Here rather than in the view for the same reason `goldField` is. It takes its colour at
+        /// runtime because it follows the save's own club, which is the only thing that stops it
+        /// being a plain constant -- the alphas and stops are fixed, and a fixed value written in a
+        /// view is a value that drifts from the one place that is supposed to hold it.
+        public static func navigatorGround(field: ColorValue = clubField) -> LinearGradient {
+            LinearGradient(
+                stops: [
+                    .init(color: field.color.opacity(navigatorGroundLead), location: 0),
+                    .init(color: field.color.opacity(navigatorGroundFade), location: navigatorGroundMidpoint),
+                    .init(color: .clear, location: 1),
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        }
+
+        private static let navigatorGroundLead = 0.92
+        private static let navigatorGroundFade = 0.42
+        private static let navigatorGroundMidpoint = 0.52
     }
 
     /// Glass, as the handoff states it: a fill, a hairline, and a directional sheen. Held as alphas

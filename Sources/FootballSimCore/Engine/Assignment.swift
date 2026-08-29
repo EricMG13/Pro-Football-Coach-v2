@@ -124,9 +124,14 @@ public enum Assignment {
 
         var routes: [(receiver: Player, defender: Player)] = []
         if offensiveCall.playType == .pass {
-            let receivers = SnapPersonnel.ranked(personnel.offense.filter {
+            let eligible = SnapPersonnel.ranked(personnel.offense.filter {
                 $0.position.group == .receivers || $0.position == .runningBack
             })
+            let preferred = Array(eligible.filter { $0.position == .wideReceiver }.prefix(2))
+                + Array(eligible.filter { $0.position == .tightEnd }.prefix(1))
+                + Array(eligible.filter { $0.position == .runningBack }.prefix(1))
+            let preferredIDs = Set(preferred.map(\.id))
+            let receivers = (preferred + eligible.filter { !preferredIDs.contains($0.id) })
                 .prefix(MatchupRules.receiversInRoute)
             for (index, receiver) in receivers.enumerated() where !coverageDefenders.isEmpty {
                 routes.append((receiver: receiver,

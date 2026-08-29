@@ -54,6 +54,27 @@ public struct TacticalCallInProposal: Codable, Sendable, Equatable {
 }
 
 public enum TacticalCallInSystem {
+    static func shouldPresent(
+        trigger: CallInTrigger,
+        target: Int,
+        eligibleIndex: Int,
+        completedCount: Int
+    ) -> Bool {
+        guard SharedRules.callInsPerGameRange.contains(target),
+              eligibleIndex >= 0,
+              completedCount >= 0,
+              completedCount < SharedRules.callInsPerGameRange.upperBound else { return false }
+        switch trigger {
+        case .fourthDown, .twoMinute, .afterTurnover:
+            return true
+        case .redZone, .thirdAndLong, .unanticipatedTendency, .planLeavesItOpen:
+            guard completedCount < target else { return false }
+            let ceiling = SharedRules.callInsPerGameRange.upperBound
+            let spacing = (ceiling + target - 1) / target
+            return (eligibleIndex + 1).isMultiple(of: spacing)
+        }
+    }
+
     /// Builds the small, inspectable decision shown at a flagged snap. It is pure: no hidden
     /// opponent attributes, random draws, or mutation are consulted.
     public static func proposal(
@@ -107,4 +128,3 @@ public enum TacticalCallInSystem {
         )
     }
 }
-

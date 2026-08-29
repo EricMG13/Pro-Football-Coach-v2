@@ -797,6 +797,63 @@ func runM3RecruitingCalibrationTests() {
             )
         }
 
+        test("one evaluation leaves room to deepen a live pursuit") {
+            var fixture = try m3NILPolicyFixture(
+                seed: 93_052,
+                nilPriority: 40,
+                relationshipPriority: 40,
+                closesAtTarget: false,
+                contactPointsRemaining: CollegeRules.weeklyRecruitingContactPoints
+            )
+            let capacity = CollegeCommitmentCapacitySystem.capacity(
+                programmeID: fixture.programmeID,
+                in: fixture.state,
+                college: fixture.state.college
+            )!
+            let unevaluated = fixture.state.prospects.values.filter {
+                $0.id != fixture.prospectID
+                    && capacity.canReserve(position: $0.position)
+                    && fixture.state.college.prospectRecruitment[$0.id]?.phase == .available
+            }.prefix(4)
+            expectEqual(unevaluated.count, 4)
+            let existing = fixture.state.college.programmes[fixture.programmeID]!
+            var relationships = existing.relationships
+            for prospect in unevaluated {
+                relationships[prospect.id] = ProgrammeProspectRelationship(
+                    prospectID: prospect.id
+                )
+            }
+            fixture.state = m3ReplacingRecruitingProgramme(
+                ProgrammeRecruitingState(
+                    programmeID: fixture.programmeID,
+                    boardIDs: existing.boardIDs + unevaluated.map(\.id),
+                    relationships: relationships,
+                    scholarshipPlayerIDs: existing.scholarshipPlayerIDs,
+                    contactPointsRemaining: existing.contactPointsRemaining,
+                    nilState: existing.nilState
+                ),
+                in: fixture.state
+            )
+
+            let transition = try CollegeRecruitingAISystem.process(
+                programmeIDs: [fixture.programmeID],
+                in: fixture.state
+            )
+            let spendingActions = transition.decisions.compactMap {
+                decision -> RecruitingAction? in
+                switch decision.request.action {
+                case .evaluate, .scheduleVisit, .contact:
+                    return decision.request.action
+                case .addToBoard, .withdraw, .offerScholarship, .setNILAllocation:
+                    return nil
+                }
+            }
+            expectEqual(Array(spendingActions.prefix(2)), [
+                .evaluate(points: CollegeRules.aiEvaluationContactPoints),
+                .scheduleVisit,
+            ])
+        }
+
         test("renewable work follows the highest-score pursuit across visit and contact") {
             var state = GameState.bootstrap(seed: 93_021)
             let programmeID = state.programmes.ids[0]
@@ -1477,19 +1534,13 @@ func runM3RecruitingCalibrationTests() {
                 transition.college.programmes.values.flatMap(\.boardIDs),
                 by: { $0 }
             ).mapValues(\.count)
-            let saturation = max(
-                1,
-                (state.programmes.count * CollegeRules.recruitingBoardLimit
-                    + state.prospects.count - 1) / state.prospects.count
-            )
             let boardSlots = pursuitCounts.values.reduce(0, +)
 
             expectEqual(
                 boardSlots,
                 state.programmes.count * CollegeRules.aiWeeklyBoardGrowth
             )
-            expect((pursuitCounts.values.max() ?? 0) <= saturation)
-            expect(pursuitCounts.count >= boardSlots / saturation)
+            expect(pursuitCounts.count * 100 >= boardSlots * 99)
         }
 
         test("later board growth searches every need before exceeding pursuit saturation") {

@@ -250,7 +250,7 @@ public enum CareerMandatoryDecisionSystem {
         guard let control = state.career.college,
               let programme = state.programmes[control.programmeID] else { return state }
         if state.college.portal.phase == .awaitingSpring {
-            return refreshSpringPortal(control: control, in: state)
+            return refreshSpringPortal(in: state)
         }
         guard state.calendar.week <= 2,
               state.college.phase == .active,
@@ -331,38 +331,94 @@ public enum CareerMandatoryDecisionSystem {
             switch owner {
             case .user:
                 _ = next.pending.enqueue(decision)
-            case .delegated:
+            case let .delegated(staffID):
                 let option = decision.options.first { $0.id == recommendedOptionID }!
+                var candidate = next
                 if case let .redshirt(limit?) = option.action {
                     guard let college = try? CollegeRedshirtSystem.designate(
                         playerID: playerID,
                         programmeID: control.programmeID,
                         plannedAppearanceLimit: limit,
-                        in: next
+                        in: candidate
                     ) else { continue }
-                    next.college = college
+                    candidate.college = college
                 }
-                _ = next.career.recordResolution(MandatoryDecisionResolution(
+                guard candidate.career.recordResolution(MandatoryDecisionResolution(
                     decisionID: decision.id,
                     programmeID: decision.programmeID,
                     subject: decision.subject,
                     optionID: option.id,
                     action: option.action,
                     decidedAt: state.calendar
-                ))
+                )) else { continue }
+                guard let sequence = candidate.history.firstSequence(forAppending: 1) else {
+                    continue
+                }
+                let event = DomainEvent(
+                    id: DomainEvent.deterministicID(
+                        rootSeed: candidate.league.seed,
+                        sequence: sequence
+                    ),
+                    sequence: sequence,
+                    occurredAt: state.calendar,
+                    payload: .decisionDelegated(
+                        decisionID: decision.id,
+                        programmeID: decision.programmeID,
+                        responsibility: .redshirts,
+                        staffID: staffID,
+                        optionID: option.id
+                    )
+                )
+                guard candidate.history.append(event),
+                      candidate.career.recordDelegatedActivity(CareerDelegatedActivity(
+                    id: "\(decision.id.uuidString)|\(staffID.uuidString)|delegated",
+                    calendar: state.calendar,
+                    area: .college(.redshirts),
+                    actorID: staffID,
+                    action: .decisionApplied,
+                    effect: .recommendationApplied(optionID: option.id),
+                    trigger: state.career.cruise?.status == .active
+                        ? .cruise : .mandatoryDecision
+                )) else { continue }
+                next = candidate
             }
         }
         return WorldIntegrity.check(next).isValid ? next : state
     }
 
-    private static func refreshSpringPortal(
-        control: CollegeCareerControl,
+    private static func refreshSpringPortal(in state: GameState) -> GameState {
+        var next = state
+        for decision in portalRetentionDecisions(window: .spring, in: state) {
+            guard !next.career.mandatoryDecisionResolutions.contains(where: {
+                $0.decisionID == decision.id
+            }) else { continue }
+            next.pending.enqueue(decision)
+        }
+        return WorldIntegrity.check(next).isValid ? next : state
+    }
+
+    /// The retention decisions a user-owned portal responsibility has to answer before
+    /// `CollegePortalPolicyV1.makeMarketSnapshot` will match the window.
+    ///
+    /// Derived from whatever root it is handed rather than from a preview of one. The spring
+    /// window's inputs exist a week before the window opens, so `refresh` can enqueue those the
+    /// moment the phase turns. The postseason window's do not: its intents read the career season
+    /// rows `SeasonLifecycleSystem.advance` writes and the recruiting season `closeAndOpen` opens,
+    /// both of which land part-way through a single `WorldScheduler` step. There is no root outside
+    /// that step to derive them from, which is why the scheduler asks at its own boundary.
+    package static func portalRetentionDecisions(
+        window: CollegePortalWindow,
         in state: GameState
-    ) -> GameState {
-        guard control.responsibilityOwners[.portalAndRetention] == .user,
+    ) -> [MandatoryDecision] {
+        let targetSeason = switch window {
+        case .spring: state.calendar.season
+        case .postseason: state.calendar.season + 1
+        }
+        guard let control = state.career.college,
+              control.responsibilityOwners[.portalAndRetention] == .user,
               let snapshot = CollegePortalPolicyV1.makeSnapshot(
-                  targetSeason: state.calendar.season,
-                  window: .spring,
+                  targetSeason: targetSeason,
+                  window: window,
                   in: state
               ),
               let programme = state.college.programmes[control.programmeID],
@@ -370,44 +426,39 @@ public enum CareerMandatoryDecisionSystem {
                   for: control.programmeID,
                   programme: programme,
                   using: snapshot
-              ) else { return state }
-        var next = state
-        for intent in snapshot.intents where intent.sourceProgrammeID == control.programmeID {
-            guard let resolution = transition.resolutions[intent.playerID],
-                  resolution.outcome == .retained else { continue }
-            let decisionID = stableID(
-                rootSeed: state.league.seed,
-                season: state.calendar.season,
-                playerID: intent.playerID,
-                discriminator: 10
-            )
-            guard !next.pending.mandatoryDecisions.contains(where: { $0.id == decisionID }),
-                  !next.career.mandatoryDecisionResolutions.contains(where: {
-                      $0.decisionID == decisionID
-                  }) else { continue }
+              ) else { return [] }
+        // Disjoint discriminator blocks, because both windows stamp the *calendar* season into the
+        // identifier and season S carries the spring window for S and the postseason window for
+        // S + 1. A player entering both would otherwise be handed one decision ID twice.
+        let base = switch window {
+        case .spring: 10
+        case .postseason: 13
+        }
+        return snapshot.intents.compactMap { intent in
+            guard intent.sourceProgrammeID == control.programmeID,
+                  let resolution = transition.resolutions[intent.playerID],
+                  resolution.outcome == .retained else { return nil }
             let retainID = stableID(
                 rootSeed: state.league.seed,
                 season: state.calendar.season,
                 playerID: intent.playerID,
-                discriminator: 11
+                discriminator: base + 1
             )
             let releaseID = stableID(
                 rootSeed: state.league.seed,
                 season: state.calendar.season,
                 playerID: intent.playerID,
-                discriminator: 12
+                discriminator: base + 2
             )
-            let reasons = intent.components.map { component in
-                MandatoryDecisionReason(
-                    code: reasonCode(component.reason),
-                    value: component.value,
-                    relatedEntityID: intent.playerID
-                )
-            }
-            _ = next.pending.enqueue(MandatoryDecision(
-                id: decisionID,
+            return MandatoryDecision(
+                id: stableID(
+                    rootSeed: state.league.seed,
+                    season: state.calendar.season,
+                    playerID: intent.playerID,
+                    discriminator: base
+                ),
                 programmeID: control.programmeID,
-                subject: .portalRetention(playerID: intent.playerID, window: .spring),
+                subject: .portalRetention(playerID: intent.playerID, window: window),
                 createdAt: state.calendar,
                 deadline: state.calendar,
                 owner: .user,
@@ -421,10 +472,25 @@ public enum CareerMandatoryDecisionSystem {
                     MandatoryDecisionOption(id: releaseID, action: .portalRelease),
                 ],
                 recommendedOptionID: retainID,
-                reasons: reasons
-            ))
+                reasons: intent.components.map { component in
+                    MandatoryDecisionReason(
+                        code: reasonCode(component.reason),
+                        value: component.value,
+                        relatedEntityID: intent.playerID
+                    )
+                }
+            )
         }
-        return WorldIntegrity.check(next).isValid ? next : state
+    }
+
+    /// The subset of `portalRetentionDecisions` the save has no resolution for yet.
+    package static func unresolvedPortalRetentionDecisions(
+        window: CollegePortalWindow,
+        in state: GameState
+    ) -> [MandatoryDecision] {
+        let resolved = Set(state.career.mandatoryDecisionResolutions.map(\.decisionID))
+        return portalRetentionDecisions(window: window, in: state)
+            .filter { !resolved.contains($0.id) }
     }
 
     private static func reasonCode(

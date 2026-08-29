@@ -10,6 +10,22 @@ import Foundation
 /// **The engine owns every probability** (`03` §1.3). Nothing downstream may re-roll any of this;
 /// the view reads `SnapOutcome` and draws it.
 public enum SnapResolver {
+    private struct PerformanceContext {
+        let highLeverage: Bool
+        let offenseIsRoad: Bool
+        let defenseIsRoad: Bool
+
+        func rating(_ attribute: Attribute, of player: Player, isOffense: Bool) -> Rating {
+            let isRoad = isOffense ? offenseIsRoad : defenseIsRoad
+            let delta = (player.has(.iceInVeins) && highLeverage
+                ? MatchupRules.traitPerformanceAdjustment : 0)
+                - (player.has(.frontRunner) && isRoad
+                    ? MatchupRules.traitPerformanceAdjustment : 0)
+            let base = player.attributes[attribute]
+            return delta == 0 ? base : base.adjusted(by: delta)
+        }
+    }
+
     /// Resolves one snap.
     ///
     /// `rng` is threaded explicitly and never ambient. Every draw is taken in a fixed order so a
@@ -20,9 +36,15 @@ public enum SnapResolver {
         personnel: SnapPersonnel,
         situation: Situation,
         rules: any ClockRules.Type,
+        stage: CompetitionStage = .regularSeason,
         homeFieldAdvantage: Double = 0,
         rng: inout SeededRandom
     ) -> SnapOutcome {
+        let performance = PerformanceContext(
+            highLeverage: situation.quarter >= rules.quarters || stage != .regularSeason,
+            offenseIsRoad: homeFieldAdvantage < 0,
+            defenseIsRoad: homeFieldAdvantage > 0
+        )
         let assignment = Assignment.assign(offensiveCall: offensiveCall,
                                            defensiveCall: defensiveCall,
                                            personnel: personnel)
@@ -37,15 +59,15 @@ public enum SnapResolver {
                                matchups: [])
         case .run:
             return resolveRun(offensiveCall, defensiveCall, assignment, personnel, situation, rules,
-                              homeFieldAdvantage, &rng)
+                              homeFieldAdvantage, performance, &rng)
         case .pass:
             return resolvePass(offensiveCall, defensiveCall, assignment, situation, rules,
-                               homeFieldAdvantage, &rng)
+                               homeFieldAdvantage, performance, &rng)
         case .fieldGoal:
             return resolveFieldGoal(personnel, assignment, situation, rules, homeFieldAdvantage,
-                                    &rng)
+                                    performance, &rng)
         case .punt:
-            return resolvePunt(personnel, situation, rules, &rng)
+            return resolvePunt(personnel, situation, rules, performance, &rng)
         }
     }
 
@@ -62,6 +84,7 @@ public enum SnapResolver {
         _ situation: Situation,
         _ rules: any ClockRules.Type,
         _ homeFieldAdvantage: Double,
+        _ performance: PerformanceContext,
         _ rng: inout SeededRandom
     ) -> SnapOutcome {
         var matchups: [MatchupRecord] = []
@@ -70,11 +93,12 @@ public enum SnapResolver {
         var protectionLeverage = 0.0
         for duel in assignment.protection {
             let leverage = Leverage.score(
-                attacker: duel.blocker.attributes[.passBlock],
-                defender: duel.rusher.attributes[.passRush],
+                attacker: performance.rating(.passBlock, of: duel.blocker, isOffense: true),
+                defender: performance.rating(.passRush, of: duel.rusher, isOffense: false),
                 schemeFit: 0,
                 situationModifier: homeFieldAdvantage - defensiveCall.aggression
                     * MatchupRules.blitzPressureBonus,
+                ratingWeight: MatchupRules.passMatchupRatingWeight,
                 rng: &rng
             )
             matchups.append(MatchupRecord(kind: .passProtection, attackerID: duel.blocker.id,
@@ -103,12 +127,14 @@ public enum SnapResolver {
         var openness: [(receiver: Player, score: Double)] = []
         for route in assignment.routes {
             let leverage = Leverage.score(
-                attacker: route.receiver.attributes[.routeRunning],
-                defender: route.defender.attributes[.coverage],
+                attacker: performance.rating(.routeRunning, of: route.receiver, isOffense: true),
+                defender: performance.rating(.coverage, of: route.defender, isOffense: false),
                 schemeFit: 0,
                 situationModifier: homeFieldAdvantage
                     - defensiveCall.coverage.help(against: offensiveCall.passDepth)
-                    + defensiveCall.coverageDrain,
+                    + defensiveCall.coverageDrain
+                    - defensiveCall.aggression * MatchupRules.aggressionCoverageBonus,
+                ratingWeight: MatchupRules.passMatchupRatingWeight,
                 rng: &rng
             )
             matchups.append(MatchupRecord(kind: .routeVersusCoverage, attackerID: route.receiver.id,
@@ -118,7 +144,8 @@ public enum SnapResolver {
 
         // 3. Sack, if the pocket collapsed before anyone came open.
         let sackThreshold = MatchupRules.sackPressureThreshold
-            - Double(passer.attributes[.poise].value - SharedRules.ratingRange.lowerBound)
+            - Double(performance.rating(.poise, of: passer, isOffense: true).value
+                - SharedRules.ratingRange.lowerBound)
             / Double(SharedRules.ratingRange.count) * MatchupRules.poiseSackRelief
         if pressure > sackThreshold || openness.isEmpty {
             // Through the safety check, not around it. The three sack returns used to bypass
@@ -132,7 +159,7 @@ public enum SnapResolver {
 
         // 4. Target selection: openness, weighted by the passer's decision rating. A poor decider
         //    drifts toward progression order rather than toward the open man.
-        let decision = normalised(passer.attributes[.decision])
+        let decision = normalised(performance.rating(.decision, of: passer, isOffense: true))
         let target = openness.enumerated().max { lhs, rhs in
             weightedTarget(lhs.element.score, order: lhs.offset, decision: decision)
                 < weightedTarget(rhs.element.score, order: rhs.offset, decision: decision)
@@ -155,16 +182,23 @@ public enum SnapResolver {
         // is measured against a reference passer rather than against the depth itself, because
         // "how hard is this throw" and "how good is this passer" are different questions and one
         // logistic between them made the second answer both.
-        let accuracy = passer.attributes[offensiveCall.passDepth.accuracy]
+        let accuracy = performance.rating(
+            offensiveCall.passDepth.accuracy,
+            of: passer,
+            isOffense: true
+        )
         let throwLeverage = Leverage.score(
             attacker: accuracy,
             defender: Rating(MatchupRules.referencePasserAccuracy),
             situationModifier: MatchupRules.throwBaseline(offensiveCall.passDepth)
+                + (rules.tier == .college ? MatchupRules.collegePassBaselineBonus : 0)
                 + homeFieldAdvantage
                 + target.element.score * MatchupRules.opennessThrowHelp
                 - pressure * MatchupRules.pressureThrowPenalty
                 + offensiveCall.aggression * MatchupRules.aggressionThrowBonus,
-            ratingWeight: MatchupRules.throwAccuracyWeight,
+            ratingWeight: rules.tier == .college
+                ? MatchupRules.collegeThrowAccuracyWeight
+                : MatchupRules.proThrowAccuracyWeight,
             rng: &rng
         )
         // The defender covering the TARGET, not routes[0]. The target is the argmax over
@@ -207,7 +241,12 @@ public enum SnapResolver {
         let (afterCatch, pursuitRecord, extraPursuitAttempts) = yardsAfterContact(
             carrier: target.element.receiver, pursuit: atTheCatch,
             aggression: offensiveCall.aggression, homeFieldAdvantage: homeFieldAdvantage,
-            threshold: MatchupRules.catchBreakTackleThreshold, rng: &rng
+            threshold: MatchupRules.catchBreakTackleThreshold,
+            yardsPerBreak: MatchupRules.catchBrokenTackleYards,
+            laterBreakMultiplier: MatchupRules.catchLaterBreakMultiplier,
+            decay: MatchupRules.catchBrokenTackleDecay,
+            performance: performance,
+            rng: &rng
         )
         if let pursuitRecord { matchups.append(pursuitRecord) }
         // The same three terms the run gets: what the catch is worth before anyone is beaten, what
@@ -239,16 +278,18 @@ public enum SnapResolver {
         _ situation: Situation,
         _ rules: any ClockRules.Type,
         _ homeFieldAdvantage: Double,
+        _ performance: PerformanceContext,
         _ rng: inout SeededRandom
     ) -> SnapOutcome {
         var matchups: [MatchupRecord] = []
         var laneLeverage = 0.0
         for duel in assignment.runLane {
             let leverage = Leverage.score(
-                attacker: duel.blocker.attributes[.runBlock],
-                defender: duel.defender.attributes[.runDefence],
+                attacker: performance.rating(.runBlock, of: duel.blocker, isOffense: true),
+                defender: performance.rating(.runDefence, of: duel.defender, isOffense: false),
                 situationModifier: homeFieldAdvantage + defensiveCall.coverage.runCost
                     - defensiveCall.aggression * MatchupRules.crashRunBonus,
+                ratingWeight: MatchupRules.runMatchupRatingWeight,
                 rng: &rng
             )
             matchups.append(MatchupRecord(kind: .runLane, attackerID: duel.blocker.id,
@@ -283,6 +324,11 @@ public enum SnapResolver {
             homeFieldAdvantage: homeFieldAdvantage,
             threshold: MatchupRules.breakTackleThreshold
                 - (rules.tier == .college ? MatchupRules.collegeBreakTackleRelief : 0),
+            yardsPerBreak: MatchupRules.brokenTackleYards,
+            laterBreakMultiplier: 1,
+            decay: MatchupRules.brokenTackleDecay
+                + (rules.tier == .college ? MatchupRules.collegeBrokenTackleDecay : 0),
+            performance: performance,
             rng: &rng
         )
         if let pursuitRecord { matchups.append(pursuitRecord) }
@@ -298,6 +344,7 @@ public enum SnapResolver {
         // One rounding, not two: rounding the chain separately from the rest quantised the result
         // twice over and made the tier multiplier step rather than slide.
         let gained = Int((MatchupRules.baseRunYards
+                            + (rules.tier == .college ? MatchupRules.collegeBaseRunYardBonus : 0)
                             + lane * MatchupRules.laneYardScale * outside * spread
                             + contact * MatchupRules.contactYardScale * spread
                             + Double(broken)).rounded())
@@ -326,6 +373,10 @@ public enum SnapResolver {
         aggression: Double,
         homeFieldAdvantage: Double,
         threshold: Double,
+        yardsPerBreak: Int,
+        laterBreakMultiplier: Int,
+        decay: Double,
+        performance: PerformanceContext,
         rng: inout SeededRandom
     ) -> (yards: Int, record: MatchupRecord?, extraAttempts: [MatchupRecord]) {
         guard !pursuit.isEmpty else { return (0, nil, []) }
@@ -341,13 +392,14 @@ public enum SnapResolver {
             // Vision gets the carrier to the second level; elusiveness is what beats the man
             // there. 03 section 1.2's Carrier row names both and only one was being read.
             let carrying = attempt == 0
-                ? carrier.attributes[.vision]
-                : carrier.attributes[.elusiveness]
+                ? performance.rating(.vision, of: carrier, isOffense: true)
+                : performance.rating(.elusiveness, of: carrier, isOffense: true)
             let leverage = Leverage.score(
                 attacker: carrying,
-                defender: defender.attributes[.tackling],
+                defender: performance.rating(.tackling, of: defender, isOffense: false),
                 situationModifier: homeFieldAdvantage + aggression * MatchupRules.aggressionRunBonus
-                    - Double(attempt) * MatchupRules.brokenTackleDecay,
+                    - Double(attempt) * decay,
+                ratingWeight: MatchupRules.runMatchupRatingWeight,
                 rng: &rng
             )
             if record == nil {
@@ -362,7 +414,7 @@ public enum SnapResolver {
                                                    defenderID: defender.id, leverage: leverage))
             }
             guard leverage > threshold else { break }
-            yards += MatchupRules.brokenTackleYards * (attempt + 1)
+            yards += yardsPerBreak * (attempt + 1) * (attempt == 0 ? 1 : laterBreakMultiplier)
         }
         return (yards, record, extraAttempts)
     }
@@ -375,6 +427,7 @@ public enum SnapResolver {
         _ situation: Situation,
         _ rules: any ClockRules.Type,
         _ homeFieldAdvantage: Double,
+        _ performance: PerformanceContext,
         _ rng: inout SeededRandom
     ) -> SnapOutcome {
         let distance = situation.yardsToGoal + MatchupRules.fieldGoalSnapDistance
@@ -388,10 +441,11 @@ public enum SnapResolver {
         let difficulty = Rating(MatchupRules.fieldGoalDifficulty(distanceYards: distance,
                                                                  tier: rules.tier))
         let leverage = Leverage.score(
-            attacker: kicker.attributes[.kickAccuracy],
+            attacker: performance.rating(.kickAccuracy, of: kicker, isOffense: true),
             defender: difficulty,
             situationModifier: homeFieldAdvantage
-                + normalised(kicker.attributes[.legStrength]) * MatchupRules.legStrengthHelp,
+                + normalised(performance.rating(.legStrength, of: kicker, isOffense: true))
+                    * MatchupRules.legStrengthHelp,
             rng: &rng
         )
         let record = MatchupRecord(kind: .kick, attackerID: kicker.id, defenderID: blocker.id,
@@ -405,10 +459,13 @@ public enum SnapResolver {
         _ personnel: SnapPersonnel,
         _ situation: Situation,
         _ rules: any ClockRules.Type,
+        _ performance: PerformanceContext,
         _ rng: inout SeededRandom
     ) -> SnapOutcome {
         let punter = personnel.offensive(.punter).first ?? personnel.offensive(group: .specialists).first
-        let leg = punter.map { normalised($0.attributes[.legStrength]) } ?? 0.5
+        let leg = punter.map {
+            normalised(performance.rating(.legStrength, of: $0, isOffense: true))
+        } ?? 0.5
         let distance = MatchupRules.basePuntYards
             + Int((leg * Double(MatchupRules.puntLegYards)).rounded())
             + rng.int(in: -MatchupRules.puntVariance...MatchupRules.puntVariance)
@@ -474,4 +531,5 @@ public enum SnapResolver {
         Double(rating.value - SharedRules.ratingRange.lowerBound)
             / Double(SharedRules.ratingRange.upperBound - SharedRules.ratingRange.lowerBound)
     }
+
 }

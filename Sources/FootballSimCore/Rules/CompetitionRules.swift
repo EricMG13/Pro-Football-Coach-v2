@@ -5,8 +5,8 @@ public enum CompetitionRules {
         max(CollegeRules.rosterLimit, ProRules.activeRosterLimit)
     }
 
-    public static let collegeBaselinePoints = 25.5
-    public static let proBaselinePoints = 22.6
+    public static let collegeBaselinePoints = 23.05
+    public static let proBaselinePoints = 19.4
     public static let collegeScoreDeviation = 10.0
     public static let proScoreDeviation = 8.0
     public static let strengthPointScale = 0.24
@@ -46,7 +46,7 @@ public enum CompetitionRules {
     /// Controlled-fixture scrimmage-play means, measured on the tuning worlds after punts and
     /// field goals were removed from the detailed summary's denominator.
     public static let proBaselinePlays = 63.3
-    public static let collegeBaselinePlays = 73.0
+    public static let collegeBaselinePlays = 69.2
 
     /// **[ASSUMPTION]** `01` §6.5 bands the *mean* plays per team-game and says nothing about the
     /// spread, so this is not transcribed. It is set near a real per-team-game standard deviation
@@ -58,32 +58,54 @@ public enum CompetitionRules {
     /// Bounds a drawn play count to something a game can actually contain. A tail beyond this is
     /// the gaussian's, not football's.
     public static let playCountRange: ClosedRange<Int> = 40...105
-    public static let baselineCompletionProbability = 0.618
-    public static let collegeBaselineCompletionProbability = 0.617
+    /// **[ASSUMPTION]** Completion, sack, turnover, explosive-play and offensive-yard means for
+    /// the abstracted simulator, re-fitted on the tuning worlds on 2026-08-26 rather than
+    /// transcribed from `01` §6.5. They are the model's own centres, not a research band, and the
+    /// calibration harness does not hold any of them to a source. Replace them as a set when
+    /// disjoint tuning and holdout seeds are available; the closure plan requires exactly that.
+    public static let baselineCompletionProbability = 0.642
+    public static let collegeBaselineCompletionProbability = 0.682
     public static let strengthCompletionProbabilityScale = 0.003
-    public static let baselineSackProbability = 0.084
-    public static let collegeBaselineSackProbability = 0.0856
+    public static let baselineSackProbability = 0.068
+    public static let collegeBaselineSackProbability = 0.069
     public static let strengthSackProbabilityScale = 0.001
-    public static let baselineTurnoverProbability = 0.029
-    public static let collegeBaselineTurnoverProbability = 0.031
+    public static let baselineTurnoverProbability = 0.023
+    public static let collegeBaselineTurnoverProbability = 0.020
     public static let proBaselineExplosiveRunProbability = 0.1175
     public static let collegeBaselineExplosiveRunProbability = 0.15
     public static let proBaselineExplosivePassProbability = 0.1375
     public static let collegeBaselineExplosivePassProbability = 0.143
 
-    public static let proBaselineOffensiveYards = 308.3
-    public static let collegeBaselineOffensiveYards = 360.0
+    public static let proBaselineOffensiveYards = 322.0
+    public static let collegeBaselineOffensiveYards = 400.0
     public static let strengthYardScale = 4.0
     public static let offensiveYardDeviation = 70.0
     public static let offensiveYardRange: ClosedRange<Int> = 120...750
     public static let turnoverRange: ClosedRange<Int> = 0...4
     public static let touchdownPointEstimate = 10
     public static let playerAwardTouchdownValue = 50
-    public static let wr1TargetShare = 0.48
-    public static let wr2TargetShare = 0.17
-    public static let wr3PlusTargetShare = 0.03
-    public static let tightEndTargetShare = 0.23
-    public static let runningBackTargetShare = 0.08
+    /// **[ASSUMPTION]** The abstracted simulator's target distribution. Re-fitted on the tuning
+    /// worlds on 2026-08-26; `01` has no target-share row, so none of these is transcribed and all
+    /// five must be replaced together the moment it grows one.
+    ///
+    /// **`wr3PlusTargetShare` is 0.0 because the detailed engine's is, and it is a defect in both.**
+    /// `Assignment.swift` sends four players into a route -- `prefix(2)` wide receivers, one tight
+    /// end, one back, capped at `MatchupRules.receiversInRoute` -- so WR3 and below are never in a
+    /// pattern and can never be targeted on screen. This constant was brought to zero to make the
+    /// off-screen model agree, which `TwoTierConsistencyGateTests` requires and which is the right
+    /// call while the two must match: raising it here alone breaks that gate and makes the two
+    /// models disagree, which is strictly worse than agreeing on something wrong.
+    ///
+    /// What it costs while it stands: every WR3+ in the league records no reception, no receiving
+    /// yard and no receiving touchdown for an entire career, and development, awards, statistics
+    /// leaders and draft evaluation all read that hole as fact. Fixing it means widening the route
+    /// distribution in the detailed engine first -- a `03` question and a calibration re-run -- and
+    /// only then giving this constant the share that follows.
+    public static let wr1TargetShare = 0.34
+    public static let wr2TargetShare = 0.27
+    public static let wr3PlusTargetShare = 0.0
+    public static let tightEndTargetShare = 0.22
+    public static let runningBackTargetShare = 0.17
     public static let primaryBackCarryShare = 0.70
     public static let reserveBackCarryShare = 0.25
     public static let quarterbackCarryShare = 0.05
@@ -133,7 +155,7 @@ public enum CompetitionRules {
     }
 
     public static func baselineFourthQuarterScoringShare(for tier: Tier) -> Double {
-        tier == .college ? 0.2741 : 0.280
+        tier == .college ? 0.282 : 0.289
     }
 
     public static func baselineDriveCount(for tier: Tier) -> Int {
@@ -145,8 +167,8 @@ public enum CompetitionRules {
         bucket: DriveOutcomeBucket
     ) -> Double {
         let probabilities = tier == .college
-            ? [0.2949, 0.0907, 0.0189, 0.3371, 0.1704, 0.0172, 0.0034, 0.0674]
-            : [0.2734, 0.0958, 0.0199, 0.3413, 0.1674, 0.0184, 0.0033, 0.0804]
+            ? [0.3157, 0.1193, 0.0395, 0.2916, 0.1333, 0.0139, 0.0009, 0.0858]
+            : [0.2370, 0.1393, 0.0239, 0.3514, 0.1408, 0.0166, 0.0015, 0.0895]
         return probabilities[bucket.rawValue]
     }
 

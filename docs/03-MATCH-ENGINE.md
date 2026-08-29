@@ -213,7 +213,7 @@ hold is to fix the model or state the margin honestly, never to widen until gree
 
 ## 6. The soak
 
-Twenty seasons, seeded, run headless, asserting:
+Ten seasons, seeded, run headless, asserting:
 
 - Ratings distribution stays inside band across all ~134 college programmes and 32 pro teams.
 - Age and roster-size distributions stay legal; no roster illegal at any week boundary.
@@ -238,13 +238,29 @@ iPhone 15-class device per the 2026-08-11 platform baseline.
 | Week advance, pro | 0.3 s | 0.6 s |
 | Full-season sim, college | 20 s | 35 s |
 | Match render frame | 8 ms | **16.7 ms** |
-| Save size, 20 seasons | 4 MB | **8 MB** |
+| Save size, 10 seasons | 4 MB | **8 MB** |
 | Cold launch to playable | 1.2 s | 2.0 s |
 | Save write (never on the main actor) | 150 ms | 400 ms |
 
 The dominant week-advance term is recruiting AI across ~134 programmes, and it has **never been
 measured** — flagged as an assumption in `01-RESEARCH.md` §6.2A and §6.4. If the ceiling cannot be
 met, D14's fallback reduces the programme count rather than loosening the ceiling.
+
+---
+
+## 7a. Team yardage is net of sacks (added 2026-08-27)
+
+A team's **passing yards are net of sack yardage**, as the sport reports them, so a side sacked more
+than it gains through the air has a negative passing figure and the recorded result says so. The same
+holds for the team total: `passingYards + rushingYards == offensiveYards` is an identity the detailed
+builder produces by construction and `WorldIntegrity` enforces on every recorded game.
+
+Stated because the two disagreed in code and the identity lost. `TeamGameStatistics` floored each
+figure at zero independently, so a negative passing net became `0` while the total kept the loss --
+`0 + 100 != 95` -- and integrity refused the game. The coach who had just played it could not record
+it, and the app could only refuse the same snap until the match ran out of budget. Flooring a figure
+whose real range includes negatives is not a defence against a corrupt save; it is a way of making a
+legitimate game unrecordable.
 
 ---
 

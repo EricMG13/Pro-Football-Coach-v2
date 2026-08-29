@@ -1888,24 +1888,61 @@ public enum WorldIntegrity {
         _ state: GameState,
         issues: inout [IntegrityIssue]
     ) {
-        guard let control = state.career.college else { return }
-        guard let programme = state.programmes[control.programmeID],
-              programme.staffIDs.contains(control.coachID),
-              state.staff[control.coachID]?.role == .headCoach,
-              Set(control.responsibilityOwners.keys)
-                == Set(CollegeCareerResponsibility.allCases),
-              !occurs(state.calendar, before: control.startedAt),
-              control.responsibilityOwners.values.allSatisfy({ owner in
-                  switch owner {
-                  case .user:
-                      return true
-                  case let .delegated(staffID):
-                      return programme.staffIDs.contains(staffID)
-                          && state.staff[staffID] != nil
-                  }
-              }) else {
+        let college = state.career.college
+        let pro = state.career.pro
+        guard college == nil || pro == nil else {
             issues.append(.invalidCareerControl)
             return
+        }
+        if let control = college {
+            guard state.career.coachID == control.coachID,
+                  let programme = state.programmes[control.programmeID],
+                  programme.staffIDs.contains(control.coachID),
+                  state.staff[control.coachID]?.role == .headCoach,
+                  Set(control.responsibilityOwners.keys)
+                    == Set(CollegeCareerResponsibility.allCases),
+                  !occurs(state.calendar, before: control.startedAt),
+                  CareerControlSystem.delegationFitsCapacity(
+                      control.responsibilityOwners.values
+                  ),
+                  control.responsibilityOwners.values.allSatisfy({ owner in
+                      switch owner {
+                      case .user:
+                          return true
+                      case let .delegated(staffID):
+                          return staffID != control.coachID
+                              && programme.staffIDs.contains(staffID)
+                              && state.staff[staffID] != nil
+                      }
+                  }) else {
+                issues.append(.invalidCareerControl)
+                return
+            }
+        }
+        if let control = pro {
+            guard state.career.coachID == control.coachID,
+                  let team = state.proTeams[control.teamID],
+                  team.staffIDs.contains(control.coachID),
+                  state.staff[control.coachID]?.role == .headCoach,
+                  Set(control.responsibilityOwners.keys)
+                    == Set(ProCareerResponsibility.allCases),
+                  !occurs(state.calendar, before: control.startedAt),
+                  CareerControlSystem.delegationFitsCapacity(
+                      control.responsibilityOwners.values
+                  ),
+                  control.responsibilityOwners.values.allSatisfy({ owner in
+                      switch owner {
+                      case .user:
+                          return true
+                      case let .delegated(staffID):
+                          return staffID != control.coachID
+                              && team.staffIDs.contains(staffID)
+                              && state.staff[staffID] != nil
+                      }
+                  }) else {
+                issues.append(.invalidCareerControl)
+                return
+            }
         }
     }
 
@@ -1946,7 +1983,14 @@ public enum WorldIntegrity {
             controlMatchesJob = arc.currentJob.map {
                 $0.tier == .college && $0.organisationID == control.programmeID
             } ?? true
+        } else if let control = state.career.pro {
+            controlMatchesJob = arc.currentJob.map {
+                $0.tier == .professional && $0.organisationID == control.teamID
+            } ?? false
         } else {
+            // Legacy professional roots did not persist a tier-specific control record. The root
+            // decoder upgrades them; hand-built system fixtures remain valid until they cross that
+            // persistence/session boundary.
             controlMatchesJob = arc.currentJob?.tier != .college
         }
         guard historyIsChronological,
@@ -1963,6 +2007,10 @@ public enum WorldIntegrity {
         _ state: GameState,
         issues: inout [IntegrityIssue]
     ) {
+        let controlledTeamID = state.career.pro?.teamID
+            ?? state.careerArc.currentJob.flatMap {
+                $0.tier == .professional ? $0.organisationID : nil
+            }
         // A contract exists to be charged against a cap, and `capSnapshot` sums by roster: a
         // contract held by a player no professional team owns is money nobody's cap counts.
         // `docs/PORT-LOG.md` records the shape as one of the cap-laundering attacks the prior
@@ -1996,11 +2044,22 @@ public enum WorldIntegrity {
             }
             do {
                 let cap = try ProManagementSystem.capSnapshot(teamID: team.id, in: state)
-                if !cap.isWithinCap {
+                let hasControlledComplianceDecision = team.id == controlledTeamID
+                    && state.pending.professionalCapCompliance?.teamID == team.id
+                if !cap.isWithinCap && !hasControlledComplianceDecision {
                     issues.append(.invalidProfessionalCap(teamID: team.id))
                 }
             } catch {
                 issues.append(.invalidProfessionalCap(teamID: team.id))
+            }
+        }
+        if let decision = state.pending.professionalCapCompliance {
+            let cap = try? ProManagementSystem.capSnapshot(teamID: decision.teamID, in: state)
+            guard decision.teamID == controlledTeamID,
+                  decision.createdAt == state.calendar,
+                  cap?.isWithinCap == false else {
+                issues.append(.invalidMandatoryDecision(decisionID: decision.id))
+                return
             }
         }
     }

@@ -53,12 +53,45 @@ public struct MoraleReading: Sendable, Equatable {
 /// which FSC-003 makes a live concern.
 public enum PlayerMorale {
     public static func reading(for playerID: UUID, in state: GameState) -> MoraleReading {
-        var components: [MoraleComponent] = []
-
         let organisationID = organisation(of: playerID, in: state)
-        let teamGames = organisationID.flatMap { id in
-            state.competition.standings.values.flatMap { $0 }.first { $0.id == id }
+        return reading(
+            for: playerID,
+            organisationID: organisationID,
+            teamGames: organisationID.flatMap { standing(for: $0, in: state) },
+            lastResultWasWin: organisationID.flatMap { lastResultWasWin(for: $0, in: state) },
+            state: state
+        )
+    }
+
+    /// Derives one organisation's readings while resolving shared team context once.
+    package static func readings(
+        in organisationID: UUID,
+        state: GameState
+    ) -> [UUID: MoraleReading] {
+        let rosterIDs = state.programmes[organisationID]?.rosterIDs
+            ?? state.proTeams[organisationID]?.rosterIDs
+            ?? []
+        let teamGames = standing(for: organisationID, in: state)
+        let wonLastGame = lastResultWasWin(for: organisationID, in: state)
+        return rosterIDs.reduce(into: [:]) { result, playerID in
+            result[playerID] = reading(
+                for: playerID,
+                organisationID: organisationID,
+                teamGames: teamGames,
+                lastResultWasWin: wonLastGame,
+                state: state
+            )
         }
+    }
+
+    private static func reading(
+        for playerID: UUID,
+        organisationID: UUID?,
+        teamGames: StandingRow?,
+        lastResultWasWin: Bool?,
+        state: GameState
+    ) -> MoraleReading {
+        var components: [MoraleComponent] = []
 
         // 1. Playing time. The loudest thing in the sport: a good player who does not play is the
         //    portal's most common cause and the pro tier's most common trade request.
@@ -124,7 +157,7 @@ public enum PlayerMorale {
 
         // 5. What this place does after a result. `02` §8's morale tradition, and §5.1 is the
         //    first thing in the game with morale for it to move.
-        if let organisationID, let won = lastResultWasWin(for: organisationID, in: state) {
+        if let won = lastResultWasWin {
             // Keep the reading derived from authoritative results. Tradition-specific modifiers
             // are layered in when that provider is present; the base team-success effect must not
             // make morale (and therefore discipline) depend on an unavailable helper.
@@ -136,6 +169,13 @@ public enum PlayerMorale {
 
         let total = components.reduce(PeopleRules.baselineMorale) { $0 + $1.value }
         return MoraleReading(playerID: playerID, value: total, components: components)
+    }
+
+    private static func standing(for organisationID: UUID, in state: GameState) -> StandingRow? {
+        state.competition.standings.values
+            .lazy
+            .flatMap { $0 }
+            .first { $0.id == organisationID }
     }
 
     /// Everyone on a roster who is unhappy enough to be a problem, worst first.

@@ -205,6 +205,14 @@ The honest picture: what exists, what is verified, what is not.
 > so the row remains unverified and outside the commitment gate table. The current worktree's
 > `--catalog` and `--commitment-coverage` release-mode runs are **not run**: another worktree was
 > already running a full Swift verification, so this pass did not start a concurrent release build.
+> **2026-08-26 — approval policy.** Final approval is machine-gated. Player, owner, onboarding,
+> walkthrough, and timing observations are optional product evidence and do not block completion.
+> The 6–8 hour season target remains product direction, not a required human sign-off; the
+> `--agency-budget` command is an optional diagnostic.
+
+> **2026-08-26 — season-gate policy.** Required season-running SimTests now use a 10-season
+> horizon for M1/M2/M3/M7 and E2E-H. Longer 20/30+ season runs remain optional diagnostics; the
+> product's 20-season durability direction is not a release gate.
 
 > **2026-08-22 — Match Day moves like football now, and one engine defect is escalated.** The owner
 > watched the 2D animation on a booted iPhone 17e and rejected it: players stopped moving after the

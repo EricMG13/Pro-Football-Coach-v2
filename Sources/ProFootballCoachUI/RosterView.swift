@@ -154,10 +154,9 @@ public struct RosterView: View, CoachWorldChromedSurface {
             .accessibilityHidden(true)
     }
 
-    /// Selection speaks in the programme's colour where a reader can see it against the working
-    /// surface, and falls back to the tier token where the generated pair cannot clear 3:1.
+    /// Position is ink. Programme colours remain identity furniture, never selection furniture.
     private var selectionColour: CoachWorldTokens.ColorValue {
-        identity?.selectionRule(on: palette.work) ?? palette.collegeIdentity
+        palette.contentPrimary
     }
 
     private var markInk: CoachWorldTokens.ColorValue {

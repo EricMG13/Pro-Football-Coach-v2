@@ -122,7 +122,7 @@ public struct LeagueMapView: View, CoachWorldChromedSurface {
     }
 
     private var selectionColour: CoachWorldTokens.ColorValue {
-        identity?.selectionRule(on: palette.work) ?? palette.collegeIdentity
+        palette.contentPrimary
     }
 
     private var worldContextLine: String {
@@ -265,7 +265,7 @@ public struct LeagueMapView: View, CoachWorldChromedSurface {
                             .lineLimit(1)
                             .foregroundStyle(
                                 row.isControlled
-                                    ? palette.actionPrimary.color
+                                    ? palette.contentPrimary.color
                                     : palette.contentPrimary.color
                             )
                         Spacer(minLength: CoachWorldTokens.Gap.xxs)
@@ -292,7 +292,7 @@ public struct LeagueMapView: View, CoachWorldChromedSurface {
                     .frame(minHeight: LeagueMapMetric.tableRowHeight)
                     .background(
                         row.isControlled
-                            ? palette.actionPrimary.color.opacity(0.10)
+                            ? palette.contentPrimary.color.opacity(0.10)
                             : Color.clear
                     )
                     .accessibilityElement(children: .combine)

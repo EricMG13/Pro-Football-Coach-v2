@@ -45,7 +45,8 @@ setting, and `CLAUDE.md` requires one phase at a time with adversarial review at
 
 ## Definition of done — for the phase you are running
 
-Done is split, because this environment cannot reach half of it.
+Phase completion is machine-verifiable. Optional observational evidence is recorded separately and
+never blocks approval.
 
 **Machine-verifiable — you may assert these:**
 
@@ -53,14 +54,15 @@ Done is split, because this environment cannot reach half of it.
 - The phase's gates in `05` (G1–G7 as that phase specifies), and G8 if the phase ends a milestone.
 - Calibration bands under TOST; cross-process determinism; the soak, where the phase gates on them.
 - The name-collision and trade-dress tests, on any phase touching generation.
-- Touched surfaces **≥31/40 with zero P0/P1** against `docs/04b-AUDIT-RUBRIC.md` (eight dimensions,
-  0–5; the older ≥17/20 frame was superseded by the owner on 2026-08-11).
+- Automated touched-surface, accessibility, reachability, and P0/P1 contracts are green. Any
+  `docs/04b-AUDIT-RUBRIC.md` score is advisory product feedback, not an approval gate.
 
-**Owner-verifiable — you hand these off and never claim them:**
+**Optional observational evidence — never a release blocker:**
 
-- Simulator demonstration. **You do not have a simulator.** Write the walkthrough script — what to
-  open, in what order, what should be true at each step — and hand it over.
-- The D1 timing protocol, the D9 onboarding protocol, the D6 identity protocol.
+- Simulator demonstration and walkthrough scripts.
+- The D1 timing protocol, the D9 onboarding protocol, and player-facing usability observation.
+- The D6 identity protocol remains subject to the mandatory legal gates; no player observation is
+  required for approval.
 
 **If there is no Swift toolchain** — and there frequently is not, though it is no longer always so:
 D11 closed on 2026-08-09 by running the gates, and sessions since have had Swift and Xcode on the

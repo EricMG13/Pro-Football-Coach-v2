@@ -415,6 +415,7 @@ public struct PracticePlanReadModel: Sendable, Equatable {
     public let provenance: CoachWorldDataProvenance
     public let team: CoachWorldTeamReference
     public let weekLabel: String
+    public let weeklyMinutes: Int
     public let currentPlan: TacticalPracticePlan?
     public let options: [Option]
 
@@ -423,6 +424,7 @@ public struct PracticePlanReadModel: Sendable, Equatable {
         provenance: CoachWorldDataProvenance,
         team: CoachWorldTeamReference,
         weekLabel: String,
+        weeklyMinutes: Int,
         currentPlan: TacticalPracticePlan?,
         options: [Option]
     ) {
@@ -430,6 +432,7 @@ public struct PracticePlanReadModel: Sendable, Equatable {
         self.provenance = provenance
         self.team = team
         self.weekLabel = weekLabel
+        self.weeklyMinutes = weeklyMinutes
         self.currentPlan = currentPlan
         self.options = options
     }
@@ -440,6 +443,8 @@ public struct DepthChartReadModel: Sendable, Equatable {
         public let id: String
         public let playerID: String
         public let playerName: String
+        public let person: CoachWorldPersonReference
+        public let number: Int
         public let availability: String
         public let isStarter: Bool
         public let isUnavailable: Bool
@@ -449,6 +454,8 @@ public struct DepthChartReadModel: Sendable, Equatable {
             id: String,
             playerID: String,
             playerName: String,
+            person: CoachWorldPersonReference,
+            number: Int,
             availability: String,
             isStarter: Bool,
             isUnavailable: Bool,
@@ -457,6 +464,8 @@ public struct DepthChartReadModel: Sendable, Equatable {
             self.id = id
             self.playerID = playerID
             self.playerName = playerName
+            self.person = person
+            self.number = number
             self.availability = availability
             self.isStarter = isStarter
             self.isUnavailable = isUnavailable
@@ -1903,7 +1912,9 @@ public enum CoachWorldSampleData {
             ranking: "#21",
             conference: "Meridian Valley",
             context: context ?? "Sat \u{00B7} Southern State",
+            contextShort: context ?? "Week 9 \u{00B7} Sat",
             contextOpponent: context == nil ? awayTeam : nil,
+            back: .none,
             siblings: screen.family.surfaces.prefix(5).map { sibling in
                 .init(
                     screen: sibling,

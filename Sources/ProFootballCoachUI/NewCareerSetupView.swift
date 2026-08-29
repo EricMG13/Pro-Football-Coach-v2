@@ -178,7 +178,7 @@ public struct NewCareerSetupView: View {
             .background {
                 if selectedJobID == job.stableID {
                     CoachWorldCutCorner.row
-                        .fill(palette.collegeIdentity.color.opacity(0.16))
+                        .fill(palette.contentPrimary.color.opacity(0.16))
                 }
             }
         }

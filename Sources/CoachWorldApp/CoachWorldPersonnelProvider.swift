@@ -146,6 +146,19 @@ public extension CoachWorldReadModelProvider {
         )
     }
 
+    static func comparePlayers(
+        _ firstPlayerID: UUID,
+        _ secondPlayerID: UUID,
+        in state: GameState
+    ) -> CompareReadModel? {
+        guard firstPlayerID != secondPlayerID,
+              let roster = roster(from: state),
+              let first = roster.players.first(where: { $0.stableID == firstPlayerID.uuidString }),
+              let second = roster.players.first(where: { $0.stableID == secondPlayerID.uuidString })
+        else { return nil }
+        return CompareReadModel(first: first, second: second)
+    }
+
     // MARK: - Rows and profiles
 
     private static func row(
@@ -190,7 +203,13 @@ public extension CoachWorldReadModelProvider {
         rosterRole: String,
         in state: GameState
     ) -> PlayerProfileReadModel {
-        PlayerProfileReadModel(
+        let analysis = playerStaffAnalysis(
+            player,
+            organisationID: organisationID,
+            scheme: scheme,
+            in: state
+        )
+        return PlayerProfileReadModel(
             stableID: player.id.uuidString,
             person: person(player),
             number: number,
@@ -204,15 +223,39 @@ public extension CoachWorldReadModelProvider {
             availability: availability(player, in: state),
             condition: condition(player, in: state),
             schemeFit: schemeFit(player, scheme: scheme),
-            // G-02: an engine-owned verdict in a named staff voice. There is no such thing yet, and
-            // a summary sentence is exactly the invented judgement `04` §4.4 forbids.
-            staffSummary: "",
+            staffSummary: analysis.map {
+                "\($0.staff.name), \($0.staff.role): \($0.verdict). \($0.reason)"
+            } ?? "",
             strengths: strengths(player),
             concern: concern(player, in: state),
             attributeGroups: attributeGroups(player),
             recentForm: recentForm(player, programmeID: organisationID, in: state),
             developmentEvidence: developmentEvidence(player, in: state),
             historyEvidence: historyEvidence(player, programmeID: organisationID, in: state)
+        )
+    }
+
+    private static func playerStaffAnalysis(
+        _ player: Player,
+        organisationID: UUID,
+        scheme: SchemeIdentity,
+        in state: GameState
+    ) -> CoachingHQReadModel.StaffRecommendation? {
+        guard let coach = staffMembers(for: organisationID, in: state).first(where: {
+            $0.role == .positionCoach && $0.positionGroup == player.position.group
+        }) else { return nil }
+        let availability = availability(player, in: state)
+        let fit = schemeFit(player, scheme: scheme)
+        let condition = condition(player, in: state)
+        return CoachingHQReadModel.StaffRecommendation(
+            staff: CoachWorldPersonReference(
+                stableID: coach.id.uuidString,
+                name: coach.fullName,
+                role: label(coach.role)
+            ),
+            verdict: availability,
+            reason: "Overall \(player.overall.value); scheme fit \(fit); condition \(condition)%",
+            confidence: "Known"
         )
     }
 

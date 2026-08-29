@@ -1,6 +1,8 @@
 import Foundation
 import FootballSimCore
 
+private enum CapComplianceTestError: Error { case missingFixture }
+
 func runCapComplianceTests() {
     suite("Cap compliance: event plumbing") {
         test("a compliance release headline names the team and the player") {
@@ -269,6 +271,396 @@ func runCapComplianceTests() {
             expect(receipt.releases.isEmpty, "the controlled team was released from")
             expect(receipt.state.players[overCapPlayerID]?.contract != nil,
                    "the controlled team's over-cap contract was force-released")
+        }
+    }
+
+    suite("Cap compliance: controlled-team authority") {
+        @Sendable func unwrap<T>(_ value: T?) throws -> T {
+            guard let value else { throw CapComplianceTestError.missingFixture }
+            return value
+        }
+
+        @Sendable func controlledFixture(seed: UInt64) throws -> (GameState, UUID) {
+            var state = GameState.bootstrap(seed: seed)
+            let teamID = try unwrap(state.proTeams.ids.first)
+            let coachID = try unwrap(state.proTeams[teamID]?.staffIDs.first {
+                state.staff[$0]?.role == .headCoach
+            })
+            state.career = CareerControlState(pro: ProCareerControl(
+                coachID: coachID,
+                teamID: teamID,
+                startedAt: state.calendar
+            ))
+            state.careerArc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: teamID,
+                    tier: .professional,
+                    startedAt: state.calendar
+                ),
+                status: .employed
+            )
+            return (state, teamID)
+        }
+
+        @Sendable func releasablePlayerIDs(
+            count: Int,
+            teamID: UUID,
+            state: GameState
+        ) throws -> [UUID] {
+            let team = try unwrap(state.proTeams[teamID])
+            var remainingByPosition = Dictionary(
+                grouping: team.rosterIDs.compactMap { state.players[$0] },
+                by: \Player.position
+            ).mapValues(\.count)
+            var selected: [UUID] = []
+            for playerID in team.rosterIDs {
+                guard let position = state.players[playerID]?.position,
+                      remainingByPosition[position, default: 0]
+                        > (SharedRules.minimumPlayableRosterByPosition[position] ?? 0) else {
+                    continue
+                }
+                selected.append(playerID)
+                remainingByPosition[position, default: 0] -= 1
+                if selected.count == count { return selected }
+            }
+            throw CapComplianceTestError.missingFixture
+        }
+
+        test("a controlled over-cap root persists one decision and exact release arithmetic") {
+            var (state, teamID) = try controlledFixture(seed: 62_008)
+            let playerID = try releasablePlayerIDs(count: 1, teamID: teamID, state: state)[0]
+            let team = try unwrap(state.proTeams[teamID])
+            for rosteredID in team.rosterIDs + team.practiceSquadIDs {
+                state.players.update(rosteredID) { $0.contract = nil }
+            }
+            let capLimit = ProRules.salaryCap(seasonsAfterBase: state.calendar.season)
+            state.players.update(playerID) {
+                $0.contract = Contract(
+                    years: 5,
+                    baseSalaryByYear: [capLimit + 1_000_000] + Array(repeating: 0, count: 4),
+                    signingBonus: 500,
+                    signedSeason: state.calendar.season
+                )
+            }
+
+            state = ProCapComplianceSystem.refresh(in: state)
+            let decision = try unwrap(state.pending.professionalCapCompliance)
+            expectEqual(decision.teamID, teamID)
+            expect(WorldIntegrity.check(state).isValid)
+
+            let projection = try ProCapComplianceSystem.projection(teamID: teamID, in: state)
+            let release = try unwrap(projection.actions.first {
+                $0.playerID == playerID && $0.kind == .release
+            })
+            expect(release.isEligible)
+            expectEqual(release.currentCapHit, capLimit + 1_000_100)
+            expectEqual(release.projectedDeadMoney, 500)
+            expectEqual(release.projectedRemainingCap, capLimit - 500)
+            expectEqual(
+                release.action,
+                .management(.release(playerID: playerID, teamID: teamID))
+            )
+            let restructure = try unwrap(projection.actions.first {
+                $0.playerID == playerID && $0.kind == .restructure
+            })
+            expect(!restructure.isEligible)
+            expect(restructure.unavailableReason?.contains("undefined") == true)
+            expectEqual(restructure.projectedRemainingCap, nil)
+            expectEqual(restructure.projectedDeadMoney, nil)
+
+            let restored = try SaveEnvelope.decode(
+                GameState.self,
+                from: SaveEnvelope.encode(state)
+            )
+            expectEqual(restored.pending.professionalCapCompliance, decision)
+            expectEqual(
+                ProCapComplianceSystem.refresh(in: restored).pending.professionalCapCompliance,
+                decision
+            )
+        }
+
+        test("a release cannot create or worsen cap noncompliance") {
+            var (state, teamID) = try controlledFixture(seed: 62_012)
+            let playerID = try releasablePlayerIDs(count: 1, teamID: teamID, state: state)[0]
+            let team = try unwrap(state.proTeams[teamID])
+            for rosteredID in team.rosterIDs + team.practiceSquadIDs {
+                state.players.update(rosteredID) { $0.contract = nil }
+            }
+            let capLimit = ProRules.salaryCap(seasonsAfterBase: state.calendar.season)
+            state.players.update(playerID) {
+                $0.contract = Contract(
+                    years: 5,
+                    baseSalaryByYear: Array(repeating: 0, count: 5),
+                    signingBonus: capLimit * 2,
+                    signedSeason: state.calendar.season
+                )
+            }
+            let before = try SaveEnvelope.encode(state)
+            let release = try unwrap(
+                ProCapComplianceSystem.projection(teamID: teamID, in: state).actions.first {
+                    $0.playerID == playerID && $0.kind == .release
+                }
+            )
+            expect(!release.isEligible)
+            expect(release.unavailableReason?.contains("salary cap") == true)
+
+            do {
+                _ = try ProManagementSystem.release(playerID: playerID, from: teamID, in: state)
+                expect(false, "a release was allowed to create cap noncompliance")
+            } catch ProManagementError.capExceeded {
+                expectEqual(try SaveEnvelope.encode(state), before)
+            } catch {
+                expect(false, "wrong release refusal: \(error)")
+            }
+        }
+
+        test("a controlled next-season overage becomes one blocking decision") {
+            var state = GameState.bootstrap(seed: 62_013)
+            for _ in 0..<(SharedRules.inSeasonWeeks - 1) {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            let playingIDs = Set(state.competition.currentSchedule.games
+                .filter {
+                    $0.season == state.calendar.season
+                        && $0.week == state.calendar.week
+                        && $0.result == nil
+                        && $0.tier == .pro
+                }
+                .flatMap { [$0.homeID, $0.awayID] })
+            let teamID = try unwrap(state.proTeams.ids.first {
+                !playingIDs.contains($0)
+            })
+            let team = try unwrap(state.proTeams[teamID])
+            let coachID = try unwrap(team.staffIDs.first {
+                state.staff[$0]?.role == .headCoach
+            })
+            let playerID = try unwrap(team.rosterIDs.first)
+            state.career = CareerControlState(pro: ProCareerControl(
+                coachID: coachID,
+                teamID: teamID,
+                startedAt: state.calendar
+            ))
+            state.careerArc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: teamID,
+                    tier: .professional,
+                    startedAt: state.calendar
+                ),
+                status: .employed
+            )
+            for rosteredID in team.rosterIDs + team.practiceSquadIDs {
+                state.players.update(rosteredID) { $0.contract = nil }
+            }
+            let nextCap = ProRules.salaryCap(seasonsAfterBase: state.calendar.season + 1)
+            state.players.update(playerID) {
+                $0.contract = Contract(
+                    years: 2,
+                    baseSalaryByYear: [1, nextCap + 1],
+                    signingBonus: 0,
+                    signedSeason: state.calendar.season
+                )
+            }
+            expect(WorldIntegrity.check(state).isValid)
+
+            let transition = try WorldScheduler.advanceWeek(state)
+            let decision = transition.state.pending.professionalCapCompliance
+            expectEqual(decision?.teamID, teamID)
+            expectEqual(decision?.createdAt, transition.state.calendar)
+            expect(
+                try !ProManagementSystem.capSnapshot(
+                    teamID: teamID,
+                    in: transition.state
+                ).isWithinCap
+            )
+            expect(WorldIntegrity.check(transition.state).isValid)
+            do {
+                _ = try WorldScheduler.advanceWeek(transition.state)
+                expect(false, "the next-season cap decision did not block week advance")
+            } catch WorldSchedulerError.unresolvedProfessionalCapCompliance(teamID) {
+                expect(true)
+            } catch {
+                expect(false, "wrong cap-decision refusal: \(error)")
+            }
+        }
+
+        testAsync("multi-release compliance survives reload and blocks advance until legal") {
+            var (state, teamID) = try controlledFixture(seed: 62_009)
+            let playerIDs = try releasablePlayerIDs(count: 3, teamID: teamID, state: state)
+            let team = try unwrap(state.proTeams[teamID])
+            for rosteredID in team.rosterIDs + team.practiceSquadIDs {
+                state.players.update(rosteredID) { $0.contract = nil }
+            }
+            let capLimit = ProRules.salaryCap(seasonsAfterBase: state.calendar.season)
+            for playerID in playerIDs {
+                state.players.update(playerID) {
+                    $0.contract = Contract(
+                        years: 1,
+                        baseSalaryByYear: [capLimit * 3 / 5],
+                        signingBonus: 0,
+                        signedSeason: state.calendar.season
+                    )
+                }
+            }
+            state = ProCapComplianceSystem.refresh(in: state)
+            let decisionID = try unwrap(state.pending.professionalCapCompliance?.id)
+
+            do {
+                _ = try WorldScheduler.advanceWeek(state)
+                expect(false, "an unresolved cap decision did not block direct week advance")
+            } catch WorldSchedulerError.unresolvedProfessionalCapCompliance(teamID) {
+                expect(true)
+            } catch {
+                expect(false, "wrong advance refusal: \(error)")
+            }
+
+            let session = try CareerSession(state: state)
+            _ = try await session.resolve(.proManagement(.release(
+                playerID: playerIDs[0],
+                teamID: teamID
+            )))
+            let afterFirst = await session.snapshot()
+            expectEqual(afterFirst.pending.professionalCapCompliance?.id, decisionID)
+            expect(
+                try !ProManagementSystem.capSnapshot(teamID: teamID, in: afterFirst).isWithinCap,
+                "the fixture unexpectedly became legal after one release"
+            )
+
+            let restored = try SaveEnvelope.decode(
+                GameState.self,
+                from: await session.saveData()
+            )
+            expect(restored.proTeams[teamID]?.rosterIDs.contains(playerIDs[0]) == false)
+            expectEqual(restored.pending.professionalCapCompliance?.id, decisionID)
+            let resumed = try CareerSession(state: restored)
+            _ = try await resumed.resolve(.proManagement(.release(
+                playerID: playerIDs[1],
+                teamID: teamID
+            )))
+            let legal = await resumed.snapshot()
+            expectEqual(legal.pending.professionalCapCompliance, nil)
+            expect(try ProManagementSystem.capSnapshot(teamID: teamID, in: legal).isWithinCap)
+            expect(legal.proTeams[teamID]?.rosterIDs.contains(playerIDs[0]) == false)
+            expect(legal.proTeams[teamID]?.rosterIDs.contains(playerIDs[1]) == false)
+            expect(WorldIntegrity.check(legal).isValid)
+        }
+
+        testAsync("a progressive extension can reduce an overage before a final release") {
+            var (state, teamID) = try controlledFixture(seed: 62_011)
+            let playerIDs = try releasablePlayerIDs(count: 2, teamID: teamID, state: state)
+            let team = try unwrap(state.proTeams[teamID])
+            for rosteredID in team.rosterIDs + team.practiceSquadIDs {
+                state.players.update(rosteredID) { $0.contract = nil }
+            }
+            let capLimit = ProRules.salaryCap(seasonsAfterBase: state.calendar.season)
+            for playerID in playerIDs {
+                state.players.update(playerID) {
+                    $0.contract = Contract(
+                        years: 1,
+                        baseSalaryByYear: [capLimit * 4 / 5],
+                        signingBonus: 0,
+                        signedSeason: state.calendar.season
+                    )
+                }
+            }
+            state = ProCapComplianceSystem.refresh(in: state)
+            let negotiation = try ProManagementSystem.beginNegotiation(
+                playerID: playerIDs[0],
+                teamID: teamID,
+                offer: Contract(
+                    years: 1,
+                    baseSalaryByYear: [capLimit / 2],
+                    signingBonus: 0
+                ),
+                deadline: state.calendar.advancedWeek(),
+                in: state
+            )
+            let extensionRow = try unwrap(
+                ProCapComplianceSystem.projection(teamID: teamID, in: negotiation.state)
+                    .actions.first {
+                        $0.playerID == playerIDs[0] && $0.kind == .extendContract
+                    }
+            )
+            expect(extensionRow.isEligible)
+            expect((extensionRow.projectedRemainingCap ?? 0) < 0)
+
+            let session = try CareerSession(state: negotiation.state)
+            _ = try await session.resolve(.proManagement(.acceptNegotiation(
+                negotiationID: negotiation.negotiation.id
+            )))
+            let improved = await session.snapshot()
+            let improvedCap = try ProManagementSystem.capSnapshot(teamID: teamID, in: improved)
+            expect(!improvedCap.isWithinCap)
+            expect(improved.pending.professionalCapCompliance != nil)
+
+            _ = try await session.resolve(.proManagement(.release(
+                playerID: playerIDs[1],
+                teamID: teamID
+            )))
+            let legal = await session.snapshot()
+            expect(try ProManagementSystem.capSnapshot(teamID: teamID, in: legal).isWithinCap)
+            expectEqual(legal.pending.professionalCapCompliance, nil)
+        }
+
+        test("extension, promotion, and waiver rows compose existing executable actions") {
+            var (state, teamID) = try controlledFixture(seed: 62_010)
+            let playerID = try releasablePlayerIDs(count: 1, teamID: teamID, state: state)[0]
+            let before = try ProManagementSystem.capSnapshot(teamID: teamID, in: state)
+            let offer = Contract(
+                years: 2,
+                baseSalaryByYear: [1_000_000, 1_000_000],
+                signingBonus: 200_000
+            )
+            let negotiation = try ProManagementSystem.beginNegotiation(
+                playerID: playerID,
+                teamID: teamID,
+                offer: offer,
+                deadline: state.calendar.advancedWeek(),
+                in: state
+            )
+            state = try ProMarketSystem.moveToPracticeSquad(
+                playerID: playerID,
+                teamID: teamID,
+                in: negotiation.state
+            )
+
+            let projection = try ProCapComplianceSystem.projection(teamID: teamID, in: state)
+            let extensionRow = try unwrap(projection.actions.first {
+                $0.playerID == playerID && $0.kind == .extendContract
+            })
+            let currentHit = try unwrap(state.players[playerID]?.contract)
+                .capHit(atSeason: state.calendar.season)
+            expect(extensionRow.isEligible)
+            expectEqual(extensionRow.currentCapHit, currentHit)
+            expectEqual(extensionRow.projectedDeadMoney, before.deadMoney)
+            expectEqual(
+                extensionRow.projectedRemainingCap,
+                before.remainingCap + currentHit - offer.capHit(inYear: 0)
+            )
+            expectEqual(
+                extensionRow.action,
+                .management(.acceptNegotiation(negotiationID: negotiation.negotiation.id))
+            )
+
+            let promotion = try unwrap(projection.actions.first {
+                $0.playerID == playerID && $0.kind == .promoteFromPracticeSquad
+            })
+            expect(promotion.isEligible)
+            expectEqual(promotion.projectedRemainingCap, before.remainingCap)
+            expectEqual(promotion.projectedDeadMoney, before.deadMoney)
+            expectEqual(
+                promotion.action,
+                .market(.promoteFromPracticeSquad(playerID: playerID, teamID: teamID))
+            )
+            let waiver = try unwrap(projection.actions.first {
+                $0.playerID == playerID && $0.kind == .placeOnWaivers
+            })
+            expect(waiver.isEligible)
+            expectEqual(waiver.projectedRemainingCap, before.remainingCap)
+            expectEqual(waiver.projectedDeadMoney, before.deadMoney)
+            expectEqual(
+                waiver.action,
+                .market(.placeOnWaivers(playerID: playerID, teamID: teamID))
+            )
         }
     }
 }

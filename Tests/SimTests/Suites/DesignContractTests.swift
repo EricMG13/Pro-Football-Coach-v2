@@ -353,6 +353,17 @@ func runDesignContractTests() {
                         "combined accessibility settings must keep glass legible")
         }
 
+        test("Increase Contrast raises the shared disabled-state opacity") {
+            expectEqual(
+                CoachWorldTokens.Motion.resolvedDisabledOpacity(for: .standard),
+                0.40
+            )
+            expectEqual(
+                CoachWorldTokens.Motion.resolvedDisabledOpacity(for: .increased),
+                0.62
+            )
+        }
+
         test("banner stops alias existing token values without changing their measurements") {
             let palette = CoachWorldTokens.dark
             expectEqual(CoachWorldTokens.Banner.info.from,
@@ -837,6 +848,152 @@ func runDesignContractTests() {
             let action = CoachWorldCutCorner.action
             expectEqual(action.topLeading, 22); expectEqual(action.topTrailing, 22)
             expectEqual(action.bottomTrailing, 22); expectEqual(action.bottomLeading, 5)
+        }
+
+        test("the Press Box navigator occupies the ledger's one-row stage") {
+            expectEqual(CoachWorldTokens.Stage.contentLeading, 63)
+            expectEqual(CoachWorldTokens.Stage.headerTop, 12)
+            expectEqual(CoachWorldTokens.Stage.headerHeight, 34)
+            expectEqual(CoachWorldTokens.Stage.contentTop, 54)
+            expectEqual(CoachWorldTokens.Stage.contentWidth, 761)
+        }
+    }
+
+    suite("Press Box shared chrome") {
+        test("the shared layer exposes the three navigator controls and short context") {
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let chrome = ui.first { $0.path.hasSuffix("/FloodlitChrome.swift") }?.text ?? ""
+            let composition = ui.first {
+                $0.path.hasSuffix("/CoachWorldFloodlitComposition.swift")
+            }?.text ?? ""
+
+            expect(chrome.contains("backControl")
+                       && chrome.contains("FamilySwitcher")
+                       && chrome.contains("HostPanel"),
+                   "the one-row navigator must own all three Press Box controls")
+            expect(chrome.contains("contextShort"),
+                   "the navigator must carry authored short context for its yielding ladder")
+            expect(chrome.contains("ChromePanelAnchorKey")
+                       && chrome.contains("overlayPreferenceValue"),
+                   "family and host panels must hang from their actual controls")
+            expect(chrome.contains("top-navigator"),
+                   "the shared band must expose the top-navigator accessibility identifier")
+            expect(!chrome.contains("ALL TASKS") && !composition.contains("SurfaceRegistryOverlay"),
+                   "the family switcher replaces the retired all-task index screen")
+            expect(!chrome.contains("Sections"),
+                   "the navigator must not restore the retired Sections accessibility label")
+        }
+
+        test("a seat exposes five families and the registry's authored task counts") {
+            func model(availableScreens: [CoachWorldScreenID]) -> FloodlitChromeReadModel {
+                FloodlitChromeReadModel(
+                    screen: .coachingHQ,
+                    world: .facility,
+                    club: CoachWorldTeamReference(
+                        stableID: "contract-team",
+                        name: "Contract Team",
+                        abbreviation: "CT"
+                    ),
+                    record: "6–2",
+                    context: "Week 9 · Saturday · Southern State",
+                    contextShort: "Week 9 · Saturday",
+                    back: .none,
+                    availableScreens: availableScreens
+                )
+            }
+
+            let college = model(availableScreens: CoachWorldScreenID.allCases.filter {
+                $0.isCanonicalTask && $0.family != .proManagement && $0.family != .entry
+            }).families
+            expectEqual(college.count, 5)
+            expectEqual(college.reduce(0) { $0 + $1.taskCount }, 41)
+            expect(!college.contains { $0.family == .proManagement },
+                   "a college seat must omit Pro management rather than disable it")
+
+            let pro = model(availableScreens: CoachWorldScreenID.allCases.filter {
+                $0.isCanonicalTask && $0.family != .recruiting && $0.family != .entry
+            }).families
+            expectEqual(pro.count, 5)
+            expectEqual(pro.reduce(0) { $0 + $1.taskCount }, 42)
+            expect(!pro.contains { $0.family == .recruiting },
+                   "a pro seat must omit Recruiting rather than disable it")
+        }
+
+        test("the six canonical hosts expose all fifteen legacy identities") {
+            let expected: [CoachWorldScreenID: [Int]] = [
+                .careerHub: [3, 4, 5, 53, 56],
+                .collegeOffseason: [30, 31, 32, 33],
+                .proOffseason: [37, 38, 40],
+                .staffRoom: [21],
+                .gamePlan: [22],
+                .depthChart: [23],
+            ]
+            var total = 0
+            for (host, numbers) in expected {
+                let sibling = FloodlitChromeReadModel.Sibling(
+                    screen: host,
+                    title: host.taskName,
+                    intentID: .init(rawValue: "route|\(host.rawValue)")
+                )
+                let actual = sibling.hostedAliases.map(\.screen.number)
+                expectEqual(actual, numbers, "\(host.taskName) must expose its exact alias routes")
+                total += actual.count
+            }
+            expectEqual(total, 15)
+        }
+
+        test("alias navigation preserves visible history without recording a no-op") {
+            let app = swiftFiles(under: "Sources/CoachWorldApp").first {
+                $0.path.hasSuffix("/CoachWorldAppRootView.swift")
+            }?.text ?? ""
+            expect(app.contains("guard destination != previous")
+                       && app.contains("if let activeChromeAlias { return activeChromeAlias }"),
+                   "active aliases must be visible identities and reselecting one must be a no-op")
+            expect(app.contains("recordsChromeHistory: false"),
+                   "canonical alias routing and Back must not double-record history")
+        }
+
+        test("the shared stage owns both transparency and contrast branches") {
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let desk = ui.first {
+                $0.path.hasSuffix("/CoachWorldDeskComponents.swift")
+            }?.text ?? ""
+            let chrome = ui.first { $0.path.hasSuffix("/FloodlitChrome.swift") }?.text ?? ""
+
+            expect(desk.contains("accessibilityReduceTransparency")
+                       && desk.contains("colorSchemeContrast"),
+                   "the shared stage and panel owner must read both accessibility settings")
+            expect(desk.contains("showsDetail: !reduceTransparency")
+                       && chrome.contains("let showsDetail: Bool"),
+                   "Reduce Transparency must suppress atmosphere detail without removing ground")
+            expect(desk.contains("contrast != .increased")
+                       && desk.contains("usesOpaqueFill"),
+                   "Increase Contrast must remove grain and material at the shared choke points")
+            expect(desk.contains(".fill(.ultraThinMaterial)"),
+                   "the standard branch must retain the measured material treatment")
+        }
+
+        test("position markers do not spend gold or identity colour") {
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let forbidden = [
+                "isSelected?palette.actionPrimary",
+                "isSelected?palette.collegeIdentity",
+                "isCurrent?palette.actionPrimary",
+                "isCurrent?palette.collegeIdentity",
+                "isControlled?palette.actionPrimary",
+                "selected?palette.actionPrimary",
+                "selected?palette.collegeIdentity",
+                "BroadcastWedge().fill(CoachWorldTokens.dark.actionPrimary",
+            ]
+            func violatesRule(_ source: String) -> Bool {
+                let compact = source.components(separatedBy: .whitespacesAndNewlines).joined()
+                return forbidden.contains(where: compact.contains)
+            }
+
+            let source = ui.map(\.text).joined(separator: "\n")
+            expect(!violatesRule(source), "position markers must use ink")
+            expect(violatesRule("isSelected ? palette.actionPrimary.color : palette.contentPrimary.color"),
+                   "gold audit must detect a planted position-marker violation")
         }
     }
 

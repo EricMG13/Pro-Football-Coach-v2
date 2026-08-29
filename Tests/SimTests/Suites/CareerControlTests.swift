@@ -107,6 +107,40 @@ func runCareerControlTests() {
             expect(WorldIntegrity.check(controlled).isValid)
         }
 
+        test("a delegate owns at most two college responsibilities") {
+            let source = GameState.bootstrap(seed: 98_023)
+            let programmeID = source.programmes.ids[0]
+            var controlled = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let staffID = controlled.programmes[programmeID]!.staffIDs.first {
+                controlled.staff[$0]?.role == .offensiveCoordinator
+            }!
+
+            expect(CareerControlSystem.setResponsibility(
+                .recruiting,
+                owner: .delegated(staffID: staffID),
+                in: &controlled
+            ))
+            expect(CareerControlSystem.setResponsibility(
+                .practicePlan,
+                owner: .delegated(staffID: staffID),
+                in: &controlled
+            ))
+            let beforeRejected = try SaveEnvelope.encode(controlled)
+            expect(!CareerControlSystem.setResponsibility(
+                .depthChart,
+                owner: .delegated(staffID: staffID),
+                in: &controlled
+            ))
+            expectEqual(try SaveEnvelope.encode(controlled), beforeRejected)
+            expectEqual(
+                CareerControlSystem.maximumResponsibilitiesPerDelegate,
+                2
+            )
+        }
+
         test("career-owned staff are not silently removed by routine retirement") {
             let source = GameState.bootstrap(seed: 98_011)
             let programmeID = source.programmes.ids[0]
@@ -118,10 +152,15 @@ func runCareerControlTests() {
             let coordinatorID = controlled.programmes[programmeID]!.staffIDs.first {
                 controlled.staff[$0]?.role == .offensiveCoordinator
             }!
-            for responsibility in CollegeCareerResponsibility.allCases {
+            let delegates = controlled.programmes[programmeID]!.staffIDs.filter {
+                controlled.staff[$0]?.role != .headCoach
+            }
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
                 expect(CareerControlSystem.setResponsibility(
                     responsibility,
-                    owner: .delegated(staffID: coordinatorID),
+                    owner: .delegated(staffID: index < 2
+                        ? coordinatorID
+                        : delegates[index / 2]),
                     in: &controlled
                 ))
             }
@@ -297,6 +336,7 @@ func runCareerControlTests() {
                 in: &controlled
             ))
 
+            let userNILState = controlled.college.programmes[programmeID]!.nilState
             let delegated = try CollegeCareerDelegationSystem.processRecruiting(in: controlled)
             expect(!delegated.decisions.isEmpty)
             expect(delegated.decisions.allSatisfy {
@@ -306,14 +346,62 @@ func runCareerControlTests() {
                 delegated.eventPayloads.count,
                 delegated.decisions.count
             )
+            expect(delegated.decisions.allSatisfy { decision in
+                if case .setNILAllocation = decision.request.action { return false }
+                return true
+            })
+            expectEqual(
+                delegated.college.programmes[programmeID]!.nilState,
+                userNILState
+            )
+            controlled.college = delegated.college
+            controlled.scouting = delegated.scouting
+
+            expect(CareerControlSystem.setResponsibility(
+                .recruiting,
+                owner: .user,
+                in: &controlled
+            ))
+            expect(CareerControlSystem.setResponsibility(
+                .nilAllocation,
+                owner: .delegated(staffID: coordinatorID),
+                in: &controlled
+            ))
+            let userRelationships = controlled.college.programmes[programmeID]!.relationships
+            let userScouting = controlled.scouting
+            let nilOnly = try CollegeCareerDelegationSystem.processRecruiting(in: controlled)
+            expect(!nilOnly.decisions.isEmpty)
+            expect(nilOnly.decisions.allSatisfy { decision in
+                if case .setNILAllocation = decision.request.action { return true }
+                return false
+            })
+            expectEqual(
+                nilOnly.college.programmes[programmeID]!.relationships,
+                userRelationships
+            )
+            expectEqual(nilOnly.scouting, userScouting)
+
+            expect(CareerControlSystem.setResponsibility(
+                .recruiting,
+                owner: .delegated(staffID: coordinatorID),
+                in: &controlled
+            ))
+            let sharedPolicy = try CollegeRecruitingAISystem.process(
+                programmeIDs: [programmeID],
+                in: controlled
+            )
+            let bothDelegated = try CollegeCareerDelegationSystem.processRecruiting(
+                in: controlled
+            )
+            expectEqual(bothDelegated, sharedPolicy)
 
             let session = try CareerSession(state: controlled)
             do {
                 _ = try await session.resolve(.recruiting(
                     prospectID: controlled.prospects.ids[0],
-                    action: .addToBoard
+                    action: .setNILAllocation(amount: 0)
                 ))
-                expect(false, "a user intent bypassed delegated recruiting authority")
+                expect(false, "a user intent bypassed delegated NIL authority")
             } catch let error as CareerSessionError {
                 expectEqual(error, .responsibilityDelegated)
             }
@@ -456,6 +544,22 @@ func runCareerControlTests() {
             expect(restored.career.mandatoryDecisionResolutions.contains {
                 $0.decisionID == decisionID && $0.optionID == addID
             })
+            expect(restored.history.recent.contains { event in
+                event.payload == .decisionDelegated(
+                    decisionID: decisionID,
+                    programmeID: programmeID,
+                    responsibility: .recruiting,
+                    staffID: staffID,
+                    optionID: addID
+                )
+            })
+            expect(restored.career.delegatedActivities.contains { activity in
+                activity.area == .college(.recruiting)
+                    && activity.actorID == staffID
+                    && activity.action == .decisionApplied
+                    && activity.effect == .recommendationApplied(optionID: addID)
+                    && activity.trigger == .mandatoryDecision
+            })
             expect(WorldIntegrity.check(restored).isValid)
         }
 
@@ -554,6 +658,170 @@ func runCareerControlTests() {
             expectEqual(decision?.options.count, 2)
             expect(decision?.reasons.contains(where: { $0.code == .playingTime }) ?? false)
             expect(WorldIntegrity.check(first).isValid)
+
+            var automatic = controlled
+            let staffID = automatic.programmes[programmeID]!.staffIDs.first {
+                automatic.staff[$0]?.role != .headCoach
+            }!
+            expect(CareerControlSystem.setResponsibility(
+                .redshirts,
+                owner: .delegated(staffID: staffID),
+                in: &automatic
+            ))
+            let fillerActivities = (0..<CareerControlState.maximumDelegatedActivities).map {
+                CareerDelegatedActivity(
+                    id: "filler-\($0)",
+                    calendar: automatic.calendar,
+                    area: .college(.redshirts),
+                    actorID: staffID,
+                    action: .decisionApplied,
+                    effect: .actionsCommitted(count: 1),
+                    trigger: .scheduledWeek
+                )
+            }
+            automatic.career = CareerControlState(
+                college: automatic.career.college,
+                pro: automatic.career.pro,
+                coachID: automatic.career.coachID,
+                mandatoryDecisionResolutions: automatic.career.mandatoryDecisionResolutions,
+                delegatedActivities: fillerActivities,
+                cruise: automatic.career.cruise
+            )
+            let delegated = CareerMandatoryDecisionSystem.refresh(in: automatic)
+            expect(delegated.career.mandatoryDecisionResolutions.contains {
+                $0.decisionID == decision?.id
+            })
+            expect(delegated.career.delegatedActivities.contains { activity in
+                activity.area == .college(.redshirts)
+                    && activity.actorID == staffID
+                    && activity.action == .decisionApplied
+                    && activity.trigger == .mandatoryDecision
+            })
+            expect(delegated.history.recent.contains { event in
+                event.payload == .decisionDelegated(
+                    decisionID: decision!.id,
+                    programmeID: programmeID,
+                    responsibility: .redshirts,
+                    staffID: staffID,
+                    optionID: decision!.recommendedOptionID
+                )
+            })
+            expectEqual(CareerMandatoryDecisionSystem.refresh(in: delegated), delegated)
+            expectEqual(
+                delegated.career.delegatedActivities.count,
+                CareerControlState.maximumDelegatedActivities
+            )
+            expect(!delegated.career.delegatedActivities.contains { $0.id == "filler-0" })
+            expect(WorldIntegrity.check(delegated).isValid)
+        }
+
+        test("redshirt recommendations are executable") {
+            let source = GameState.bootstrap(seed: 92_020)
+            let programmeID = source.programmes.ids[0]
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let decisions = CareerMandatoryDecisionSystem.refresh(in: controlled)
+                .pending.mandatoryDecisions
+                .filter { $0.responsibility == .redshirts }
+
+            expect(!decisions.isEmpty, "fixture did not produce redshirt decisions")
+            for decision in decisions {
+                guard case let .redshirt(playerID) = decision.subject,
+                      let option = decision.options.first(where: {
+                          $0.id == decision.recommendedOptionID
+                      }) else {
+                    expect(false, "redshirt decision is missing its recommendation")
+                    continue
+                }
+                if case let .redshirt(limit?) = option.action {
+                    expect(
+                        (try? CollegeRedshirtSystem.designate(
+                            playerID: playerID,
+                            programmeID: programmeID,
+                            plannedAppearanceLimit: limit,
+                            in: controlled
+                        )) != nil,
+                        "redshirt recommendation cannot be applied"
+                    )
+                }
+            }
+        }
+
+        test("a user-owned portal responsibility survives the postseason market") {
+            let source = GameState.bootstrap(seed: 92_020)
+            let programmeID = source.programmes.values.max { lhs, rhs in
+                lhs.prestige == rhs.prestige
+                    ? lhs.id.uuidString < rhs.id.uuidString
+                    : lhs.prestige < rhs.prestige
+            }!.id
+            var state = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let staffIDs = state.programmes[programmeID]!.staffIDs.filter {
+                $0 != state.career.college?.coachID
+            }
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
+                expect(CareerControlSystem.setResponsibility(
+                    responsibility,
+                    owner: .delegated(staffID: staffIDs[index / 2]),
+                    in: &state
+                ))
+            }
+            while state.calendar.week < 21 {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            expect(CareerControlSystem.setResponsibility(
+                .portalAndRetention,
+                owner: .user,
+                in: &state
+            ))
+
+            let transition = try WorldScheduler.advanceWeek(state)
+
+            expectEqual(transition.state.calendar, CalendarState(season: 1, week: 1))
+            expect(WorldIntegrity.check(transition.state).isValid)
+        }
+
+        testAsync("delegating a responsibility resolves its queued sibling decisions") {
+            let source = GameState.bootstrap(seed: 92_020)
+            let programmeID = source.programmes.ids[0]
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let initial = CareerMandatoryDecisionSystem.refresh(in: controlled)
+            let decisions = initial.pending.mandatoryDecisions.filter {
+                $0.responsibility == .redshirts
+            }
+            guard let decision = decisions.first,
+                  decisions.count > 1,
+                  let staffID = initial.programmes[programmeID]?.staffIDs.first(where: {
+                      $0 != initial.career.college?.coachID
+                  }) else {
+                expect(false, "fixture did not produce multiple delegable redshirt decisions")
+                return
+            }
+
+            let session = try CareerSession(state: initial)
+            _ = try await session.resolve(.delegateDecision(
+                decisionID: decision.id,
+                staffID: staffID
+            ))
+            let resolved = await session.snapshot()
+            expectEqual(
+                resolved.career.college?.responsibilityOwners[.redshirts],
+                .delegated(staffID: staffID)
+            )
+            expect(resolved.pending.mandatoryDecisions.allSatisfy {
+                $0.responsibility != .redshirts
+            })
+            expect(resolved.career.mandatoryDecisionResolutions.filter {
+                $0.subject.responsibility == .redshirts
+            }.count >= decisions.count)
+            expect(WorldIntegrity.check(resolved).isValid)
         }
 
         testAsync("a fully delegated controlled career completes a deterministic annual cycle") {
@@ -564,13 +832,13 @@ func runCareerControlTests() {
                     at: programmeID,
                     in: source
                 ).state
-                let staffID = state.programmes[programmeID]!.staffIDs.first {
-                    state.staff[$0]?.role == .offensiveCoordinator
-                }!
-                for responsibility in CollegeCareerResponsibility.allCases {
+                let staffIDs = state.programmes[programmeID]!.staffIDs.filter {
+                    state.staff[$0]?.role != .headCoach
+                }
+                for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
                     expect(CareerControlSystem.setResponsibility(
                         responsibility,
-                        owner: .delegated(staffID: staffID),
+                        owner: .delegated(staffID: staffIDs[index / 2]),
                         in: &state
                     ))
                 }
@@ -645,6 +913,30 @@ func runCareerPortalDecisionTests() {
                 expect(false, "the spring fixture produced no retainable portal intent at an idle programme")
                 return
             }
+            var delegatedControl = try CareerControlSystem.startCollegeCareer(
+                at: retainedIntent.sourceProgrammeID,
+                in: state
+            ).state
+            let delegatedStaffID = delegatedControl.programmes[
+                retainedIntent.sourceProgrammeID
+            ]!.staffIDs.first {
+                delegatedControl.staff[$0]?.role != .headCoach
+            }!
+            expect(CareerControlSystem.setResponsibility(
+                .portalAndRetention,
+                owner: .delegated(staffID: delegatedStaffID),
+                in: &delegatedControl
+            ))
+            let delegatedSession = try CareerSession(state: delegatedControl)
+            _ = try await delegatedSession.resolve(.advanceWeek)
+            let delegatedSnapshot = await delegatedSession.snapshot()
+            expect(delegatedSnapshot.career.delegatedActivities.contains { activity in
+                activity.area == .college(.portalAndRetention)
+                    && activity.actorID == delegatedStaffID
+                    && activity.action == .portalAndRetention
+                    && activity.trigger == .scheduledWeek
+            })
+
             let controlled = try CareerControlSystem.startCollegeCareer(
                 at: retainedIntent.sourceProgrammeID,
                 in: state
@@ -706,6 +998,121 @@ func runCareerPortalDecisionTests() {
             }
             expectEqual(persistedResolution?.action, .portalRelease)
         }
+
+        testAsync("a user-owned postseason portal holds the season boundary open") {
+            var state = GameState.bootstrap(seed: 98_002)
+            for _ in 0..<(SharedRules.inSeasonWeeks - 1) {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            expectEqual(
+                state.calendar,
+                CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            )
+
+            // The postseason window's own inputs -- the career season rows the lifecycle writes and
+            // the recruiting season the cycle opens -- exist only part-way through the boundary
+            // step, so the fixture is read off that step rather than off the week entering it.
+            let capture = BoundaryCapture()
+            WorldScheduler.transactionObserver = { label, observed in
+                guard label == "collegeCycle.closeAndOpen" else { return }
+                capture.first(observed)
+            }
+            _ = try WorldScheduler.advanceWeek(state)
+            WorldScheduler.transactionObserver = nil
+            guard let boundary = capture.state else {
+                expect(false, "the season boundary never reached the college cycle")
+                return
+            }
+
+            guard let snapshot = CollegePortalPolicyV1.makeSnapshot(
+                targetSeason: boundary.calendar.season + 1,
+                window: .postseason,
+                in: boundary
+            ) else {
+                expect(false, "the boundary did not expose an authoritative postseason snapshot")
+                return
+            }
+            // Idle for the same reason the spring case is: a controlled programme with an unplayed
+            // fixture pauses the week at its match and never reaches the portal at all.
+            let playingProgrammeIDs = Set(
+                state.competition.currentSchedule.games
+                    .filter {
+                        $0.season == state.calendar.season
+                            && $0.week == state.calendar.week
+                            && $0.result == nil
+                    }
+                    .flatMap { [$0.homeID, $0.awayID] }
+            )
+            guard let retainedIntent = snapshot.intents.first(where: { intent in
+                guard !playingProgrammeIDs.contains(intent.sourceProgrammeID),
+                      let programme = boundary.college.programmes[intent.sourceProgrammeID],
+                      let transition = CollegePortalPolicyV1.resolveRetention(
+                          for: intent.sourceProgrammeID,
+                          programme: programme,
+                          using: snapshot
+                      ) else { return false }
+                return transition.resolutions[intent.playerID]?.outcome == .retained
+            }) else {
+                expect(false, "the boundary produced no retainable intent at an idle programme")
+                return
+            }
+
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: retainedIntent.sourceProgrammeID,
+                in: state
+            ).state
+            let session = try CareerSession(state: controlled)
+            expect(await session.projection().mandatoryDecisions.isEmpty)
+
+            do {
+                _ = try await session.resolve(.advanceWeek)
+                expect(false, "the boundary advanced without a user-owned retention answer")
+            } catch let error as IntentResolutionError {
+                guard case let .unresolvedMandatoryDecisions(count) = error else {
+                    expect(false, "wrong boundary refusal: \(error)")
+                    return
+                }
+                expect(count > 0)
+            }
+
+            let queued = await session.projection().mandatoryDecisions
+            expect(queued.contains {
+                $0.subject == .portalRetention(
+                    playerID: retainedIntent.playerID,
+                    window: .postseason
+                )
+            })
+            expect(queued.allSatisfy { $0.deadline == state.calendar && $0.owner == .user })
+            expectEqual(await session.snapshot().calendar, state.calendar)
+
+            for decision in queued {
+                _ = try await session.resolve(.mandatoryDecision(
+                    decisionID: decision.id,
+                    optionID: decision.recommendedOptionID
+                ))
+            }
+            _ = try await session.resolve(.advanceWeek)
+            let advanced = await session.snapshot()
+            expectEqual(advanced.calendar, CalendarState(season: 1, week: 1))
+            expectEqual(advanced.college.portal.phase, .awaitingSpring)
+            expect(advanced.career.mandatoryDecisionResolutions.contains {
+                $0.subject == .portalRetention(
+                    playerID: retainedIntent.playerID,
+                    window: .postseason
+                )
+            })
+        }
+    }
+}
+
+/// The weekly transaction observer is a `@Sendable` closure, so the boundary root it hands back
+/// needs somewhere reference-shaped to land.
+private final class BoundaryCapture: @unchecked Sendable {
+    private(set) var state: GameState?
+
+    func first(_ observed: GameState) {
+        guard state == nil else { return }
+        state = observed
     }
 }
 
@@ -739,8 +1146,9 @@ func runWeeklyAuthorityTests() {
             }
 
             _ = try await session.resolve(.practicePlan(.balanced))
-            let receipt = try await session.resolve(.advanceWeek)
+            let receipt = try await session.advanceWeek(callInsPerGame: 12)
             expectEqual(receipt.projection.calendar, controlled.calendar)
+            expectEqual(await session.snapshot().matchSession?.callInTarget, 12)
             if case .matchStarted = receipt.result {
                 expect(true)
             } else {
@@ -850,19 +1258,329 @@ func runWeeklyAuthorityTests() {
             controlled.calendar = CalendarState(season: 0, week: 3)
             controlled.league.week = 3
             controlled.pending = PendingQueues()
-            let staffID = controlled.programmes[programmeID]!.staffIDs.first {
-                controlled.staff[$0]?.role == .offensiveCoordinator
-            }!
-            for responsibility in CollegeCareerResponsibility.allCases {
+            let staffIDs = controlled.programmes[programmeID]!.staffIDs.filter {
+                controlled.staff[$0]?.role != .headCoach
+            }
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
                 expect(CareerControlSystem.setResponsibility(
                     responsibility,
-                    owner: .delegated(staffID: staffID),
+                    owner: .delegated(staffID: staffIDs[index / 2]),
                     in: &controlled
                 ))
             }
             let session = try CareerSession(state: controlled)
             let receipt = try await session.resolve(.advanceWeek)
             expect(receipt.projection.calendar != controlled.calendar)
+        }
+
+        testAsync("delegated practice and depth chart act without giving the user duplicate authority") {
+            let source = GameState.bootstrap(seed: 98_025)
+            let programmeID = source.programmes.ids[0]
+            var controlled = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            controlled.calendar = CalendarState(season: 0, week: 3)
+            controlled.league.week = 3
+            controlled.pending = PendingQueues()
+            let staffIDs = controlled.programmes[programmeID]!.staffIDs.filter {
+                controlled.staff[$0]?.role != .headCoach
+            }
+            expect(CareerControlSystem.setResponsibility(
+                .practicePlan,
+                owner: .delegated(staffID: staffIDs[0]),
+                in: &controlled
+            ))
+            expect(CareerControlSystem.setResponsibility(
+                .depthChart,
+                owner: .delegated(staffID: staffIDs[0]),
+                in: &controlled
+            ))
+            let session = try CareerSession(state: controlled)
+
+            do {
+                _ = try await session.resolve(.practicePlan(.balanced))
+                expect(false, "the user replaced a delegated practice plan")
+            } catch let error as CareerSessionError {
+                expectEqual(error, .responsibilityDelegated)
+            }
+            do {
+                _ = try await session.resolve(.personnelPlan(PersonnelPlan(
+                    organisationID: programmeID,
+                    calendar: controlled.calendar,
+                    overrides: []
+                )))
+                expect(false, "the user replaced a delegated depth chart")
+            } catch let error as CareerSessionError {
+                expectEqual(error, .responsibilityDelegated)
+            }
+
+            _ = try await session.resolve(.tacticalPlan(.balanced))
+            _ = try await session.resolve(.advanceWeek)
+            let prepared = await session.snapshot()
+            expectEqual(
+                prepared.tactical.practicePlan(for: programmeID, at: controlled.calendar),
+                .balanced
+            )
+            expectEqual(
+                prepared.tactical.personnelPlan(for: programmeID, at: controlled.calendar),
+                PersonnelPlan(
+                    organisationID: programmeID,
+                    calendar: controlled.calendar,
+                    overrides: []
+                )
+            )
+        }
+
+        testAsync("cruise advances delegated weeks to a bounded persisted endpoint") {
+            func fixture() throws -> GameState {
+                let source = GameState.bootstrap(seed: 98_027)
+                let programmeID = source.programmes.ids[0]
+                var state = try CareerControlSystem.startCollegeCareer(
+                    at: programmeID,
+                    in: source
+                ).state
+                state.calendar = CalendarState(season: 0, week: 3)
+                state.league.week = 3
+                state.pending = PendingQueues()
+                let staffIDs = state.programmes[programmeID]!.staffIDs.filter {
+                    state.staff[$0]?.role != .headCoach
+                }
+                for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
+                    expect(CareerControlSystem.setResponsibility(
+                        responsibility,
+                        owner: .delegated(staffID: staffIDs[index / 2]),
+                        in: &state
+                    ))
+                }
+                return state
+            }
+
+            let first = try CareerSession(state: fixture())
+            let second = try CareerSession(state: fixture())
+            let end = CalendarState(season: 0, week: 4)
+            let firstReceipt = try await first.resolve(.startCruise(requestedEnd: end))
+            let secondReceipt = try await second.resolve(.startCruise(requestedEnd: end))
+            expectEqual(firstReceipt, secondReceipt)
+            expectEqual(firstReceipt.projection.calendar, end)
+            expectEqual(firstReceipt.projection.whileAway.cruise?.status, .completed)
+            expectEqual(
+                firstReceipt.projection.whileAway.cruise?.stopReason,
+                .requestedEnd
+            )
+            expect(!firstReceipt.projection.whileAway.activities.isEmpty)
+            let saved = try await first.saveData()
+            let restored = try SaveEnvelope.decode(GameState.self, from: saved)
+            expectEqual(restored.career.cruise, firstReceipt.projection.whileAway.cruise)
+            expectEqual(try await second.saveData(), saved)
+
+            let outOfRange = try CareerSession(state: fixture())
+            do {
+                _ = try await outOfRange.resolve(.startCruise(
+                    requestedEnd: CalendarState(season: 2, week: 14)
+                ))
+                expect(false, "cruise accepted more than its 52-week bound")
+            } catch let error as CareerSessionError {
+                expectEqual(error, .invalidState)
+            }
+        }
+
+        testAsync("cruise stops before a mandatory player decision") {
+            let source = GameState.bootstrap(seed: 98_028)
+            let programmeID = source.programmes.ids[0]
+            var controlled = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let staffIDs = controlled.programmes[programmeID]!.staffIDs.filter {
+                controlled.staff[$0]?.role != .headCoach
+            }
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
+                guard responsibility != .recruiting else { continue }
+                expect(CareerControlSystem.setResponsibility(
+                    responsibility,
+                    owner: .delegated(staffID: staffIDs[index / 2]),
+                    in: &controlled
+                ))
+            }
+            let prospectID = controlled.prospects.ids[0]
+            let decisionID = UUID(uuidString: "00000000-0000-4000-8000-000000000F28")!
+            let optionA = UUID(uuidString: "00000000-0000-4000-8000-000000000F29")!
+            let optionB = UUID(uuidString: "00000000-0000-4000-8000-000000000F2A")!
+            expect(controlled.pending.enqueue(MandatoryDecision(
+                id: decisionID,
+                programmeID: programmeID,
+                subject: .recruiting(prospectID: prospectID),
+                createdAt: controlled.calendar,
+                deadline: controlled.calendar,
+                owner: .user,
+                options: [
+                    MandatoryDecisionOption(id: optionA, action: .recruiting(.addToBoard)),
+                    MandatoryDecisionOption(id: optionB, action: .recruiting(.withdraw)),
+                ],
+                recommendedOptionID: optionA,
+                reasons: [MandatoryDecisionReason(code: .deadline, value: 1)]
+            )))
+            let session = try CareerSession(state: controlled)
+
+            let receipt = try await session.resolve(.startCruise(
+                requestedEnd: controlled.calendar.advancedWeek()
+            ))
+            expectEqual(receipt.projection.calendar, controlled.calendar)
+            expectEqual(receipt.projection.whileAway.cruise?.status, .stopped)
+            expectEqual(
+                receipt.projection.whileAway.cruise?.stopReason,
+                .mandatoryDecision
+            )
+
+            let saved = try await session.saveData()
+            let restored = try SaveEnvelope.decode(GameState.self, from: saved)
+            let resumed = try CareerSession(state: restored)
+            _ = try await resumed.resolve(.mandatoryDecision(
+                decisionID: decisionID,
+                optionID: optionA
+            ))
+            _ = try await resumed.resolve(.setResponsibility(
+                responsibility: .recruiting,
+                owner: .delegated(staffID: staffIDs[0])
+            ))
+            let completed = try await resumed.resolve(.continueCruise)
+            expectEqual(completed.projection.calendar, controlled.calendar.advancedWeek())
+            expectEqual(completed.projection.whileAway.cruise?.status, .completed)
+            expectEqual(completed.projection.whileAway.cruise?.stopReason, .requestedEnd)
+            expectEqual(
+                Set(completed.projection.whileAway.activities.map(\.id)).count,
+                completed.projection.whileAway.activities.count
+            )
+        }
+
+        test("a controlled first week of a season settles the spring portal before it is played") {
+            // `WorldIntegrity` refuses an `awaitingSpring` portal once any game of its target
+            // season carries a result, because the spring window still moves players between
+            // programmes for that season. The scheduler satisfies that by settling the window in
+            // `marketInteractions`, ahead of every game. A controlled fixture is installed before
+            // the week advances at all, so without settling it first the coach plays the game and
+            // then cannot record it -- the match completes, `finalizeControlledMatch` refuses, and
+            // the app can only re-refuse until the snap budget runs out.
+            var state = GameState.bootstrap(seed: 92_020)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            expectEqual(state.calendar, CalendarState(season: 1, week: 1))
+            expectEqual(state.college.portal.phase, .awaitingSpring)
+            guard let fixture = state.competition.currentSchedule.games.first(where: {
+                $0.season == 1 && $0.week == 1 && $0.result == nil
+                    && state.programmes[$0.homeID] != nil
+            }) else {
+                expect(false, "the fixture has no college game in season 1 week 1")
+                return
+            }
+            var controlled = try CareerControlSystem.startCollegeCareer(
+                at: fixture.homeID,
+                in: state
+            ).state
+            // Delegated, so the window has no user answers to wait for: this test is about the
+            // ordering, and the user-owned case is the test below.
+            let staffID = controlled.programmes[fixture.homeID]!.staffIDs.first {
+                controlled.staff[$0]?.role != .headCoach
+            }!
+            expect(CareerControlSystem.setResponsibility(
+                .portalAndRetention,
+                owner: .delegated(staffID: staffID),
+                in: &controlled
+            ))
+            expect(controlled.tactical.setPlan(
+                .balanced,
+                for: fixture.homeID,
+                at: controlled.calendar
+            ))
+            expect(controlled.tactical.setPracticePlan(
+                .balanced,
+                for: fixture.homeID,
+                at: controlled.calendar
+            ))
+            controlled = try WorldScheduler.prepareControlledMatch(in: controlled)
+            expectEqual(controlled.college.portal.phase, .closed)
+            guard var session = controlled.matchSession else {
+                expect(false, "no controlled match was installed")
+                return
+            }
+            // Handed back to the coordinator, as the durability journey does: this test is about
+            // recording the result, and a takeover pauses on call-ins it has no answer for.
+            if session.isTakeover {
+                _ = try MatchReducer.reduce(.toggleTakeover, state: &session)
+            }
+            while !session.completed {
+                _ = try MatchReducer.reduce(.advance, state: &session)
+            }
+            controlled.matchSession = session
+            guard let completion = session.completion else {
+                expect(false, "the controlled match never produced a completion")
+                return
+            }
+            let recorded = try WorldScheduler.finalizeControlledMatch(completion, in: controlled)
+            expect(WorldIntegrity.check(recorded).isValid)
+            expect(recorded.matchSession == nil)
+            expect(recorded.competition.currentSchedule.games.contains {
+                $0.id == fixture.id && $0.result != nil
+            })
+        }
+
+        testAsync("a user-owned spring portal blocks the first week rather than being played past") {
+            // The controlled-match branch of `.advanceWeek` returns before `IntentResolver` runs,
+            // so a decision waiting on this week has to stop the fixture being installed at all.
+            // It used to be stepped over: the match started, the answers stayed queued, and the
+            // week could not advance afterwards because the game had already been recorded against
+            // an open portal.
+            var state = GameState.bootstrap(seed: 92_020)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            expectEqual(state.college.portal.phase, .awaitingSpring)
+            guard let fixture = state.competition.currentSchedule.games.first(where: {
+                $0.season == 1 && $0.week == 1 && $0.result == nil
+                    && state.programmes[$0.homeID] != nil
+            }) else {
+                expect(false, "the fixture has no college game in season 1 week 1")
+                return
+            }
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: fixture.homeID,
+                in: state
+            ).state
+            let session = try CareerSession(state: controlled)
+            _ = try await session.resolve(.tacticalPlan(.balanced))
+            _ = try await session.resolve(.practicePlan(.balanced))
+
+            do {
+                _ = try await session.resolve(.advanceWeek)
+                expect(false, "the controlled fixture was installed over a waiting portal decision")
+            } catch let error as IntentResolutionError {
+                guard case let .unresolvedMandatoryDecisions(count) = error else {
+                    expect(false, "wrong refusal: \(error)")
+                    return
+                }
+                expect(count > 0)
+            }
+            let queued = await session.projection().mandatoryDecisions
+            expect(queued.contains {
+                if case let .portalRetention(_, window) = $0.subject { return window == .spring }
+                return false
+            })
+            expect(await session.snapshot().matchSession == nil)
+
+            for decision in queued {
+                _ = try await session.resolve(.mandatoryDecision(
+                    decisionID: decision.id,
+                    optionID: decision.recommendedOptionID
+                ))
+            }
+            let receipt = try await session.resolve(.advanceWeek)
+            guard case .matchStarted = receipt.result else {
+                expect(false, "the answered week did not start its controlled fixture")
+                return
+            }
+            expectEqual(await session.snapshot().college.portal.phase, .closed)
         }
     }
 }
@@ -905,17 +1623,160 @@ func runProfessionalCareerSessionTests() {
             ).state
             let session = try CareerSession(state: promoted)
             expectEqual(promoted.career.coachID, controlled.career.college?.coachID)
+            expectEqual(promoted.career.pro?.teamID, team.id)
+            expectEqual(promoted.career.pro?.coachID, promoted.career.coachID)
+            expectEqual(
+                Set(promoted.career.pro?.responsibilityOwners.map(\.key) ?? []),
+                Set(ProCareerResponsibility.allCases)
+            )
+            expect(promoted.career.pro?.responsibilityOwners.values.allSatisfy {
+                $0 == .user
+            } ?? false)
             let projection = await session.projection()
             expectEqual(projection.tier, .professional)
             expectEqual(projection.programme?.id, team.id)
             expect(projection.recruitingBoard.isEmpty)
             expect(projection.mandatoryDecisions.isEmpty)
+            expectEqual(projection.responsibilities.count, ProCareerResponsibility.allCases.count)
+            expectEqual(
+                Set(projection.responsibilities.compactMap { item in
+                    if case let .professional(responsibility) = item.area {
+                        return responsibility
+                    }
+                    return nil
+                }),
+                Set(ProCareerResponsibility.allCases)
+            )
 
             _ = try await session.resolve(.tacticalPlan(.balanced))
             let saved = try await session.saveData()
             let restored = try SaveEnvelope.decode(GameState.self, from: saved)
             expectEqual(restored.tactical.plan(for: team.id, at: restored.calendar), .balanced)
+            expectEqual(restored.career.pro, promoted.career.pro)
             expect(WorldIntegrity.check(restored).isValid)
+        }
+
+        test("professional delegation uses employed staff and the shared capacity bound") {
+            let source = GameState.bootstrap(seed: 98_024)
+            let programmeID = source.programmes.ids[0]
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let team = controlled.proTeams.values[0]
+            let opportunity = CareerOpportunity(
+                id: UUID(uuidString: "00000000-0000-4000-8000-000000000F24")!,
+                organisationID: team.id,
+                tier: .professional,
+                offeredAt: controlled.calendar,
+                expiresAt: controlled.calendar.advancedWeek(),
+                prestige: team.prestige,
+                rationale: .staffRecommendation
+            )
+            var candidate = controlled
+            candidate.careerArc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: programmeID,
+                    tier: .college,
+                    startedAt: candidate.calendar
+                ),
+                opportunities: [opportunity],
+                status: .employed
+            )
+            var promoted = try IntentResolver.resolve(
+                .career(CareerArcRequest(
+                    calendar: candidate.calendar,
+                    action: .acceptOpportunity(opportunityID: opportunity.id)
+                )),
+                in: candidate
+            ).state
+            let staffID = promoted.proTeams[team.id]!.staffIDs.first {
+                promoted.staff[$0]?.role != .headCoach
+            }!
+            let outsiderID = promoted.proTeams.values.first { $0.id != team.id }!.staffIDs[0]
+
+            expect(CareerControlSystem.setProResponsibility(
+                .scouting,
+                owner: .delegated(staffID: staffID),
+                in: &promoted
+            ))
+            expect(CareerControlSystem.setProResponsibility(
+                .rosterManagement,
+                owner: .delegated(staffID: staffID),
+                in: &promoted
+            ))
+            expect(!CareerControlSystem.setProResponsibility(
+                .contractNegotiations,
+                owner: .delegated(staffID: staffID),
+                in: &promoted
+            ))
+            expect(!CareerControlSystem.setProResponsibility(
+                .gamePlan,
+                owner: .delegated(staffID: outsiderID),
+                in: &promoted
+            ))
+            expect(WorldIntegrity.check(promoted).isValid)
+        }
+
+        testAsync("professional delegated areas reject duplicate user actions") {
+            let source = GameState.bootstrap(seed: 98_026)
+            let programmeID = source.programmes.ids[0]
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: programmeID,
+                in: source
+            ).state
+            let team = controlled.proTeams.values[0]
+            let opportunity = CareerOpportunity(
+                id: UUID(uuidString: "00000000-0000-4000-8000-000000000F26")!,
+                organisationID: team.id,
+                tier: .professional,
+                offeredAt: controlled.calendar,
+                expiresAt: controlled.calendar.advancedWeek(),
+                prestige: team.prestige,
+                rationale: .staffRecommendation
+            )
+            var candidate = controlled
+            candidate.careerArc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: programmeID,
+                    tier: .college,
+                    startedAt: candidate.calendar
+                ),
+                opportunities: [opportunity],
+                status: .employed
+            )
+            let promoted = try IntentResolver.resolve(
+                .career(CareerArcRequest(
+                    calendar: candidate.calendar,
+                    action: .acceptOpportunity(opportunityID: opportunity.id)
+                )),
+                in: candidate
+            ).state
+            let staffID = promoted.proTeams[team.id]!.staffIDs.first {
+                promoted.staff[$0]?.role != .headCoach
+            }!
+            let session = try CareerSession(state: promoted)
+            _ = try await session.resolve(.setProResponsibility(
+                responsibility: .gamePlan,
+                owner: .delegated(staffID: staffID)
+            ))
+            _ = try await session.resolve(.setProResponsibility(
+                responsibility: .practicePlan,
+                owner: .delegated(staffID: staffID)
+            ))
+
+            do {
+                _ = try await session.resolve(.tacticalPlan(.balanced))
+                expect(false, "the user replaced a delegated professional game plan")
+            } catch let error as CareerSessionError {
+                expectEqual(error, .responsibilityDelegated)
+            }
+            do {
+                _ = try await session.resolve(.practicePlan(.balanced))
+                expect(false, "the user replaced a delegated professional practice plan")
+            } catch let error as CareerSessionError {
+                expectEqual(error, .responsibilityDelegated)
+            }
         }
     }
 }

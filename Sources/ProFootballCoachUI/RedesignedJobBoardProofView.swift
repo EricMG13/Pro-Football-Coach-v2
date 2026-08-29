@@ -141,7 +141,7 @@ struct RedesignedJobBoardProofView: View {
                     if isSelected {
                         Text("SELECTED")
                             .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .bold)
-                            .foregroundStyle(palette.collegeIdentity.color)
+                            .foregroundStyle(palette.contentPrimary.color)
                     }
                 }
                 FloodlitCostLine(
@@ -163,14 +163,13 @@ struct RedesignedJobBoardProofView: View {
             .background(CoachWorldCutCorner.row.fill(palette.work.color.opacity(0.72)))
             .overlay {
                 CoachWorldCutCorner.row.stroke(
-                    isSelected ? palette.collegeIdentity.color : Color.white.opacity(0.18),
+                    isSelected ? palette.contentPrimary.color : Color.white.opacity(0.18),
                     lineWidth: CoachWorldTokens.Shape.hairline
                 )
             }
-            .opacity(opportunity.canAccept ? 1 : CoachWorldTokens.Motion.disabledOpacity)
         }
         .buttonStyle(.plain)
-        .disabled(!opportunity.canAccept)
+        .coachWorldDisabled(!opportunity.canAccept)
         .accessibilityLabel(opportunity.team.name)
         .accessibilityValue(
             opportunity.canAccept
@@ -188,7 +187,7 @@ struct RedesignedJobBoardProofView: View {
         if let opportunity = selectedOpportunity, !hasAcceptedOffer {
             FloodlitCard(palette: palette, depth: .deep) {
                 VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.md) {
-                    FloodlitLabel3("Selected offer", palette: palette, tint: palette.collegeIdentity.color)
+                    FloodlitLabel3("Selected offer", palette: palette, tint: palette.contentPrimary.color)
                     Text(opportunity.team.name.uppercased())
                         .coachWorldDisplay(CoachWorldTokens.DisplaySize.title, weight: .black)
                         .lineLimit(1)

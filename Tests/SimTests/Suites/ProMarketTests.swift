@@ -413,6 +413,115 @@ func runProMarketTests() {
             expect(WorldIntegrity.check(first.state).isValid)
         }
 
+        test("professional roster AI acts for a controlled team only when roster management is delegated") {
+            var state = GameState.bootstrap(seed: 60_115)
+            let teamID = try require(state.proTeams.ids.first)
+            let coachID = try require(state.proTeams[teamID]?.staffIDs.first {
+                state.staff[$0]?.role == .headCoach
+            })
+            let staffID = try require(state.proTeams[teamID]?.staffIDs.first {
+                state.staff[$0]?.role != .headCoach
+            })
+            _ = removeProRosterPlayers(teamID: teamID, in: &state)
+            state.career = CareerControlState(pro: ProCareerControl(
+                coachID: coachID,
+                teamID: teamID,
+                startedAt: state.calendar
+            ))
+            state.careerArc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: teamID,
+                    tier: .professional,
+                    startedAt: state.calendar
+                ),
+                status: .employed
+            )
+            state = try ProMarketSystem.openOffseason(in: state)
+
+            let userOwned = try ProRosterAISystem.process(at: state.calendar, in: state)
+            expectEqual(
+                userOwned.state.proTeams[teamID]?.rosterIDs.count,
+                state.proTeams[teamID]?.rosterIDs.count
+            )
+
+            expect(CareerControlSystem.setProResponsibility(
+                .rosterManagement,
+                owner: .delegated(staffID: staffID),
+                in: &state
+            ))
+            let delegated = try ProRosterAISystem.process(at: state.calendar, in: state)
+            expectEqual(
+                delegated.state.proTeams[teamID]?.rosterIDs.count,
+                (state.proTeams[teamID]?.rosterIDs.count ?? 0) + 1
+            )
+            expect(delegated.eventPayloads.contains { payload in
+                if case let .proPlayerSigned(_, signedTeamID, _, _) = payload {
+                    return signedTeamID == teamID
+                }
+                return false
+            })
+            expect(delegated.state.career.delegatedActivities.contains { activity in
+                activity.area == .professional(.rosterManagement)
+                    && activity.actorID == staffID
+                    && activity.action == .rosterManagement
+                    && activity.effect == .actionsCommitted(count: 1)
+            })
+            expect(WorldIntegrity.check(delegated.state).isValid)
+        }
+
+        test("delegated professional scouting records one deterministic legal observation") {
+            func fixture() throws -> GameState {
+                var state = GameState.bootstrap(seed: 60_116)
+                let teamID = try require(state.proTeams.ids.first)
+                let coachID = try require(state.proTeams[teamID]?.staffIDs.first {
+                    state.staff[$0]?.role == .headCoach
+                })
+                let staffID = try require(state.proTeams[teamID]?.staffIDs.first {
+                    state.staff[$0]?.role != .headCoach
+                })
+                state.career = CareerControlState(pro: ProCareerControl(
+                    coachID: coachID,
+                    teamID: teamID,
+                    startedAt: state.calendar
+                ))
+                state.careerArc = CareerArcState(
+                    currentJob: CareerJob(
+                        organisationID: teamID,
+                        tier: .professional,
+                        startedAt: state.calendar
+                    ),
+                    status: .employed
+                )
+                state = try ProMarketSystem.openOffseason(in: state)
+                expect(CareerControlSystem.setProResponsibility(
+                    .scouting,
+                    owner: .delegated(staffID: staffID),
+                    in: &state
+                ))
+                return state
+            }
+
+            let first = try ProCareerDelegationSystem.process(in: fixture())
+            let second = try ProCareerDelegationSystem.process(in: fixture())
+            expectEqual(first, second)
+            expectEqual(first.state.proMarket.observations.count, 1)
+            expectEqual(first.eventPayloads.count, 1)
+            guard case let .proDraftScouted(teamID, prospectID, confidence) =
+                first.eventPayloads[0] else {
+                expect(false, "delegated scouting emitted the wrong event")
+                return
+            }
+            expectEqual(first.state.proMarket.observations[0].teamID, teamID)
+            expectEqual(first.state.proMarket.observations[0].prospectID, prospectID)
+            expectEqual(first.state.proMarket.observations[0].confidence, confidence)
+            expect(first.state.career.delegatedActivities.contains { activity in
+                activity.area == .professional(.scouting)
+                    && activity.action == .scouting
+                    && activity.effect == .actionsCommitted(count: 1)
+            })
+            expect(WorldIntegrity.check(first.state).isValid)
+        }
+
         test("a weekly scheduler pass preserves both-tier legality after professional AI") {
             var state = GameState.bootstrap(seed: 60_114)
             let aiTeamID = try require(state.proTeams.ids.dropFirst().first)

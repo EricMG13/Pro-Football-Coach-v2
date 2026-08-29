@@ -2,6 +2,283 @@ import Foundation
 import FootballSimCore
 
 func runCareerArcTests() {
+    suite("Career arc stakeholder support") {
+        test("support does not follow a coach who lost the last job") {
+            // `02` section 7: the four dispositions belong to one club, so a coach arriving from
+            // out of work starts level -- none of those people has met them, and none holds the
+            // last club's grievance. A promotion is the exception and carries its support; that
+            // case is guarded by "the promotion survives a save round trip with its job history
+            // intact", which asserts the opposite of this one on purpose.
+            //
+            // Support carried across every arrival until 2026-08-27, which made re-entry after a
+            // sacking close to unsurvivable: the coach arrived near the firing threshold before the
+            // new employer had seen them work a single week.
+            let source = GameState.bootstrap(seed: 98_040)
+            let programmeID = source.programmes.ids[0]
+            let proTeam = source.proTeams.values[0]
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: programmeID,
+                    tier: .college,
+                    startedAt: source.calendar
+                ),
+                status: .employed
+            )
+            let opening = arc.stakeholderSupport
+            expect(arc.applySupport(deltas: Dictionary(
+                uniqueKeysWithValues: CareerStakeholder.allCases.map { ($0, -30) }
+            )))
+            expect(arc.averageSupport < 40, "the fixture did not actually erode support")
+            // Out of work, which is what makes this the resetting case.
+            expect(arc.markFired(at: source.calendar))
+            expect(arc.markSeeking())
+
+            let opportunity = CareerOpportunity(
+                id: UUID(uuidString: "00000000-0000-4000-8000-000000000A40")!,
+                organisationID: proTeam.id,
+                tier: .professional,
+                offeredAt: source.calendar,
+                expiresAt: source.calendar.advancedWeek(),
+                prestige: proTeam.prestige,
+                rationale: .staffRecommendation
+            )
+            expect(arc.addOpportunity(opportunity))
+            expect(arc.acceptOpportunity(id: opportunity.id, at: source.calendar))
+
+            expectEqual(arc.stakeholderSupport, opening)
+            expect(arc.stakeholderLastMovement.isEmpty,
+                   "the new club inherited a movement it never caused")
+        }
+
+        test("a week is judged on where the club stands, not the margin of one game") {
+            // `02` section 7: the target is a season standing, so the weight of the weekly movement
+            // comes from the standing. It used to come from `50 + margin x 2`, which held a single
+            // game against a season target and so demanded a `(target - 50) / 2` point winning
+            // margin every week just to stand still -- a bar that rose with prestige, so the better
+            // the club the faster its coach burned.
+            //
+            // Built as the top club in the league winning a one-score game. Under the old reading
+            // that is a losing week; under this one it is a coach exceeding a standing they already
+            // top.
+            var state = GameState.bootstrap(seed: 98_041)
+            // Deliberately a *strong* club. The old reading's bar was `(target - 50) / 2` points and
+            // the target rises with prestige, so a low-prestige programme is not punished for a
+            // three-point win and the fixture would pass without exercising anything. Stated as a
+            // requirement rather than drawn, so it cannot go quiet later.
+            guard let game = state.competition.currentSchedule.games
+                .filter({
+                    $0.season == state.calendar.season
+                        && $0.week == state.calendar.week
+                        && $0.tier == .college
+                        && $0.result == nil
+                        && (state.programmes[$0.homeID]?.prestige.value ?? 0) >= 57
+                })
+                .max(by: {
+                    (state.programmes[$0.homeID]?.prestige.value ?? 0)
+                        < (state.programmes[$1.homeID]?.prestige.value ?? 0)
+                }) else {
+                expect(false, "the fixture has no unplayed college game for a high-prestige club")
+                return
+            }
+            let programmeID = game.homeID
+            state.competition.rankings[.college] = [programmeID]
+                + state.programmes.ids.filter { $0 != programmeID }
+            let isHome = game.homeID == programmeID
+            let winnerStatistics = TeamGameStatistics(
+                points: 24, offensiveYards: 380, passingYards: 240,
+                rushingYards: 140, turnovers: 1
+            )
+            let loserStatistics = TeamGameStatistics(
+                points: 21, offensiveYards: 350, passingYards: 230,
+                rushingYards: 120, turnovers: 1
+            )
+            state.competition.currentSchedule = try careerArcRecording(
+                ScheduledGameResult(
+                    gameID: game.id,
+                    summary: GameSummary(
+                        homeScore: isHome ? 24 : 21,
+                        awayScore: isHome ? 21 : 24,
+                        homeStatistics: isHome ? winnerStatistics : loserStatistics,
+                        awayStatistics: isHome ? loserStatistics : winnerStatistics,
+                        playerStatistics: []
+                    )
+                ),
+                in: state.competition.currentSchedule
+            )
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: programmeID,
+                    tier: .college,
+                    startedAt: state.calendar
+                ),
+                status: .employed
+            )
+            let opening = arc.averageSupport
+            CareerArcSystem.evaluateWeek(after: state.calendar, in: state, arc: &arc)
+            expect(
+                arc.averageSupport > opening,
+                "the league's top club did not gain support for winning: "
+                    + "\(opening) -> \(arc.averageSupport)"
+            )
+        }
+
+        test("losing the job revokes the seat, whatever status the carousel leaves behind") {
+            // `WorldIntegrity.checkCareerArc` refuses a seated control with no current job. The
+            // scheduler used to revoke on `status == .fired`, and `02` section 7's carousel moves a
+            // sacked coach to `seeking` in the same pass that sacks them -- so the test read
+            // `seeking`, skipped the revocation, and left an invalid root that surfaced three steps
+            // away as the college portal refusing to commit.
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: UUID(uuidString: "00000000-0000-4000-8000-0000000000A1")!,
+                    tier: .college,
+                    startedAt: CalendarState(season: 0, week: 1)
+                ),
+                status: .employed
+            )
+            expect(arc.markFired(at: CalendarState(season: 0, week: 8)))
+            expect(arc.markSeeking())
+            expectEqual(arc.status, .seeking)
+            expect(arc.currentJob == nil,
+                   "a coach who lost the job still holds one, so no revocation can be keyed on it")
+        }
+
+        test("a fired coach is offered a way back in") {
+            // `02` section 7: the carousel can never dead-end. `fired` used to be terminal -- both
+            // evaluations returned early on it and nothing ever added an opportunity for a coach
+            // out of work -- so a sacked save was permanently out of the game.
+            var state = GameState.bootstrap(seed: 98_042)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            let seasonEnd = CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: state.programmes.ids[0],
+                    tier: .college,
+                    startedAt: CalendarState(season: 0, week: 1)
+                ),
+                status: .employed
+            )
+            expect(arc.markFired(at: seasonEnd))
+            expectEqual(arc.status, .fired)
+            expect(arc.opportunities.isEmpty)
+
+            CareerArcSystem.evaluateSeasonEnd(after: seasonEnd, in: state, arc: &arc)
+            expectEqual(arc.status, .seeking)
+            expect(!arc.opportunities.isEmpty, "a sacked coach was left with no way back in")
+            guard let offer = arc.opportunities.first else { return }
+            expectEqual(offer.tier, .college)
+            // The rebuild, deterministically: the weakest programme in the tier.
+            let weakest = state.programmes.values.min {
+                $0.prestige.value == $1.prestige.value
+                    ? $0.id.uuidString < $1.id.uuidString
+                    : $0.prestige.value < $1.prestige.value
+            }
+            expectEqual(offer.organisationID, weakest?.id)
+        }
+
+        test("a stale offer does not stand in for the rebuild") {
+            // `02` section 7 promises at least one *offer*, not at least one entry in the list.
+            // `offerRebuild` guards on the list being empty, so an offer whose deadline has passed
+            // -- which `acceptOpportunity` refuses -- would otherwise hold the slot and leave a
+            // sacked coach with a list they cannot act on. The dead end, reached by a technicality.
+            var state = GameState.bootstrap(seed: 98_044)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            let seasonEnd = CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            var arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: state.programmes.ids[0],
+                    tier: .college,
+                    startedAt: CalendarState(season: 0, week: 1)
+                ),
+                status: .employed
+            )
+            let stale = CareerOpportunity(
+                id: UUID(uuidString: "00000000-0000-4000-8000-000000000A44")!,
+                organisationID: state.proTeams.ids[0],
+                tier: .professional,
+                offeredAt: CalendarState(season: 0, week: 2),
+                expiresAt: CalendarState(season: 0, week: 3),
+                prestige: state.proTeams.values[0].prestige,
+                rationale: .staffRecommendation
+            )
+            expect(arc.addOpportunity(stale))
+            expect(arc.markFired(at: seasonEnd))
+
+            CareerArcSystem.evaluateSeasonEnd(after: seasonEnd, in: state, arc: &arc)
+            expectEqual(arc.status, .seeking)
+            expect(!arc.opportunities.contains { $0.id == stale.id },
+                   "an offer the coach can no longer accept was kept")
+            guard let offer = arc.opportunities.first else {
+                expect(false, "a stale offer stood in for the rebuild")
+                return
+            }
+            expectEqual(offer.tier, .college)
+            expect(offer.expiresAt.season > seasonEnd.season
+                       || (offer.expiresAt.season == seasonEnd.season
+                           && offer.expiresAt.week >= seasonEnd.week),
+                   "the rebuild was offered with a deadline already gone")
+        }
+
+        testAsync("a seeking coach can take the offer and is seated by it") {
+            var state = GameState.bootstrap(seed: 98_043)
+            for _ in 0..<SharedRules.inSeasonWeeks {
+                state = try WorldScheduler.advanceWeek(state).state
+            }
+            let seasonEnd = CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            let coach = StaffPopulationGenerator.replacement(
+                rootSeed: state.league.seed,
+                season: 0,
+                organisationID: state.programmes.ids[0],
+                prestige: state.programmes.values[0].prestige,
+                role: .headCoach,
+                positionGroup: nil,
+                ordinal: 90_001
+            )
+            state.staff.insert(coach)
+            state.career = CareerControlState(coachID: coach.id)
+            var arc = state.careerArc
+            arc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: state.programmes.ids[0],
+                    tier: .college,
+                    startedAt: CalendarState(season: 0, week: 1)
+                ),
+                status: .employed
+            )
+            expect(arc.markFired(at: seasonEnd))
+            CareerArcSystem.evaluateSeasonEnd(after: seasonEnd, in: state, arc: &arc)
+            state.careerArc = arc
+            guard let offer = state.careerArc.opportunities.first else {
+                expect(false, "no offer to accept")
+                return
+            }
+
+            let accepted = try IntentResolver.resolve(
+                .career(CareerArcRequest(
+                    calendar: state.calendar,
+                    action: .acceptOpportunity(opportunityID: offer.id)
+                )),
+                in: state
+            ).state
+            expectEqual(accepted.careerArc.status, .employed)
+            expectEqual(accepted.careerArc.currentJob?.organisationID, offer.organisationID)
+            expectEqual(accepted.careerArc.currentJob?.tier, .college)
+            expectEqual(accepted.career.college?.programmeID, offer.organisationID)
+            expectEqual(accepted.career.coachID, coach.id)
+            // The college appointment is its own arrival, and its own reset site since
+            // `establishCollegeJob` cannot hold one -- `prepareSeasonExpectation` calls that every
+            // week to rebuild a missing job record, so a reset inside it wipes support continuously.
+            expect(accepted.careerArc.stakeholderSupport.values
+                .allSatisfy { $0 == CareerArcState.openingSupport })
+            expect(accepted.careerArc.stakeholderLastMovement.isEmpty)
+            expect(WorldIntegrity.check(accepted).isValid)
+        }
+    }
+
     suite("M5 career arc") {
         test("career arc state is bounded and save-stable") {
             let arc = CareerArcState()
@@ -211,13 +488,13 @@ func runCareerArcTests() {
                 status: .employed
             )
             controlled.pending = PendingQueues()
-            let delegateID = controlled.programmes[programmeID]!.staffIDs.first {
-                controlled.staff[$0]?.role == .offensiveCoordinator
-            }!
-            for responsibility in CollegeCareerResponsibility.allCases {
+            let delegateIDs = controlled.programmes[programmeID]!.staffIDs.filter {
+                controlled.staff[$0]?.role != .headCoach
+            }
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
                 expect(CareerControlSystem.setResponsibility(
                     responsibility,
-                    owner: .delegated(staffID: delegateID),
+                    owner: .delegated(staffID: delegateIDs[index / 2]),
                     in: &controlled
                 ))
             }
@@ -306,13 +583,13 @@ func runCareerArcTests() {
                 in: source
             ).state
             let programmeID = controlled.career.college!.programmeID
-            let delegateID = controlled.programmes[programmeID]!.staffIDs.first {
-                controlled.staff[$0]?.role == .offensiveCoordinator
-            }!
-            for responsibility in CollegeCareerResponsibility.allCases {
+            let delegateIDs = controlled.programmes[programmeID]!.staffIDs.filter {
+                controlled.staff[$0]?.role != .headCoach
+            }
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
                 expect(CareerControlSystem.setResponsibility(
                     responsibility,
-                    owner: .delegated(staffID: delegateID),
+                    owner: .delegated(staffID: delegateIDs[index / 2]),
                     in: &controlled
                 ))
             }
@@ -321,7 +598,9 @@ func runCareerArcTests() {
                 state = try WorldScheduler.advanceWeek(state).state
             }
             expectEqual(state.calendar, CalendarState(season: 1, week: 1))
-            expect(state.careerArc.status == .employed || state.careerArc.status == .fired)
+            // `.seeking` joined the reachable set when `02` section 7's carousel was built: a coach
+            // sacked during the season is out of work at the boundary rather than stuck on `fired`.
+            expect([.employed, .fired, .seeking].contains(state.careerArc.status))
             expect(WorldIntegrity.check(state).isValid)
         }
 
@@ -676,16 +955,16 @@ func runCareerArcTests() {
             }
             // Delegating first, so the promotion is walked by a coach who had staff relationships
             // to leave behind rather than a coach who ran everything alone.
-            guard let delegateID = controlled.programmes[programmeID]?.staffIDs.first(where: {
-                controlled.staff[$0]?.role == .offensiveCoordinator
-            }) else {
-                expect(false, "the programme had no coordinator to delegate to")
-                return
+            let delegateIDs = controlled.programmes[programmeID]!.staffIDs.filter {
+                controlled.staff[$0]?.role != .headCoach
             }
-            for responsibility in CollegeCareerResponsibility.allCases {
+            let primaryDelegateID = delegateIDs.first {
+                controlled.staff[$0]?.role == .offensiveCoordinator
+            }!
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
                 expect(CareerControlSystem.setResponsibility(
                     responsibility,
-                    owner: .delegated(staffID: delegateID),
+                    owner: .delegated(staffID: delegateIDs[index / 2]),
                     in: &controlled
                 ))
             }
@@ -763,7 +1042,7 @@ func runCareerArcTests() {
             // scheme, so the relationship survives the tier change even though the delegation
             // itself does not.
             expect(
-                teamAfter.contains(delegateID),
+                teamAfter.contains(primaryDelegateID),
                 "the delegated coordinator did not follow the coach"
             )
 
@@ -992,16 +1271,13 @@ func runCareerArcTests() {
             }
             // Fully delegated, so the scheduler may abstract the controlled fixture instead of
             // demanding it be played through a match session.
-            guard let delegateID = state.programmes[programmeID]?.staffIDs.first(where: {
-                state.staff[$0]?.role == .offensiveCoordinator
-            }) else {
-                expect(false, "the programme had no coordinator to delegate to")
-                return
+            let delegateIDs = state.programmes[programmeID]!.staffIDs.filter {
+                state.staff[$0]?.role != .headCoach
             }
-            for responsibility in CollegeCareerResponsibility.allCases {
+            for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
                 expect(CareerControlSystem.setResponsibility(
                     responsibility,
-                    owner: .delegated(staffID: delegateID),
+                    owner: .delegated(staffID: delegateIDs[index / 2]),
                     in: &state
                 ))
             }
@@ -1194,6 +1470,429 @@ func runCareerArcTests() {
         }
         registerCoachSeasonRecordContractTests()
     }
+    runCareerOutcomeTests()
+}
+
+func runCareerOutcomeTests() {
+    suite("Career expectations and outcomes") {
+        test("career start signs one season expectation and weekly evaluation keeps using it") {
+            let source = GameState.bootstrap(seed: 99_130)
+            let game = try careerArcRequire(source.competition.currentSchedule.games.first {
+                $0.tier == .college && $0.week == source.calendar.week
+            })
+            let controlled = try CareerControlSystem.startCollegeCareer(
+                at: game.homeID,
+                in: source
+            ).state
+            let signed = try careerArcRequire(controlled.careerArc.seasonExpectation)
+            expectEqual(signed.season, controlled.calendar.season)
+            expectEqual(signed.organisationID, game.homeID)
+            expectEqual(signed.tier, .college)
+
+            var baseline = controlled
+            let summary = AbstractGameSimulator.play(game, in: baseline)
+            baseline.competition.currentSchedule = try careerArcRecording(
+                ScheduledGameResult(gameID: game.id, summary: summary),
+                in: baseline.competition.currentSchedule
+            )
+            var changedPrestige = baseline
+            changedPrestige.programmes.update(game.homeID) {
+                $0.prestige = Rating(SharedRules.ratingRange.lowerBound)
+            }
+
+            var baselineArc = baseline.careerArc
+            var changedArc = changedPrestige.careerArc
+            CareerArcSystem.evaluateWeek(
+                after: baseline.calendar,
+                in: baseline,
+                arc: &baselineArc
+            )
+            CareerArcSystem.evaluateWeek(
+                after: changedPrestige.calendar,
+                in: changedPrestige,
+                arc: &changedArc
+            )
+            expectEqual(changedArc.seasonExpectation, signed)
+            expectEqual(changedArc.stakeholderLastMovement, baselineArc.stakeholderLastMovement,
+                        "weekly support reconstructed the target from mutable prestige")
+        }
+
+        test("season outcome is compact, title-specific, and save-stable") {
+            var state = try careerOutcomeFixture(seed: 99_131, championship: true)
+            var arc = state.careerArc
+            CareerArcSystem.captureChampionshipResult(in: state, arc: &arc)
+            state.careerArc = arc
+
+            let record = try careerArcRequire(CareerSeasonOutcomeSystem.snapshot(
+                after: state.calendar,
+                in: state
+            ))
+            expectEqual(record.tier, .college)
+            expectEqual(record.finalRank, 14)
+            expectEqual(record.conferenceFinish, .champion)
+            expectEqual(record.postseasonFinish, .finalist)
+            expectEqual(record.contractYear, 1)
+            expectEqual(record.expectationTarget, state.careerArc.seasonExpectation?.target)
+            expectEqual(record.expectationDelta,
+                        record.finalPerformance.map { $0 - (record.expectationTarget ?? $0) })
+            expect(record.milestones.contains(.conferenceChampion))
+            expect(record.milestones.contains(.championshipFinalist))
+            expectEqual(record.nextPhase, .collegeOffseason)
+            expectEqual(record.championshipResult?.fixtureID,
+                        state.competition.currentSchedule.games.first {
+                            $0.stage == .championship
+                        }?.id)
+            expectEqual(record.championshipResult?.stage, .championship)
+            expectEqual(record.championshipResult?.playerEvidence.count, 3)
+            expectEqual(record.championshipResult?.nextMilestone.kind, .seasonReview)
+
+            let restored = try SaveEnvelope.decode(
+                CoachSeasonRecord.self,
+                from: SaveEnvelope.encode(record)
+            )
+            expectEqual(restored, record)
+        }
+
+        test("conference final never becomes the tier championship result") {
+            let state = try careerOutcomeFixture(seed: 99_132, championship: false)
+            var arc = state.careerArc
+            CareerArcSystem.captureChampionshipResult(in: state, arc: &arc)
+            expect(arc.currentChampionshipResult == nil,
+                   "conference championship was promoted into the tier-title snapshot")
+
+            var snapshotState = state
+            snapshotState.careerArc = arc
+            let record = try careerArcRequire(CareerSeasonOutcomeSystem.snapshot(
+                after: snapshotState.calendar,
+                in: snapshotState
+            ))
+            expectEqual(record.conferenceFinish, .champion)
+            expectEqual(record.postseasonFinish, .didNotQualify)
+            expect(record.championshipResult == nil)
+        }
+
+        test("career projection reads the retained outcome before and after save reload") {
+            var state = try careerOutcomeFixture(seed: 99_133, championship: true)
+            CareerArcSystem.captureChampionshipResult(in: state, arc: &state.careerArc)
+            let record = try careerArcRequire(CareerSeasonOutcomeSystem.snapshot(
+                after: state.calendar,
+                in: state
+            ))
+            let coachID = try careerArcRequire(state.career.coachID)
+            expect(state.people.recordCoachSeason(record, for: coachID))
+            state.calendar = CalendarState(season: 0, week: 1)
+            state.league.week = 1
+            state.competition = CompetitionState.bootstrap(
+                seed: state.league.seed,
+                season: 0,
+                programmes: state.programmes.values,
+                proTeams: state.proTeams.values
+            )
+            state.competition = CompetitionReducer.rebuild(from: state)
+
+            let before = CareerOutcomeProjection.make(from: state)
+            let reloaded = try SaveEnvelope.decode(
+                GameState.self,
+                from: SaveEnvelope.encode(state)
+            )
+            let after = CareerOutcomeProjection.make(from: reloaded)
+            expectEqual(before.seasonReview, record)
+            expectEqual(before.championshipResult, record.championshipResult)
+            expectEqual(after.seasonReview, before.seasonReview)
+            expectEqual(after.championshipResult, before.championshipResult)
+        }
+
+        test("career outcome decoding rejects cross-tier facts and unrelated title results") {
+            let organisationID = UUID(
+                uuidString: "00000000-0000-4000-8000-000000009134"
+            )!
+            let invalidProOutcome = """
+            {"season":0,"organisationID":"\(organisationID.uuidString)","wins":8,
+            "losses":9,"ties":0,"tier":"professional","finalRank":33,
+            "conferenceFinish":"didNotQualify","postseasonFinish":"didNotQualify",
+            "recruitingClassRank":1,"contractYear":1,"finalPerformance":50,
+            "expectationTarget":50,"expectationDelta":0,"milestones":[],
+            "nextPhase":"professionalOffseason"}
+            """
+            do {
+                _ = try JSONDecoder().decode(
+                    CoachSeasonRecord.self,
+                    from: Data(invalidProOutcome.utf8)
+                )
+                expect(false, "professional outcome accepted college-only ranking facts")
+            } catch {
+                expect(true)
+            }
+
+            let invalidCollegeTotals = """
+            {"season":0,"organisationID":"\(organisationID.uuidString)",
+            "wins":\(CollegeRules.maximumGamesPerSeason + 1),"losses":0,"ties":0,
+            "tier":"college","conferenceFinish":"didNotQualify",
+            "postseasonFinish":"didNotQualify","contractYear":1,
+            "finalPerformance":50,"expectationTarget":50,"expectationDelta":0,
+            "milestones":[],"nextPhase":"collegeOffseason"}
+            """
+            do {
+                _ = try JSONDecoder().decode(
+                    CoachSeasonRecord.self,
+                    from: Data(invalidCollegeTotals.utf8)
+                )
+                expect(false, "college outcome accepted a professional-sized game total")
+            } catch {
+                expect(true)
+            }
+
+            let milestoneWithoutTier = """
+            {"season":0,"organisationID":"\(organisationID.uuidString)",
+            "wins":1,"losses":0,"ties":0,"milestones":["winningSeason"]}
+            """
+            do {
+                _ = try JSONDecoder().decode(
+                    CoachSeasonRecord.self,
+                    from: Data(milestoneWithoutTier.utf8)
+                )
+                expect(false, "rich milestone decoded without its tier")
+            } catch {
+                expect(true)
+            }
+
+            let relatedResult = CareerChampionshipResult(
+                fixtureID: UUID(uuidString: "00000000-0000-4000-8000-000000009135")!,
+                season: 0,
+                tier: .college,
+                stage: .championship,
+                homeID: organisationID,
+                awayID: UUID(uuidString: "00000000-0000-4000-8000-000000009136")!,
+                homeScore: 28,
+                awayScore: 21,
+                playerEvidence: [],
+                nextMilestone: CareerMilestoneDeadline(
+                    kind: .seasonReview,
+                    at: CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+                )
+            )
+            let validArc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: organisationID,
+                    tier: .college,
+                    startedAt: CalendarState(season: 0, week: 0)
+                ),
+                status: .employed,
+                currentChampionshipResult: relatedResult
+            )
+            var firedArc = validArc
+            expect(firedArc.markFired(at: CalendarState(
+                season: 0,
+                week: SharedRules.inSeasonWeeks
+            )))
+            expectEqual(
+                try SaveEnvelope.decode(
+                    CareerArcState.self,
+                    from: SaveEnvelope.encode(firedArc)
+                ),
+                firedArc
+            )
+            var encodedArc = try JSONSerialization.jsonObject(
+                with: JSONEncoder().encode(validArc)
+            ) as! [String: Any]
+            var encodedResult = encodedArc["currentChampionshipResult"] as! [String: Any]
+            encodedResult["homeID"] = "00000000-0000-4000-8000-000000009137"
+            encodedResult["awayID"] = "00000000-0000-4000-8000-000000009138"
+            encodedArc["currentChampionshipResult"] = encodedResult
+            let malformedArc = try JSONSerialization.data(withJSONObject: encodedArc)
+            do {
+                _ = try JSONDecoder().decode(
+                    CareerArcState.self,
+                    from: malformedArc
+                )
+                expect(false, "career arc accepted another organisation's title result")
+            } catch {
+                expect(true)
+            }
+        }
+
+        test("professional season outcome uses pro rankings and conference title stage") {
+            var state = GameState.bootstrap(seed: 99_134)
+            let teamID = state.proTeams.ids[0]
+            let opponentID = state.proTeams.ids[1]
+            state.calendar = CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+            state.league.week = SharedRules.inSeasonWeeks
+            state.careerArc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: teamID,
+                    tier: .professional,
+                    startedAt: CalendarState(season: 0, week: 0)
+                ),
+                status: .employed
+            )
+            CareerArcSystem.prepareSeasonExpectation(in: state, arc: &state.careerArc)
+            var ranking = state.proTeams.ids.filter { $0 != teamID }
+            ranking.insert(teamID, at: 3)
+            state.competition.rankings[.pro] = ranking
+            state.competition.standings[.pro] = [StandingRow(
+                id: teamID,
+                wins: 13,
+                losses: 4,
+                ties: 0
+            )]
+            let homeStatistics = TeamGameStatistics(
+                points: 27,
+                offensiveYards: 405,
+                passingYards: 260,
+                rushingYards: 145,
+                turnovers: 1
+            )
+            let awayStatistics = TeamGameStatistics(
+                points: 20,
+                offensiveYards: 352,
+                passingYards: 238,
+                rushingYards: 114,
+                turnovers: 2
+            )
+            let result = GameSummary(
+                homeScore: 27,
+                awayScore: 20,
+                homeStatistics: homeStatistics,
+                awayStatistics: awayStatistics,
+                playerStatistics: []
+            )
+            state.competition.currentSchedule.append(contentsOf: [
+                ScheduledGame(
+                    id: UUID(uuidString: "00000000-0000-4000-8000-000000009139")!,
+                    season: 0,
+                    tier: .pro,
+                    week: ProRules.regularSeasonWeeks + 2,
+                    stage: .semifinal,
+                    homeID: teamID,
+                    awayID: opponentID,
+                    result: result
+                ),
+                ScheduledGame(
+                    id: UUID(uuidString: "00000000-0000-4000-8000-000000009140")!,
+                    season: 0,
+                    tier: .pro,
+                    week: ProRules.seasonWeeks,
+                    stage: .championship,
+                    homeID: teamID,
+                    awayID: opponentID,
+                    result: result
+                ),
+            ])
+            CareerArcSystem.captureChampionshipResult(in: state, arc: &state.careerArc)
+
+            let record = try careerArcRequire(CareerSeasonOutcomeSystem.snapshot(
+                after: state.calendar,
+                in: state
+            ))
+            expectEqual(record.tier, .professional)
+            expectEqual(record.finalRank, 4)
+            expectEqual(record.conferenceFinish, .champion)
+            expectEqual(record.postseasonFinish, .champion)
+            expectEqual(record.nextPhase, .professionalOffseason)
+            expect(record.recruitingClassRank == nil)
+            expectEqual(record.championshipResult?.tier, .pro)
+        }
+    }
+}
+
+private func careerOutcomeFixture(seed: UInt64, championship: Bool) throws -> GameState {
+    let source = GameState.bootstrap(seed: seed)
+    let controlledID = source.programmes.ids[0]
+    let opponentID = source.programmes.ids[1]
+    var state = try CareerControlSystem.startCollegeCareer(
+        at: controlledID,
+        in: source
+    ).state
+    state.calendar = CalendarState(season: 0, week: SharedRules.inSeasonWeeks)
+    state.league.week = SharedRules.inSeasonWeeks
+
+    var ranking = state.programmes.ids.filter { $0 != controlledID }
+    ranking.insert(controlledID, at: 13)
+    state.competition.rankings[.college] = ranking
+    state.competition.standings[.college] = [StandingRow(
+        id: controlledID,
+        wins: 10,
+        losses: 3,
+        ties: 0
+    )]
+
+    let playerIDs = Array(state.programmes[controlledID]!.rosterIDs.prefix(4))
+    let playerStatistics = playerIDs.enumerated().map { index, playerID in
+        PlayerGameStatistics(
+            playerID: playerID,
+            passingYards: index == 0 ? 318 : 0,
+            rushingYards: index == 1 ? 112 : 0,
+            receivingYards: index == 2 ? 96 : 0,
+            touchdowns: 3 - min(index, 3)
+        )
+    }
+    let controlledStatistics = TeamGameStatistics(
+        points: 31,
+        offensiveYards: 526,
+        passingYards: 318,
+        rushingYards: 208,
+        turnovers: 1
+    )
+    let opponentStatistics = TeamGameStatistics(
+        points: 24,
+        offensiveYards: 401,
+        passingYards: 260,
+        rushingYards: 141,
+        turnovers: 2
+    )
+    state.competition.currentSchedule.append(contentsOf: [ScheduledGame(
+        id: UUID(uuidString: "00000000-0000-4000-8000-000000009131")!,
+        season: 0,
+        tier: .college,
+        week: CollegeRules.regularSeasonWeeks + 1,
+        stage: .conferenceChampionship,
+        homeID: controlledID,
+        awayID: opponentID,
+        result: GameSummary(
+            homeScore: 31,
+            awayScore: 24,
+            homeStatistics: controlledStatistics,
+            awayStatistics: opponentStatistics,
+            homeParticipantIDs: playerIDs,
+            playerStatistics: playerStatistics
+        )
+    )])
+    if championship {
+        state.competition.currentSchedule.append(contentsOf: [ScheduledGame(
+            id: UUID(uuidString: "00000000-0000-4000-8000-000000009132")!,
+            season: 0,
+            tier: .college,
+            week: CollegeRules.seasonWeeks,
+            stage: .championship,
+            homeID: controlledID,
+            awayID: opponentID,
+            result: GameSummary(
+                homeScore: 24,
+                awayScore: 31,
+                homeStatistics: opponentStatistics,
+                awayStatistics: controlledStatistics,
+                homeParticipantIDs: playerIDs,
+                playerStatistics: playerStatistics
+            )
+        )])
+    }
+    return state
+}
+
+private enum CareerArcFixtureError: Error { case missingFixture }
+
+private func careerArcRequire<T>(_ value: T?) throws -> T {
+    guard let value else { throw CareerArcFixtureError.missingFixture }
+    return value
+}
+
+private func careerArcRecording(
+    _ result: ScheduledGameResult,
+    in schedule: SeasonSchedule
+) throws -> SeasonSchedule {
+    var next = schedule
+    _ = try next.recordResults([result])
+    return next
 }
 
 func runCoachSeasonRecordTests() {
@@ -1278,16 +1977,13 @@ private func assertCoachSeasonRecordCarriesAcrossPromotion() throws {
         expect(false, "career start left no coach")
         return
     }
-    guard let delegateID = state.programmes[programmeID]?.staffIDs.first(where: {
-        state.staff[$0]?.role == .offensiveCoordinator
-    }) else {
-        expect(false, "no coordinator to delegate to")
-        return
+    let delegateIDs = state.programmes[programmeID]!.staffIDs.filter {
+        state.staff[$0]?.role != .headCoach
     }
-    for responsibility in CollegeCareerResponsibility.allCases {
+    for (index, responsibility) in CollegeCareerResponsibility.allCases.enumerated() {
         expect(CareerControlSystem.setResponsibility(
             responsibility,
-            owner: .delegated(staffID: delegateID),
+            owner: .delegated(staffID: delegateIDs[index / 2]),
             in: &state
         ))
     }
@@ -1319,6 +2015,16 @@ private func assertCoachSeasonRecordCarriesAcrossPromotion() throws {
     expectEqual(records.last?.wins, completedWins)
     expectEqual(records.last?.losses, completedLosses)
     expectEqual(records.last?.ties, completedTies)
+    expectEqual(records.last?.tier, .college)
+    expect(records.last?.finalRank != nil, "season review omitted the final ranking")
+    expectEqual(records.last?.contractYear, 1)
+    expectEqual(records.last?.nextPhase, .collegeOffseason)
+    expectEqual(
+        records.last?.expectationDelta,
+        records.last?.finalPerformance.flatMap { performance in
+            records.last?.expectationTarget.map { performance - $0 }
+        }
+    )
     expect(
         (records.last?.wins ?? 0) + (records.last?.losses ?? 0) + (records.last?.ties ?? 0) > 0,
         "the recorded season had no games in it"
@@ -1341,6 +2047,10 @@ private func assertCoachSeasonRecordCarriesAcrossPromotion() throws {
         )
     }
     expect(WorldIntegrity.check(state).isValid, "season-end world failed integrity")
+    if state.careerArc.status == .employed {
+        expectEqual(state.careerArc.seasonExpectation?.season, state.calendar.season)
+    }
+    expectEqual(CareerOutcomeProjection.make(from: state).seasonReview, records.last)
 
     if var rejecting = boundaryState {
         expect(rejecting.people.recordCoachSeason(

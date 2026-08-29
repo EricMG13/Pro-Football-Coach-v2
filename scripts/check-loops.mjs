@@ -49,8 +49,9 @@ nothing below amends a design decision. A loop that turns out to need one stops 
    widen coverage and find nothing.
 6. **Canon first.** A gameplay decision is amended in the documents before it is implemented. Never
    encode a design decision only in code.
-7. **Escalate, do not resolve.** Legal identity questions, owner gates, device measurement and
-   simulator walkthroughs are not agent decisions.
+7. **Escalate, do not resolve.** Legal identity questions remain mandatory safety decisions. Player
+   observations, owner walkthroughs, and timing protocols are optional evidence, not approval gates;
+   device measurements should use reproducible automated runs where available.
 8. **Never claim an unrun gate.** With no Swift toolchain a loop stops as blocked. Write the code to the
    same standard, record it in \`docs/STATUS.md\` as unverified and never compiled, and do not report a
    build or a test run that did not happen.

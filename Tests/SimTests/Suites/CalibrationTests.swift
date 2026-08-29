@@ -230,8 +230,14 @@ func runCalibrationTests() {
             // true the honest statement is a list of what is missing — a band table that quietly
             // covers two thirds of 6.5 and reports green is the coverage boundary becoming the
             // quality boundary.
-            expect(CalibrationBands.unimplementedMetrics.count > 10,
-                   "the unimplemented list is suspiciously short")
+            expectEqual(
+                Set(CalibrationBands.unimplementedMetrics.map(\.metric)),
+                Set([
+                    "modal combined total",
+                    "college completion percentage, pass/rush yards, sacks, interceptions, points per drive",
+                ]),
+                "a remaining calibration gap was added or silently dropped"
+            )
             for entry in CalibrationBands.unimplementedMetrics {
                 expect(!entry.waitingOn.isEmpty,
                        "\(entry.metric) is listed as unimplemented with no reason")
@@ -256,7 +262,7 @@ func runCalibrationTests() {
         test("expanded roster streams keep tuning and holdout disjoint") {
             func rosterSeeds(_ bases: [UInt64]) -> Set<UInt64> {
                 Set(bases.flatMap { seed in
-                    (0..<CalibrationHarness.matchupsPerSeed).flatMap { matchup in
+                    (0..<CalibrationHarness.regularGamesPerSeed).flatMap { matchup in
                         Side.allCases.map {
                             CalibrationHarness.rosterSeed(base: seed, matchup: matchup, side: $0)
                         }
@@ -266,7 +272,7 @@ func runCalibrationTests() {
             let tuning = rosterSeeds(CalibrationHarness.tuningSeeds)
             let holdout = rosterSeeds(CalibrationHarness.holdoutSeeds)
             let expected = CalibrationHarness.tuningSeeds.count
-                * CalibrationHarness.matchupsPerSeed * Side.allCases.count
+                * CalibrationHarness.regularGamesPerSeed * Side.allCases.count
             expectEqual(tuning.count, expected, "the tuning ladder repeats roster streams")
             expectEqual(holdout.count, expected, "the holdout ladder repeats roster streams")
             expect(tuning.isDisjoint(with: holdout),
@@ -295,6 +301,100 @@ func runCalibrationTests() {
             expectEqual(estimate?.sampleSize, 1)
         }
 
+        test("the harness measures the recorded play and college-context gaps") {
+            let tightEnd = UUID(uuidString: "00000000-0000-4000-8000-000000006501")!
+            let runningBack = UUID(uuidString: "00000000-0000-4000-8000-000000006502")!
+            let receiver = UUID(uuidString: "00000000-0000-4000-8000-000000006503")!
+            func play(
+                _ result: SnapResult,
+                yards: Int = 0,
+                quarter: Int = 4,
+                yardLine: Int = 25,
+                targetID: UUID? = nil,
+                playType: OffensivePlayType = .pass
+            ) -> PlayRecord {
+                PlayRecord(
+                    situation: Situation(yardLine: yardLine, quarter: quarter),
+                    offensiveCall: OffensiveCall(playType: playType),
+                    defensiveCall: DefensiveCall(coverage: .zoneUnder),
+                    outcome: SnapOutcome(
+                        result: result,
+                        yards: yards,
+                        secondsElapsed: 4,
+                        matchups: [],
+                        targetID: targetID
+                    ),
+                    callInTriggers: []
+                )
+            }
+            let detailed = GameRecord(
+                homeScore: 31,
+                awayScore: 10,
+                drives: [DriveRecord(
+                    offense: .home,
+                    plays: [
+                        play(.fieldGoalGood, yardLine: 60, playType: .fieldGoal),
+                        play(.touchdown, yards: 45, quarter: 5, targetID: receiver),
+                        play(.gain, yards: 8, targetID: tightEnd),
+                        play(.gain, yards: 7, targetID: runningBack),
+                        play(.incompletion, targetID: receiver),
+                    ],
+                    ending: .touchdown,
+                    pointsScored: 7,
+                    startYardLine: 25
+                )],
+                tier: .pro
+            )
+            let ordinary = GameRecord(homeScore: 20, awayScore: 10, drives: [], tier: .college)
+            let postseason = GameRecord(homeScore: 34, awayScore: 14, drives: [], tier: .college)
+            let bestWorst = GameRecord(homeScore: 27, awayScore: 7, drives: [], tier: .pro)
+            let measured = CalibrationHarness.measure([
+                CalibrationHarness.SampledGame(
+                    record: detailed,
+                    homeSkill: 99,
+                    awaySkill: 40,
+                    positions: [tightEnd: .tightEnd, runningBack: .runningBack,
+                                receiver: .wideReceiver],
+                    context: .nonConferenceMismatch
+                ),
+                CalibrationHarness.SampledGame(
+                    record: ordinary,
+                    homeSkill: 74,
+                    awaySkill: 72,
+                    positions: [:],
+                    context: .powerConference
+                ),
+                CalibrationHarness.SampledGame(
+                    record: postseason,
+                    homeSkill: 76,
+                    awaySkill: 73,
+                    positions: [:],
+                    context: .postseason
+                ),
+                CalibrationHarness.SampledGame(
+                    record: bestWorst,
+                    homeSkill: 84,
+                    awaySkill: 70,
+                    positions: [:],
+                    context: .bestVsWorst
+                ),
+            ])
+
+            expectClose(measured["FG percentage, 50+ yards"]?.value ?? -1, 1, 1e-9)
+            expectClose(measured["touchdowns of 40+ yards per game"]?.value ?? -1, 1.0 / 3, 1e-9)
+            expectClose(measured["overtime rate"]?.value ?? -1, 1.0 / 3, 1e-9)
+            expectClose(measured["TE target share"]?.value ?? -1, 0.25, 1e-9)
+            expectClose(measured["RB target share"]?.value ?? -1, 0.25, 1e-9)
+            expectClose(measured["max single-receiver target share"]?.value ?? -1, 0.5, 1e-9)
+            expectClose(measured["best-vs-worst win rate"]?.value ?? -1, 1, 1e-9)
+            expectClose(measured["blowout rate, non-conference mismatch"]?.value ?? -1, 1, 1e-9)
+            expectClose(measured["blowout rate, power conference game"]?.value ?? -1, 0, 1e-9)
+            expectClose(measured["average margin, non-conference mismatch"]?.value ?? -1, 21, 1e-9)
+            expectClose(measured["average margin, power conference game"]?.value ?? -1, 10, 1e-9)
+            expectClose(measured["average margin, postseason"]?.value ?? -1, 20, 1e-9)
+            expectClose(measured["overtime settled in one period"]?.value ?? -1, 1, 1e-9)
+        }
+
         test("the harness is reproducible from its seeds") {
             let first = CalibrationHarness.run(tier: .pro,
                                                seeds: Array(CalibrationHarness.tuningSeeds.prefix(2)))
@@ -314,6 +414,14 @@ func runCalibrationTests() {
                 expectEqual(report.results.count, declared.count,
                             "\(tier.rawValue) declares \(declared.count) bands and the harness "
                                 + "reported on \(report.results.count)")
+                if tier == .college {
+                    expectEqual(report.assertions.map(\.metric), ["college tie rate (exactly zero)"])
+                    expect(report.results.contains {
+                        $0.band.metric == "title-capable share of programmes"
+                    }, "college title capability has no holdout measurement")
+                } else {
+                    expect(report.assertions.isEmpty, "the pro report contains a college assertion")
+                }
             }
         }
 

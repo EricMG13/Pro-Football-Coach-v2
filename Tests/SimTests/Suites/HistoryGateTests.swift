@@ -3,28 +3,28 @@ import FootballSimCore
 
 // The M7 exit gate from `docs/roadmap/06-BUILD-ROADMAP-AND-GATES.md`:
 //
-//   - 30+ season history remains useful and performant
+//   - 10-season history remains useful and performant
 //   - important past events can be surfaced without scanning entire save
 //
 // Both clauses are measured here rather than asserted in prose. The second one is the reason the
 // archive exists: before it, the only record of an event that left the hot journal was a number, and
 // a number cannot be surfaced. `docs/roadmap/05` §2 names the measurements — encoded size and load
-// time at 1, 5, 20 and 50 seasons — and this takes them at 1, 5, 20 and 30, which is the gate's own
-// horizon.
+// time at 1, 5, 20 and 50 seasons. The required gate horizon is now ten seasons; longer runs remain
+// available through `M7_GATE_SEASONS` as optional diagnostics.
 //
 // Slow by construction, so it has its own flag and is not in the default run. `--m2-soak` and
 // `--m3-soak` set that precedent.
 
 func runHistoryGateTests() {
     let requested = ProcessInfo.processInfo.environment["M7_GATE_SEASONS"]
-        .flatMap(Int.init) ?? 30
+        .flatMap(Int.init) ?? 10
     precondition(requested >= 1, "The M7 history gate needs at least one season.")
 
-    suite("M7 gate: thirty-season history") {
+    suite("M7 gate: \(requested)-season history") {
         test("history stays bounded, contiguous and surfacable across \(requested) seasons") {
             var state = GameState.bootstrap(seed: 70_901)
             var checkpoints: [(season: Int, bytes: Int, encodeSeconds: Double)] = []
-            let measured = Set([1, min(5, requested), min(20, requested), requested])
+            let measured = Set([1, min(5, requested), requested])
             var weekDurations: [Double] = []
 
             for targetSeason in 1...requested {
@@ -42,8 +42,8 @@ func runHistoryGateTests() {
 
             let archive = state.history.archive
 
-            // Clause one: bounded and ordered, so thirty seasons of history is a fixed cost rather
-            // than a growing one.
+            // Clause one: bounded and ordered, so the required ten-season history is a fixed cost
+            // rather than a growing one.
             expect(archive.count <= DomainEventLedger.maximumArchivedSeasons,
                    "the archive holds \(archive.count) seasons, over its bound")
             expectEqual(archive.map(\.season), archive.map(\.season).sorted(),

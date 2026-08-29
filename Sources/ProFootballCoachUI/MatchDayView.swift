@@ -275,8 +275,7 @@ public struct MatchDayView: View {
             depth: .deep,
             shape: CoachWorldCutCorner.actionSmall
         )
-        .disabled(control?.isEnabled == false)
-        .opacity(control?.isEnabled == false ? CoachWorldTokens.Motion.disabledOpacity : 1)
+        .coachWorldDisabled(control?.isEnabled == false)
         .accessibilityLabel("Speed, \(Int(speedMultiplier)) times")
     }
 
@@ -288,8 +287,7 @@ public struct MatchDayView: View {
         return CommittingAction(title: label) {
             if let control { onControl(control.intentID) }
         }
-        .disabled(control?.isEnabled == false)
-        .opacity(control?.isEnabled == false ? CoachWorldTokens.Motion.disabledOpacity : 1)
+        .coachWorldDisabled(control?.isEnabled == false)
     }
 
     /// `Snap it` before a recorded play exists, `Play on` while its animation runs, `Next snap`
@@ -336,16 +334,14 @@ public struct MatchDayView: View {
                 minHeight: CoachWorldTokens.Shape.minimumTarget
             )
         }
-        .foregroundStyle(control?.isSelected == true
-            ? palette.actionPrimary.color : palette.contentPrimary.color)
+        .foregroundStyle(palette.contentPrimary.color)
         .coachWorldFloodlitPanel(
             fill: CoachWorldTokens.Floodlit.roomDeep.color.opacity(0.86),
             border: Color.white.opacity(CoachWorldTokens.Glass.line),
             depth: .deep,
             shape: CoachWorldCutCorner.actionSmall
         )
-        .disabled(control?.isEnabled == false)
-        .opacity(control?.isEnabled == false ? CoachWorldTokens.Motion.disabledOpacity : 1)
+        .coachWorldDisabled(control?.isEnabled == false)
         .accessibilityLabel(label ?? presentation.title)
         .accessibilityAddTraits(control?.isSelected == true ? .isSelected : [])
     }

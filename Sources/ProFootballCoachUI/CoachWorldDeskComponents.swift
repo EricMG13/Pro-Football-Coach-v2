@@ -114,6 +114,7 @@ enum CoachWorldFloodlitPanelDepth {
 
 public struct CoachWorldFloodlitStage<Content: View>: View {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
 
     let palette: CoachWorldTokens.Palette
     let register: CoachWorldRegister
@@ -149,9 +150,13 @@ public struct CoachWorldFloodlitStage<Content: View>: View {
         ZStack {
             palette.page.color
             if let chrome {
-                CoachWorldWorldBackdrop(world: chrome.world, palette: palette)
+                CoachWorldWorldBackdrop(
+                    world: chrome.world,
+                    palette: palette,
+                    showsDetail: !reduceTransparency
+                )
             } else if register == .desk {
-                CoachWorldFloodlitBackdrop(palette: palette)
+                CoachWorldFloodlitBackdrop(palette: palette, showsDetail: !reduceTransparency)
             }
 
             if let chrome {
@@ -165,18 +170,20 @@ public struct CoachWorldFloodlitStage<Content: View>: View {
                 content()
             }
 
-            if drawsWorld, !reduceTransparency {
+            if drawsWorld, !reduceTransparency, contrast != .increased {
                 CoachWorldGrainOverlay()
             }
         }
         .foregroundStyle(palette.contentPrimary.color)
         .preferredColorScheme(.dark)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("floodlit-stage")
     }
 }
 
 private struct CoachWorldFloodlitBackdrop: View {
     let palette: CoachWorldTokens.Palette
+    let showsDetail: Bool
 
     var body: some View {
         GeometryReader { geometry in
@@ -187,44 +194,46 @@ private struct CoachWorldFloodlitBackdrop: View {
                     endPoint: .bottomTrailing
                 )
 
-                RadialGradient(
-                    colors: [CoachWorldTokens.Floodlit.lamp.color.opacity(0.22), .clear],
-                    center: UnitPoint(x: 0.78, y: 0.02),
-                    startRadius: 0,
-                    endRadius: geometry.size.width * 0.52
-                )
-
-                Canvas { context, size in
-                    var pitch = Path()
-                    pitch.move(to: CGPoint(x: size.width * 0.18, y: size.height * 0.42))
-                    pitch.addLine(to: CGPoint(x: size.width * 0.86, y: size.height * 0.42))
-                    pitch.addLine(to: CGPoint(x: size.width * 1.08, y: size.height * 1.02))
-                    pitch.addLine(to: CGPoint(x: size.width * -0.08, y: size.height * 1.02))
-                    pitch.closeSubpath()
-                    context.fill(
-                        pitch,
-                        with: .linearGradient(
-                            Gradient(colors: [
-                                palette.fieldTurf.color.opacity(0.12),
-                                palette.fieldTurf.color.opacity(0.34),
-                            ]),
-                            startPoint: CGPoint(x: size.width / 2, y: size.height * 0.42),
-                            endPoint: CGPoint(x: size.width / 2, y: size.height)
-                        )
+                if showsDetail {
+                    RadialGradient(
+                        colors: [CoachWorldTokens.Floodlit.lamp.color.opacity(0.22), .clear],
+                        center: UnitPoint(x: 0.78, y: 0.02),
+                        startRadius: 0,
+                        endRadius: geometry.size.width * 0.52
                     )
 
-                    for index in 0..<7 {
-                        let progress = CGFloat(index) / 6
-                        let y = size.height * (0.47 + progress * 0.48)
-                        let inset = size.width * (0.16 - progress * 0.19)
-                        var line = Path()
-                        line.move(to: CGPoint(x: inset, y: y))
-                        line.addLine(to: CGPoint(x: size.width - inset, y: y))
-                        context.stroke(
-                            line,
-                            with: .color(palette.fieldLine.color.opacity(0.07)),
-                            lineWidth: CoachWorldTokens.Shape.hairline
+                    Canvas { context, size in
+                        var pitch = Path()
+                        pitch.move(to: CGPoint(x: size.width * 0.18, y: size.height * 0.42))
+                        pitch.addLine(to: CGPoint(x: size.width * 0.86, y: size.height * 0.42))
+                        pitch.addLine(to: CGPoint(x: size.width * 1.08, y: size.height * 1.02))
+                        pitch.addLine(to: CGPoint(x: size.width * -0.08, y: size.height * 1.02))
+                        pitch.closeSubpath()
+                        context.fill(
+                            pitch,
+                            with: .linearGradient(
+                                Gradient(colors: [
+                                    palette.fieldTurf.color.opacity(0.12),
+                                    palette.fieldTurf.color.opacity(0.34),
+                                ]),
+                                startPoint: CGPoint(x: size.width / 2, y: size.height * 0.42),
+                                endPoint: CGPoint(x: size.width / 2, y: size.height)
+                            )
                         )
+
+                        for index in 0..<7 {
+                            let progress = CGFloat(index) / 6
+                            let y = size.height * (0.47 + progress * 0.48)
+                            let inset = size.width * (0.16 - progress * 0.19)
+                            var line = Path()
+                            line.move(to: CGPoint(x: inset, y: y))
+                            line.addLine(to: CGPoint(x: size.width - inset, y: y))
+                            context.stroke(
+                                line,
+                                with: .color(palette.fieldLine.color.opacity(0.07)),
+                                lineWidth: CoachWorldTokens.Shape.hairline
+                            )
+                        }
                     }
                 }
             }
@@ -264,6 +273,7 @@ enum CoachWorldActionRole {
 
 struct CoachWorldActionButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
+    @Environment(\.colorSchemeContrast) private var contrast
 
     let role: CoachWorldActionRole
     let palette: CoachWorldTokens.Palette
@@ -294,7 +304,7 @@ struct CoachWorldActionButtonStyle: ButtonStyle {
                 )
             }
             .clipShape(controlShape)
-            .opacity(isEnabled ? 1 : 0.45)
+            .opacity(isEnabled ? 1 : CoachWorldTokens.Motion.resolvedDisabledOpacity(for: contrast))
     }
 
     private var appearance: (fill: Color, foreground: Color, border: Color) {
@@ -323,16 +333,27 @@ struct CoachWorldActionButtonStyle: ButtonStyle {
     }
 }
 
+private struct CoachWorldDisabledStateModifier: ViewModifier {
+    @Environment(\.colorSchemeContrast) private var contrast
+    let isDisabled: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .disabled(isDisabled)
+            .opacity(isDisabled ? CoachWorldTokens.Motion.resolvedDisabledOpacity(for: contrast) : 1)
+    }
+}
+
 struct CoachWorldRouteButton: View {
     let title: String
     let isCurrent: Bool
     let palette: CoachWorldTokens.Palette
-    /// Selection furniture speaks in the programme's colour when a screen has one. Defaulting to
-    /// the tier token keeps every screen that has not been given an identity unchanged.
+    /// Retained for source compatibility while legacy strips migrate to the shared navigator.
+    /// Current position is always ink; a generated identity can be gold-adjacent.
     var selection: CoachWorldTokens.ColorValue?
     let action: () -> Void
 
-    private var selectionColour: CoachWorldTokens.ColorValue { selection ?? palette.collegeIdentity }
+    private var selectionColour: CoachWorldTokens.ColorValue { palette.contentPrimary }
 
     var body: some View {
         Button(action: action) {
@@ -368,16 +389,21 @@ struct CoachWorldRouteButton: View {
 
 private struct CoachWorldFloodlitPanelModifier<S: Shape>: ViewModifier {
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
 
     let fill: Color
     let border: Color
     let depth: CoachWorldFloodlitPanelDepth
     let shape: S
 
+    private var usesOpaqueFill: Bool {
+        reduceTransparency || contrast == .increased
+    }
+
     func body(content: Content) -> some View {
         content
             .background {
-                if reduceTransparency {
+                if usesOpaqueFill {
                     shape.fill(fill)
                 } else {
                     shape
@@ -394,13 +420,26 @@ private struct CoachWorldFloodlitPanelModifier<S: Shape>: ViewModifier {
                 }
             }
             .overlay {
-                shape.stroke(border, lineWidth: CoachWorldTokens.Shape.hairline)
+                shape.stroke(
+                    usesOpaqueFill
+                        ? CoachWorldTokens.Rule.glass.color(
+                            palette: CoachWorldTokens.dark,
+                            contrast: contrast,
+                            reduceTransparency: reduceTransparency
+                        )
+                        : border,
+                    lineWidth: CoachWorldTokens.Shape.hairline
+                )
             }
             .clipShape(shape)
     }
 }
 
 extension View {
+    func coachWorldDisabled(_ isDisabled: Bool) -> some View {
+        modifier(CoachWorldDisabledStateModifier(isDisabled: isDisabled))
+    }
+
     /// - Parameter shape: defaults to `.panel` (4/22/4/22). Match Day furniture passes one of the
     ///   `04` section 6.1b presets — `.card` for the scorebug and the call-in panels, `.playCard`
     ///   for call-in options — so one modifier serves both registers.

@@ -54,8 +54,7 @@ struct FloodlitLabel3: View {
 
 // MARK: - 2. Row / chip
 
-/// Tables, lists and selectors. Selection is a gold border, never a fill — a filled row competes
-/// with the committing action, and there is only one of those per screen.
+/// Tables, lists and selectors. Selection is an ink border, never gold and never a fill.
 struct FloodlitRow<Content: View>: View {
     private let isSelected: Bool
     private let palette: CoachWorldTokens.Palette
@@ -101,7 +100,7 @@ struct FloodlitRow<Content: View>: View {
             .overlay {
                 CoachWorldCutCorner.row.stroke(
                     isSelected
-                        ? palette.actionPrimary.color
+                        ? palette.contentPrimary.color
                         : Color.white.opacity(Pattern.rowHairline),
                     lineWidth: CoachWorldTokens.Shape.hairline
                 )
@@ -477,8 +476,7 @@ struct FloodlitCommittingAction: View {
 
     var body: some View {
         CommittingAction(title: title, action: action)
-            .disabled(!isEnabled)
-            .opacity(isEnabled ? 1 : CoachWorldTokens.Motion.disabledOpacity)
+            .coachWorldDisabled(!isEnabled)
     }
 }
 

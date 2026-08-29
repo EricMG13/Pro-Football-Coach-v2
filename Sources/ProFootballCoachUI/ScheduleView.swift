@@ -182,7 +182,7 @@ public struct ScheduleView: View, CoachWorldChromedSurface {
             .overlay {
                 if game.isControlled {
                     CoachWorldCutCorner.row.stroke(
-                        palette.actionPrimary.color, lineWidth: CoachWorldTokens.Shape.hairline
+                        palette.contentPrimary.color, lineWidth: CoachWorldTokens.Shape.hairline
                     )
                 }
             }

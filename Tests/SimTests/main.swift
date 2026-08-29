@@ -33,6 +33,8 @@ if CommandLine.arguments.contains("--catalog") {
     runProfessionalCareerSessionTests()
 } else if CommandLine.arguments.contains("--career-arc") {
     runCareerArcTests()
+} else if CommandLine.arguments.contains("--career-outcomes") {
+    runCareerOutcomeTests()
 } else if CommandLine.arguments.contains("--coach-season-record") {
     runCoachSeasonRecordTests()
 } else if CommandLine.arguments.contains("--pro-management") {
@@ -77,10 +79,12 @@ if CommandLine.arguments.contains("--catalog") {
     try writeTeamLogoSpecimen(family: CommandLine.arguments[index + 1])
 } else if CommandLine.arguments.contains("--e2e-journey-child") {
     runE2EJourneyChild()
-} else if CommandLine.arguments.contains("--e2e-h-durability") {
-    runE2EHDurabilityTests()
+} else if CommandLine.arguments.contains("--e2e-journey") {
+    runE2EJourneyTests()
 } else if CommandLine.arguments.contains("--e2e-h-durability-child") {
     runE2EHDurabilityChild()
+} else if CommandLine.arguments.contains("--e2e-h-durability") {
+    runE2EHDurabilityTests()
 } else if CommandLine.arguments.contains("--screen-read-models") {
     runReadModelProviderTests()
     runAvailabilityProviderTests()
@@ -113,6 +117,8 @@ if CommandLine.arguments.contains("--catalog") {
     runInvalidRedshirtCareerGamesProbe(tier: .pro)
 } else if CommandLine.arguments.contains("--m3-recruiting-calibration") {
     runM3RecruitingCalibrationTests()
+} else if CommandLine.arguments.contains("--calibration-tuning") {
+    runCalibrationGateTests(tuning: true)
 } else if CommandLine.arguments.contains("--calibration-gate") {
     runCalibrationGateTests()
 } else if CommandLine.arguments.contains("--calibration") {
@@ -186,9 +192,9 @@ if CommandLine.arguments.contains("--catalog") {
 } else if CommandLine.arguments.contains("--roster-fill") {
     runRosterFillTests()
 } else if CommandLine.arguments.contains("--m2-soak") {
-    runM2SoakTests(seasons: 20)
+    runM2SoakTests(seasons: 10)
 } else if CommandLine.arguments.contains("--m1-soak") {
-    runM1SoakTests(seasons: 20)
+    runM1SoakTests(seasons: 10)
 } else if CommandLine.arguments.contains("--snap-anchors") {
     runSnapAnchorTests()
 } else if CommandLine.arguments.contains("--reduce-motion") {

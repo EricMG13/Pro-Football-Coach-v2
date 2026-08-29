@@ -34,6 +34,8 @@ public struct ProManagementReadModel: Sendable, Equatable {
     public struct PlayerRow: Identifiable, Sendable, Equatable {
         public let id: UUID
         public let name: String
+        public let person: CoachWorldPersonReference
+        public let number: Int
         public let position: String
         public let rosterKind: String
         public let capHit: Int
@@ -43,6 +45,8 @@ public struct ProManagementReadModel: Sendable, Equatable {
         public init(
             id: UUID,
             name: String,
+            person: CoachWorldPersonReference,
+            number: Int,
             position: String,
             rosterKind: String,
             capHit: Int,
@@ -51,6 +55,8 @@ public struct ProManagementReadModel: Sendable, Equatable {
         ) {
             self.id = id
             self.name = name
+            self.person = person
+            self.number = number
             self.position = position
             self.rosterKind = rosterKind
             self.capHit = capHit
@@ -63,6 +69,9 @@ public struct ProManagementReadModel: Sendable, Equatable {
         public let id: UUID
         public let playerID: UUID
         public let playerName: String
+        public let person: CoachWorldPersonReference
+        public let number: Int?
+        public let position: String
         public let status: ProContractNegotiationStatus
         public let currentOffer: Contract
         public let offerCount: Int
@@ -72,6 +81,9 @@ public struct ProManagementReadModel: Sendable, Equatable {
             id: UUID,
             playerID: UUID,
             playerName: String,
+            person: CoachWorldPersonReference,
+            number: Int?,
+            position: String,
             status: ProContractNegotiationStatus,
             currentOffer: Contract,
             offerCount: Int,
@@ -80,6 +92,9 @@ public struct ProManagementReadModel: Sendable, Equatable {
             self.id = id
             self.playerID = playerID
             self.playerName = playerName
+            self.person = person
+            self.number = number
+            self.position = position
             self.status = status
             self.currentOffer = currentOffer
             self.offerCount = offerCount

@@ -473,7 +473,10 @@ private func codingKeyRepresentableTypes(in files: [(path: String, text: String)
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             guard trimmed.hasPrefix("extension ") else { continue }
             let rest = trimmed.dropFirst("extension ".count).drop(while: { $0 == " " })
-            conformed.insert(String(rest.prefix { $0.isLetter || $0.isNumber || $0 == "_" }))
+            // The last dotted component, not the first: `extension Outer.Inner:` names `Inner`,
+            // and reading `Outer` meant nesting a key type silently exempted it from this scan.
+            let name = rest.prefix { $0.isLetter || $0.isNumber || $0 == "_" || $0 == "." }
+            conformed.insert(String(name.split(separator: ".").last ?? ""))
         }
     }
     return conformed
@@ -1036,22 +1039,17 @@ func runContractTests() {
             // owner, not resolved by this test).
             expect(Chrome.familySize > 0 && Chrome.familySize < 20,
                    "family label size drifted to a value that cannot be a micro-label")
-            expect(Chrome.jumpToSymbol > 0 && Chrome.jumpToSymbol < 20,
-                   "jump-to symbol size drifted to a value that cannot sit in a micro-row")
             expect(Chrome.siblingSize > 0 && Chrome.siblingSize < 20,
                    "sibling link size drifted to a value that cannot be a micro-label")
-            // The overlay and its opener stay in the composition; the control that calls the
-            // opener moved into the identity band on 2026-08-23 when the icon rail was removed.
-            // Both halves are asserted, in the file that now holds each — removing a control the
-            // band already duplicated must not remove the only route to every other family, and a
-            // check that looked in one file would have passed while the route disappeared.
-            expect(composition.contains("SurfaceRegistryOverlay")
-                       && composition.contains("onOpenRegistry")
-                       && composition.contains("availableScreens"),
-                   "the surface registry overlay and its opener must stay in the composition")
-            expect(floodlitChrome.contains("ALL TASKS")
-                       && floodlitChrome.contains("onOpenRegistry"),
-                   "the identity band must carry the control that opens the task registry")
+            expect(Chrome.familyPanelWidth == 250 && Chrome.hostPanelWidth == 232,
+                   "the two navigator panels must retain their measured Press Box widths")
+            expect(floodlitChrome.contains("Switch family, ")
+                       && floodlitChrome.contains("FloodlitFamilySwitcher")
+                       && floodlitChrome.contains("FloodlitHostPanel"),
+                   "the identity band must expose truthful family and alias navigation")
+            expect(!composition.contains("SurfaceRegistryOverlay")
+                       && !floodlitChrome.contains("ALL TASKS"),
+                   "the family switcher must replace the retired all-task index screen")
             expect(hq.contains("noDecision")
                        && hq.contains("preparationNeeded")
                        && hq.contains("isEnabled: canAdvance"),
@@ -2279,6 +2277,48 @@ func runContractTests() {
             }
         }
 
+        test("a team's yardage identity survives a negative passing net") {
+            // `WorldIntegrity` requires `passingYards + rushingYards == offensiveYards` for every
+            // recorded result. Sack yardage is negative and the detailed builder adds it to both
+            // the team's total and its passing line, so a side that is sacked more than it gains
+            // through the air nets negative passing -- which real football reports as-is, team
+            // passing yards being net of sacks.
+            //
+            // Clamping each field independently broke the identity rather than the sign: passing
+            // floored at zero while the total kept the loss, and the game the coach had just played
+            // could not be recorded at all.
+            let statistics = TeamGameStatistics(
+                points: 17,
+                offensiveYards: 95,
+                passingYards: -5,
+                rushingYards: 100,
+                turnovers: 1
+            )
+            expectEqual(
+                statistics.passingYards + statistics.rushingYards,
+                statistics.offensiveYards,
+                "a negative passing net broke the yardage identity integrity enforces"
+            )
+
+            // The season total is the sum of games, so it inherits the same arithmetic. Its
+            // accumulator never clamped; its initialiser did, which made the two disagree.
+            var season = TeamSeasonStatistics()
+            season.record(statistics)
+            expectEqual(
+                season.passingYards + season.rushingYards,
+                season.offensiveYards,
+                "a season total broke the identity its own accumulator preserves"
+            )
+            expectEqual(
+                TeamSeasonStatistics(
+                    games: 1, points: 17, offensiveYards: 95, passingYards: -5, rushingYards: 100,
+                    turnovers: 1
+                ).passingYards,
+                -5,
+                "an explicitly built season total floored a legitimate negative passing net"
+            )
+        }
+
         test("every dictionary key type in the engine encodes as a JSON object") {
             // Swift keys a JSON object only when the key is String, Int or CodingKeyRepresentable.
             // Anything else encodes as a flat [key, value, key, value] array in DICTIONARY ORDER,
@@ -2640,9 +2680,9 @@ func runContractTests() {
             let root = swiftFiles(under: "Sources/CoachWorldApp")
                 .first { $0.path.hasSuffix("/CoachWorldAppRootView.swift") }?.text ?? ""
             guard let start = root.range(
-                of: "private func navigate(_ destination: CoachWorldScreenID, in store: CoachWorldStore) {"
+                of: "private func navigate("
             ), let end = root.range(
-                of: "\n    private func closeCareer(",
+                of: "\n    private var currentChromeScreen:",
                 range: start.upperBound..<root.endIndex
             ) else {
                 expect(false, "could not locate navigate(_:in:) to scan it")

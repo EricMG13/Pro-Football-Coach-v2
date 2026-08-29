@@ -141,6 +141,60 @@ func runProManagementTests() {
             expectEqual(restored, accepted.state)
         }
 
+        test("delegated contract negotiations settle an existing legal offer deterministically") {
+            var state = GameState.bootstrap(seed: 60_010)
+            let teamID = state.proTeams.ids[0]
+            let coachID = state.proTeams[teamID]!.staffIDs.first {
+                state.staff[$0]?.role == .headCoach
+            }!
+            let staffID = state.proTeams[teamID]!.staffIDs.first {
+                state.staff[$0]?.role != .headCoach
+            }!
+            let playerID = state.proTeams[teamID]!.rosterIDs[0]
+            state.career = CareerControlState(pro: ProCareerControl(
+                coachID: coachID,
+                teamID: teamID,
+                startedAt: state.calendar
+            ))
+            state.careerArc = CareerArcState(
+                currentJob: CareerJob(
+                    organisationID: teamID,
+                    tier: .professional,
+                    startedAt: state.calendar
+                ),
+                status: .employed
+            )
+            let opening = try ProManagementSystem.beginNegotiation(
+                playerID: playerID,
+                teamID: teamID,
+                offer: state.players[playerID]!.contract!,
+                deadline: state.calendar.advancedWeek(),
+                in: state
+            )
+            state = opening.state
+            expect(CareerControlSystem.setProResponsibility(
+                .contractNegotiations,
+                owner: .delegated(staffID: staffID),
+                in: &state
+            ))
+
+            let first = try ProCareerDelegationSystem.process(in: state)
+            let second = try ProCareerDelegationSystem.process(in: state)
+            expectEqual(first, second)
+            expectEqual(first.settledNegotiationIDs, [opening.negotiation.id])
+            expectEqual(
+                first.state.proMarket.contractNegotiations.first?.status,
+                .accepted
+            )
+            expect(first.state.career.delegatedActivities.contains { activity in
+                activity.area == .professional(.contractNegotiations)
+                    && activity.actorID == staffID
+                    && activity.action == .contractNegotiation
+                    && activity.effect == .actionsCommitted(count: 1)
+            })
+            expect(WorldIntegrity.check(first.state).isValid)
+        }
+
         test("closed negotiation history survives a later player release") {
             var state = GameState.bootstrap(seed: 60_009)
             let teamID = state.proTeams.ids[0]

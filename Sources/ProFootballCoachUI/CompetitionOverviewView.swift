@@ -128,7 +128,7 @@ public struct CompetitionOverviewView: View, CoachWorldChromedSurface {
                 Text("\(row.rank)")
                     .coachWorldFigure(CoachWorldTokens.DisplaySize.row, weight: .semibold)
                     .foregroundStyle(
-                        row.isControlled ? palette.actionPrimary.color : palette.contentQuiet.color
+                        row.isControlled ? palette.contentPrimary.color : palette.contentQuiet.color
                     )
                     .frame(width: CompetitionMetric.rankColumn, alignment: .leading)
                 HStack(spacing: CoachWorldTokens.Gap.xs) {
@@ -166,7 +166,7 @@ public struct CompetitionOverviewView: View, CoachWorldChromedSurface {
             .overlay {
                 if row.isControlled {
                     CoachWorldCutCorner.row.stroke(
-                        palette.actionPrimary.color, lineWidth: CoachWorldTokens.Shape.hairline
+                        palette.contentPrimary.color, lineWidth: CoachWorldTokens.Shape.hairline
                     )
                 }
             }
