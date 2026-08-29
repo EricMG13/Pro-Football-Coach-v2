@@ -1072,6 +1072,24 @@ func runDesignContractTests() {
                        + "bundle, is what failed")
 
             let fontDir = root.appendingPathComponent("Sources/ProFootballCoachUI/Resources/Fonts")
+
+            // declared->shipped (the `missing` check below) is only one direction: `declared` comes
+            // exclusively from project.yml, so a .ttf dropped into Resources/Fonts but never
+            // declared would never enter it. SwiftPM's `resources: .process("Resources")` copies the
+            // whole Fonts directory into the built bundle independent of project.yml, so an
+            // undeclared, unlicensed font would ship as inert dead weight unless the directory
+            // itself -- not the declaration -- is read as the source of truth for what ships.
+            guard let shippedEntries =
+                try? FileManager.default.contentsOfDirectory(atPath: fontDir.path)
+            else {
+                expect(false, "Sources/ProFootballCoachUI/Resources/Fonts is unreadable")
+                return
+            }
+            let shipped = Set(shippedEntries.filter { $0.hasSuffix(".ttf") })
+            expect(!shipped.isEmpty,
+                   "Resources/Fonts holds no .ttf files -- an unreadable or empty directory must "
+                       + "fail loudly here, not pass every check below vacuously")
+
             let missing = declared.filter {
                 !FileManager.default.fileExists(atPath: fontDir.appendingPathComponent($0).path)
             }
@@ -1079,7 +1097,15 @@ func runDesignContractTests() {
                    "UIAppFonts declares \(missing.count) file(s) that do not ship: "
                        + "\(missing.sorted().joined(separator: ", "))")
 
-            let families = Set(declared.compactMap { $0.split(separator: "-").first.map(String.init) })
+            let undeclared = shipped.subtracting(declared)
+            expect(undeclared.isEmpty,
+                   "\(undeclared.count) file(s) ship in Resources/Fonts but are not declared in "
+                       + "UIAppFonts: \(undeclared.sorted().joined(separator: ", ")). SwiftPM copies "
+                       + "the whole Resources directory into the bundle regardless of project.yml, "
+                       + "so an undeclared font ships as unlicensed dead weight -- declare it in "
+                       + "INFOPLIST_KEY_UIAppFonts or delete the file.")
+
+            let families = Set(shipped.compactMap { $0.split(separator: "-").first.map(String.init) })
             let unlicensed = families.filter {
                 !FileManager.default.fileExists(
                     atPath: fontDir.appendingPathComponent("OFL-\($0).txt").path)
