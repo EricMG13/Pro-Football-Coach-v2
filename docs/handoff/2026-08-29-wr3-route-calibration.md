@@ -70,6 +70,22 @@ coefficient question. Fitting several constants at once against seeds A would ov
 ladder, and `CalibrationHarness` states the rule at its declaration site: "If A and B disagree, the
 model is overfitted and the answer is a better model, never a wider band."
 
+## Two-tier: target shares agree, scoring does not
+
+Run after the commit (54 tests, 84 checks, 1 failure):
+
+- **All five target-share buckets pass on both tiers.** The measured constants above are confirmed
+  -- this was the open question the commit named, and it is closed.
+- **`fourth-quarter scoring share [pro]` fails**: theta=-0.1902, CI90=[-0.3977, 0.0172],
+  band=[-0.3216, 0.3216]. Theta is inside the band; the confidence interval is not.
+
+That is the same defect one layer wider. The detailed engine now scores more, which moved its Q4
+distribution, while the abstracted model's own scoring constants (`collegeBaselinePoints`,
+`proBaselinePoints` and the yardage baselines) were not re-derived. The target shares were re-derived
+from the detailed engine and pass; the scoring constants were not and do not. Whatever fixes the
+calibration bands has to re-derive these in the same pass, or the two models will keep disagreeing
+about scoring even once the detailed one is back in band.
+
 ## Note on the verification lane
 
 `runCalibrationGateTests` is reachable only from `--calibration-gate` and `--calibration-tuning`. The
