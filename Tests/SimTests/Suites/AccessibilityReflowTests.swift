@@ -390,4 +390,65 @@ func runAccessibilityReflowTests() {
                    "the predicate the real assertion uses must catch a planted double paint")
         }
     }
+
+    suite("Forge Field type floors (06.2a, 04 section 7)") {
+        // The source states the scale in fixed pixels and ships no accessibility token file. That
+        // is a gap in the source, not a decision against Dynamic Type: 04 section 7's contract is a
+        // floor. Enumerated over every case by construction, so a step added later is covered the
+        // day it is added rather than the day someone remembers it.
+        test("every step's default equals the 04 section 6.2a value") {
+            expectEqual(ForgeFieldType.Step.allCases.count, 11,
+                        "04 section 6.2a states eleven steps; the enum must hold all of them")
+            expectEqual(ForgeFieldType.Step.ceremony.points, 120)
+            expectEqual(ForgeFieldType.Step.fixture.points, 62)
+            expectEqual(ForgeFieldType.Step.title.points, 34)
+            expectEqual(ForgeFieldType.Step.heading.points, 26)
+            expectEqual(ForgeFieldType.Step.panel.points, 19)
+            expectEqual(ForgeFieldType.Step.chrome.points, 14)
+            expectEqual(ForgeFieldType.Step.row.points, 13.5)
+            expectEqual(ForgeFieldType.Step.prose.points, 12.5)
+            expectEqual(ForgeFieldType.Step.proseMin.points, 11.5)
+            expectEqual(ForgeFieldType.Step.figure.points, 11)
+            expectEqual(ForgeFieldType.Step.columnHead.points, 9)
+        }
+
+        test("no step sits below its stated floor") {
+            for step in ForgeFieldType.Step.allCases {
+                expect(step.points >= 9,
+                       "\(step) is \(step.points) pt — 04 section 6.2a's absolute floor is 9")
+                if step.family == .prose {
+                    expect(step.points >= 11.5,
+                           "\(step) is prose at \(step.points) pt — the prose floor is 11.5")
+                }
+                if step.family == .record {
+                    expect(step.points >= 11,
+                           "\(step) is mono at \(step.points) pt — below 11 it is data, not prose")
+                }
+            }
+        }
+
+        // `textStyle` is non-optional, so "every step scales" is a compile-time guarantee rather
+        // than a test that could never fail. What a test CAN catch is a step inserted at the wrong
+        // size: the enum is declared largest-first and the ladder must descend with it.
+        test("the steps descend in declaration order") {
+            let sizes = ForgeFieldType.Step.allCases.map(\.points)
+            expectEqual(sizes, sizes.sorted(by: >),
+                        "04 section 6.2a's steps are declared largest-first: \(sizes) is out of "
+                            + "order, so a step has been inserted at the wrong size")
+        }
+
+        // The by-construction half for faces: `ForgeFieldFonts.registerAll` is what Task 3 built
+        // to make the ten bundled binaries resolvable through CoreText, so the shipping set below
+        // comes from asking it what it actually resolved -- never a hand-typed list of ten names,
+        // which would be a second place to update and could drift from what is really bundled. A
+        // step naming a face that is absent, misspelled, or never registered fails here.
+        test("every step's face is a face that actually ships") {
+            let shipped = ForgeFieldFonts.registerAll.resolvedPostScriptNames
+            for step in ForgeFieldType.Step.allCases {
+                expect(shipped.contains(step.faceName),
+                       "\(step) names face \"\(step.faceName)\", which is not among the faces "
+                           + "ForgeFieldFonts actually registered: \(shipped.sorted())")
+            }
+        }
+    }
 }
