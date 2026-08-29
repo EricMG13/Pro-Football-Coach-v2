@@ -1053,4 +1053,41 @@ func runDesignContractTests() {
                         "the three parts must still tile the install floor exactly")
         }
     }
+
+    suite("Forge Field fonts (06.2a)") {
+        // 04 6.2 gates a bundled face on its licence being verified, and the app is offline with
+        // zero third-party dependencies -- a webfont @import is not an option. So the binaries ship,
+        // and each one ships beside its licence. Enumerated from project.yml rather than hand-listed:
+        // a family added to the declaration is covered the day it is added.
+        test("every family declared in UIAppFonts ships a binary and a licence") {
+            let root = packageRoot()
+            let ymlURL = root.appendingPathComponent("App/project.yml")
+            guard let yml = try? String(contentsOf: ymlURL, encoding: .utf8) else {
+                expect(false, "App/project.yml is unavailable")
+                return
+            }
+            let declared = matches(of: "Fonts/([A-Za-z]+-[A-Za-z]+\\.ttf)", in: yml)
+            expect(declared.count >= 10,
+                   "parsed only \(declared.count) font files from project.yml — the parser, not the "
+                       + "bundle, is what failed")
+
+            let fontDir = root.appendingPathComponent("Sources/ProFootballCoachUI/Resources/Fonts")
+            let missing = declared.filter {
+                !FileManager.default.fileExists(atPath: fontDir.appendingPathComponent($0).path)
+            }
+            expect(missing.isEmpty,
+                   "UIAppFonts declares \(missing.count) file(s) that do not ship: "
+                       + "\(missing.sorted().joined(separator: ", "))")
+
+            let families = Set(declared.compactMap { $0.split(separator: "-").first.map(String.init) })
+            let unlicensed = families.filter {
+                !FileManager.default.fileExists(
+                    atPath: fontDir.appendingPathComponent("OFL-\($0).txt").path)
+            }
+            expect(unlicensed.isEmpty,
+                   "\(unlicensed.count) family(ies) ship without a licence file: "
+                       + "\(unlicensed.sorted().joined(separator: ", ")). 04 6.2 gates a bundled "
+                       + "face on its licence being verified, so the licence ships with the binary.")
+        }
+    }
 }
