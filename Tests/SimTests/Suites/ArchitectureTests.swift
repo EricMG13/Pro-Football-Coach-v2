@@ -135,7 +135,11 @@ private let pinnedRootFingerprint: UInt64 = 17_329_441_859_777_191_614
 
 /// Moved when abstracted summaries gained offensive-play counts and tier-specific calibration.
 /// Reproduced in two independent release processes before re-pinning.
-private let pinnedAdvancedRootFingerprint: UInt64 = 11_874_482_299_830_978_402
+/// Moved again on 2026-08-29 with `03` section 1.1a and the `opennessThrowHelp` refit that answers
+/// it: this digest is taken after `WorldScheduler.advanceWeek`, which plays a week of games, so any
+/// change to how a pass resolves reaches it. The other five pins here do not touch a played game and
+/// did not move.
+private let pinnedAdvancedRootFingerprint: UInt64 = 17_575_941_566_237_117_773
 
 /// The professional contract-negotiation ledger (`ProMarketState.contractNegotiations`) is part of
 /// the schema-13 root, but neither pin above ever exercises it: bootstrap starts with it empty, and

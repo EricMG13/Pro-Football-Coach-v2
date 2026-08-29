@@ -39,9 +39,15 @@ import FootballSimCore
 /// four and left the third receiver out. More routes means a different openness set on every pass
 /// snap, so both tiers move, and the pin catching it is the pin doing its job.
 ///
+/// **Then moved a second time in the same change, and the first re-pin was wrong.** The route fix
+/// and the `opennessThrowHelp` refit that answers it are one change in two edits; these were
+/// measured after the first and committed after the second, so they were stale the moment they
+/// landed. Re-pin *last*, after the engine has stopped moving -- a pin measured mid-change records
+/// a state that never ships.
+///
 /// Every value here reproduced across three independent release processes and in debug.
-private let PINNED_PRO_GAME_FINGERPRINT: UInt64 = 4_718_615_544_137_084_975
-private let PINNED_COLLEGE_GAME_FINGERPRINT: UInt64 = 9_010_867_806_927_344_531
+private let PINNED_PRO_GAME_FINGERPRINT: UInt64 = 12_257_335_784_144_783_110
+private let PINNED_COLLEGE_GAME_FINGERPRINT: UInt64 = 8_723_564_083_414_776_503
 
 func runEngineTests() {
     suite("Leverage") {
