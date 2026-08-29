@@ -26,11 +26,12 @@ brief: `docs/reviews/2026-08-09-spec-prompt-v4.md`. Standing rules: `CLAUDE.md`.
 
 ---
 
-## 1. How to read the three classifications
+## 1. How to read the four classifications
 
 | Mark | Meaning | Where the old text lives |
 |---|---|---|
 | `SUPERSEDED-BY <path>` | A new document has **already been written at that same path**, replacing the old one in place. | Git history only. |
+| `SUPERSEDED-BY <reference>` | An **external** reference — a design-tool project, not a path in this tree — has been replaced by another named here. The old reference still exists and is still readable where it lives; it has lost its authority, not its content. | Where it always lived. Not in this repository's history. |
 | **DELETED** | Gone from the tree. Its old path is empty, or re-occupied by a new document named in the row. | Git history. |
 | `RETAINED` | Still at its path, still authoritative. | Unchanged. |
 
@@ -121,7 +122,7 @@ plan — the first plan in this directory that belongs to the rebuild rather tha
 | Reference | Classification | Reason | Where its role lives now |
 |---|---|---|---|
 | **Forge Field**, Claude Design project `8c511c92-3337-4cfb-850c-140a659f3034` | `RETAINED` | Owner-approved 2026-08-29 as the design standard, replacing Press Box. Its grant is scoped exactly as the Press Box grant was: design questions only. | Forge Field decides how a frontend is drawn; `docs/04-UX-AND-DESIGN-SYSTEM.md` remains the canon a repository builder implements against, because this repository cannot open the design tool. `docs/superpowers/specs/2026-08-29-forge-field-standard.md` is the self-sufficient transcription. Changes flow Forge Field → `04` → Swift. |
-| **Press Box**, Claude Design project `3e8bedda-4c56-4be1-8f3a-98f9c2e82d9d` | `SUPERSEDED` | Owner-approved 2026-08-23, superseded 2026-08-29 by Forge Field. Its `AUTHORITY.md` boundary section carries forward verbatim — Forge Field inherits the same limits and overrides no fact, no read model, no legal guardrail and no accessibility floor. | Composition reference and change history. `docs/FRONTEND-CHANGE-LEDGER.md` stays live; see its Part D. |
+| **Press Box**, Claude Design project `3e8bedda-4c56-4be1-8f3a-98f9c2e82d9d` | `SUPERSEDED-BY Forge Field` | Owner-approved 2026-08-23, superseded 2026-08-29 by Forge Field. Its `AUTHORITY.md` boundary section carries forward verbatim — Forge Field inherits the same limits and overrides no fact, no read model, no legal guardrail and no accessibility floor. | Composition reference and change history. `docs/FRONTEND-CHANGE-LEDGER.md` stays live; see its Part D. |
 
 **What the supersession does not change.** Press Box's `AUTHORITY.md` recorded three questions the owner settled on 2026-08-23. Two of them — the register-aware type model, and team identity resolved once at the stage — were decided on their merits and are unaffected by which project holds the grant. The third, refusing team-coloured primary actions, **is** reversed by Forge Field's per-club ember; that reversal is recorded in `docs/superpowers/specs/2026-08-29-forge-field-standard.md` §2.1 with the measured hue collision it carries, so it reads as a decision rather than as drift.
 
