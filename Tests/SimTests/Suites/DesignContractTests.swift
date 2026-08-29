@@ -1,3 +1,5 @@
+import CoreGraphics
+import CoreText
 import Foundation
 @testable import ProFootballCoachUI
 
@@ -1055,57 +1057,30 @@ func runDesignContractTests() {
     }
 
     suite("Forge Field fonts (06.2a)") {
-        // 04 6.2 gates a bundled face on its licence being verified, and the app is offline with
-        // zero third-party dependencies -- a webfont @import is not an option. So the binaries ship,
-        // and each one ships beside its licence. Enumerated from project.yml rather than hand-listed:
-        // a family added to the declaration is covered the day it is added.
-        test("every family declared in UIAppFonts ships a binary and a licence") {
+        // Sources/ProFootballCoachUI/Resources/Fonts is the single source of truth. project.yml is
+        // not involved: fix round 2 (2026-08-29) built the real app and found
+        // INFOPLIST_KEY_UIAppFonts is silently dropped from the built Info.plist -- Xcode's
+        // INFOPLIST_KEY_ mechanism only honours a fixed set of keys, and this is not one of them --
+        // and that it would not have resolved even if it had survived, since SwiftPM nests a
+        // library target's resources in <App>_<Target>.bundle rather than at the app bundle root.
+        // ForgeFieldFonts.swift registers straight from Bundle.module instead, which is where the
+        // files actually are, and this suite proves the registration actually resolves through
+        // CoreText -- not just that the files sit on disk next to a licence.
+        test("every family in Resources/Fonts ships a licence and resolves through CoreText") {
             let root = packageRoot()
-            let ymlURL = root.appendingPathComponent("App/project.yml")
-            guard let yml = try? String(contentsOf: ymlURL, encoding: .utf8) else {
-                expect(false, "App/project.yml is unavailable")
-                return
-            }
-            let declared = matches(of: "Fonts/([A-Za-z]+-[A-Za-z]+\\.ttf)", in: yml)
-            expect(declared.count >= 10,
-                   "parsed only \(declared.count) font files from project.yml — the parser, not the "
-                       + "bundle, is what failed")
-
             let fontDir = root.appendingPathComponent("Sources/ProFootballCoachUI/Resources/Fonts")
 
-            // declared->shipped (the `missing` check below) is only one direction: `declared` comes
-            // exclusively from project.yml, so a .ttf dropped into Resources/Fonts but never
-            // declared would never enter it. SwiftPM's `resources: .process("Resources")` copies the
-            // whole Fonts directory into the built bundle independent of project.yml, so an
-            // undeclared, unlicensed font would ship as inert dead weight unless the directory
-            // itself -- not the declaration -- is read as the source of truth for what ships.
-            guard let shippedEntries =
-                try? FileManager.default.contentsOfDirectory(atPath: fontDir.path)
+            guard let entries = try? FileManager.default.contentsOfDirectory(atPath: fontDir.path)
             else {
                 expect(false, "Sources/ProFootballCoachUI/Resources/Fonts is unreadable")
                 return
             }
-            let shipped = Set(shippedEntries.filter { $0.hasSuffix(".ttf") })
-            expect(!shipped.isEmpty,
+            let ttfNames = entries.filter { $0.hasSuffix(".ttf") }
+            expect(!ttfNames.isEmpty,
                    "Resources/Fonts holds no .ttf files -- an unreadable or empty directory must "
                        + "fail loudly here, not pass every check below vacuously")
 
-            let missing = declared.filter {
-                !FileManager.default.fileExists(atPath: fontDir.appendingPathComponent($0).path)
-            }
-            expect(missing.isEmpty,
-                   "UIAppFonts declares \(missing.count) file(s) that do not ship: "
-                       + "\(missing.sorted().joined(separator: ", "))")
-
-            let undeclared = shipped.subtracting(declared)
-            expect(undeclared.isEmpty,
-                   "\(undeclared.count) file(s) ship in Resources/Fonts but are not declared in "
-                       + "UIAppFonts: \(undeclared.sorted().joined(separator: ", ")). SwiftPM copies "
-                       + "the whole Resources directory into the bundle regardless of project.yml, "
-                       + "so an undeclared font ships as unlicensed dead weight -- declare it in "
-                       + "INFOPLIST_KEY_UIAppFonts or delete the file.")
-
-            let families = Set(shipped.compactMap { $0.split(separator: "-").first.map(String.init) })
+            let families = Set(ttfNames.compactMap { $0.split(separator: "-").first.map(String.init) })
             let unlicensed = families.filter {
                 !FileManager.default.fileExists(
                     atPath: fontDir.appendingPathComponent("OFL-\($0).txt").path)
@@ -1114,6 +1089,51 @@ func runDesignContractTests() {
                    "\(unlicensed.count) family(ies) ship without a licence file: "
                        + "\(unlicensed.sorted().joined(separator: ", ")). 04 6.2 gates a bundled "
                        + "face on its licence being verified, so the licence ships with the binary.")
+
+            // Each file's own PostScript name, read directly from its bytes rather than assumed
+            // from its filename or pasted in from a list, so this checks what actually shipped and
+            // stays independent of ForgeFieldFonts's own internal computation of the same value.
+            var expectedNames: [(fileName: String, postScriptName: String)] = []
+            for name in ttfNames.sorted() {
+                let url = fontDir.appendingPathComponent(name)
+                guard let provider = CGDataProvider(url: url as CFURL),
+                      let cgFont = CGFont(provider),
+                      let postScriptName = cgFont.postScriptName
+                else {
+                    expect(false,
+                           "\(name) could not be read as a font to determine its PostScript name")
+                    continue
+                }
+                expectedNames.append((fileName: name, postScriptName: postScriptName as String))
+            }
+
+            // The mechanism under test: ForgeFieldFonts registers straight from Bundle.module,
+            // which is where SwiftPM actually places these files -- not from project.yml, which
+            // fix round 2 found does not work for this key.
+            let registration = ForgeFieldFonts.registerAll
+            expect(registration.failures.isEmpty,
+                   "ForgeFieldFonts reported \(registration.failures.count) registration "
+                       + "failure(s): "
+                       + registration.failures.map { "\($0.fileName): \($0.reason)" }
+                           .joined(separator: "; "))
+
+            for entry in expectedNames {
+                expect(registration.resolvedPostScriptNames.contains(entry.postScriptName),
+                       "\(entry.fileName)'s PostScript name \"\(entry.postScriptName)\" was not "
+                           + "reported resolvable by ForgeFieldFonts.registerAll")
+
+                // CTFontCreateWithName never returns nil: an unknown name comes back as a fallback
+                // font instead, so the only proof of real resolution is that the font we get back
+                // reports the same PostScript name we asked for. This is the check fix round 2
+                // exists for -- it is the one that would have caught UIAppFonts silently failing.
+                let resolvedFont = CTFontCreateWithName(entry.postScriptName as CFString, 12, nil)
+                let resolvedName = CTFontCopyPostScriptName(resolvedFont) as String
+                expect(resolvedName == entry.postScriptName,
+                       "asking CoreText for \"\(entry.postScriptName)\" (\(entry.fileName)) "
+                           + "returned a font reporting \"\(resolvedName)\" instead -- that is "
+                           + "CoreText's fallback font, so \(entry.postScriptName) is not "
+                           + "actually registered")
+            }
         }
     }
 }

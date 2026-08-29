@@ -34,10 +34,6 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         CURRENT_PROJECT_VERSION: 1
         MARKETING_VERSION: "1.0"
-        # Forge Field ships three families (04 6.2a). The app is offline, so the binaries are
-        # bundled rather than fetched; each ships beside its OFL licence, and the Forge Field
-        # font contract test reads this list rather than a hand-maintained copy of it.
-        INFOPLIST_KEY_UIAppFonts: "Fonts/SairaCondensed-Regular.ttf Fonts/SairaCondensed-Medium.ttf Fonts/SairaCondensed-SemiBold.ttf Fonts/SairaCondensed-Bold.ttf Fonts/Figtree-Regular.ttf Fonts/Figtree-Medium.ttf Fonts/Figtree-SemiBold.ttf Fonts/JetBrainsMono-Regular.ttf Fonts/JetBrainsMono-Medium.ttf Fonts/JetBrainsMono-Bold.ttf"
   ProFootballCoachTests:
     type: bundle.unit-test
     platform: iOS
