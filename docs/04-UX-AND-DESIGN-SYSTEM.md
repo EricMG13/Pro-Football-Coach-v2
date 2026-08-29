@@ -795,6 +795,66 @@ The band is the sanctioned **seventh** placement for a team mark under §5.2, al
 row as the eighth. The team-colour fill rule in §6.1a applies unchanged: the band's gradient is a
 team-colour fill and therefore always carries its hairline boundary.
 
+### 6.1e Forge Field palette (2026-08-29 amendment, dark-only, club-derived)
+
+Approved 2026-08-29 (`docs/superpowers/specs/2026-08-29-forge-field-standard.md`). This section
+replaces §6.1a's fixed grounds and inks. **Forge Field derives ground and ink from the club hue**:
+one variable re-derives the four grounds, the four inks, the hairline, the ember and the mark.
+Saturation carries identity; lightness is pinned, so the measured contrast column holds for every
+club and one pick re-themes the product without re-review. Dark-only is unchanged from §6.1a.
+
+`rival` is a declared alias of `signal-cold`, not a repeated literal — §6.1a(ii) and the
+`DesignContractTests` repeated-literal scan both require this.
+
+Four clubs are authored. Each supplies its own grounds, inks, hairline and ember.
+
+| Role | Calumet (hue 26) | Maritime (140) | Zeeland (192) | Binghamton (288) |
+|---|---|---|---|---|
+| `ground-0` void | `#0D0804` | `#040D07` | `#040B0D` | `#0B040D` |
+| `ground-1` screen | `#140C05` | `#05140A` | `#051114` | `#110514` |
+| `ground-2` panel | `#1C1109` | `#091C10` | `#09181C` | `#18091C` |
+| `ground-3` raised | `#24170D` | `#0D2415` | `#0D2024` | `#200D24` |
+| `ink-1` | `#F9F5F2` | `#F2F9F4` | `#F2F7F9` | `#F7F2F9` |
+| `ink-2` | `#EBE0D8` | `#D8EBDE` | `#D8E7EB` | `#E7D8EB` |
+| `ink-3` | `#C1AE9F` | `#9FC1AA` | `#9FBAC1` | `#BA9FC1` |
+| `ink-4` | `#938376` | `#769380` | `#768D93` | `#8D7693` |
+| `hairline` | `#D4B7A0` | `#A0D4B1` | `#A0CAD4` | `#CAA0D4` |
+| `ember-lift` | `#FFA36B` | `#FFC873` | `#FFA9CB` | `#EDBAFF` |
+| `ember` | `#FF7A2F` | `#FFB13B` | `#FF7FB0` | `#DE8FFF` |
+| `ember-press` | `#D95A17` | `#DE8D0E` | `#DA5A8C` | `#B961E3` |
+| `ember-ink` | `#140A04` | `#1C1204` | `#200812` | `#1D0826` |
+| `club` | `#7A1F2B` | `#1E5426` | `#0E4A50` | `#571F70` |
+| `club-deep` | `#2E1015` | `#0B2413` | `#06242A` | `#260E33` |
+
+Fixed for every club:
+
+| Role | Hex | Meaning |
+|---|---|---|
+| `gold` | `#E8C36A` | earned standing only — records, trophies, the lit chrome of match day |
+| `signal-alarm` | `#E9524A` | broken now |
+| `signal-caution` | `#E7C13C` | a deadline is running |
+| `signal-good` | `#46C083` | handled |
+| `signal-cold` | `#A8C4E0` | not yours: rivals, the league |
+| `failure-ground` | `#241110` | |
+| `turf-lit` / `turf-deep` | `#2A8850` / `#05150D` | |
+| `leather` | `#7A3E1C` | |
+
+Rules:
+
+- **Ember is the accent**: one instance per surface, only on something irreversible. Never a link, a
+  tab, a chart series or a status. Acceptance is >= 7:1 on ground 1, with ink >= 7:1 on the fill.
+- **Gold** is fixed for every club and means earned standing only. Max three per surface; zero on a
+  Desk surface.
+- **Four signals, no fifth.** A rival is always cold slate, never their own club colour.
+- Two background colours per surface at most. Club colour is legal as a flood or a 3 px spine and
+  **illegal** as a panel ground, row band, button or chart series.
+
+**Known collision, recorded rather than resolved.** Maritime's ember `#FFB13B` sits 6.3 degrees from
+gold `#E8C36A` in hue. Press Box rejected `#FFB03A` for the pylon at 6.4 degrees on that same ground.
+The owner's 2026-08-29 grant makes Forge Field authoritative on this design question and the value
+ships as authored; this note exists so the collision is a decision on the record and not an
+oversight. Any later re-hue of Maritime's ember is a canon amendment, not a bug fix.
+
 ### 6.2 Typography
 
 Use the system family in production and a system stack in references. The hierarchy relies on scale,
@@ -860,6 +920,45 @@ sentence is present.
   `authoredFloor = 12` and `workingProse = 13` sit at or above this section's 12 pt floors; the
   floor is the contract, the constants are the current choice.
 
+### 6.2a Forge Field type (2026-08-29 amendment)
+
+**This supersedes §6.2's "use the system family in production" for the Forge Field register.** §6.2
+gated a bundled face on licence, full Dynamic Type range, numerals, localisation and VoiceOver
+behaviour being verified. The licence is settled in Task 3; the Dynamic Type range is settled in
+Task 4; neither is waived.
+
+Three families, each with one job and no overlap.
+
+| Family | Job |
+|---|---|
+| **Saira Condensed** | the broadcast — club names, scorelines, numerals, headings, table row labels, buttons |
+| **Figtree** | people — staff quotes, scout prose, press questions, explanatory copy |
+| **JetBrains Mono** | the record — anything compared down a column, plus clock, week, cost, ratio and rank. Always `tabular-nums` |
+
+Six steps. Anything not on this list fails review.
+
+| Token | Size | Use |
+|---|---:|---|
+| `fs-ceremony` | 120 | ceremony numeral only |
+| `fs-fixture` | 62 | fixture, final score, dossier numeral |
+| `fs-title` | 34 | surface title |
+| `fs-heading` | 26 | dossier name, section heading |
+| `fs-panel` | 19 | panel head |
+| `fs-chrome` | 14 | club lockup, button label |
+| `fs-row` | 13.5 | table row label — the densest thing in the system |
+| `fs-prose` | 12.5 | all human prose |
+| `fs-prose-min` | 11.5 | prose floor |
+| `fs-figure` | 11 | mono figures |
+| `fs-colhead` | 9 | absolute floor, tracked — never smaller |
+
+Line heights: numeral `.82`, title `1.04`, prose `1.5`, row `1.4`.
+Tracking: numeral `-.02em`, lockup `.11em`, chrome `.14em`, colhead `.19em`, ceremony `.34em`.
+
+Three floors: 9 px absolute, 11.5 px for prose, 12 px before mono stops carrying sentences. **If a
+surface is over its data-point budget, cut rows — never shrink type.**
+
+Sentence case for prose, uppercase for labels. Never uppercase a sentence.
+
 ### 6.3 Shape, spacing and touch
 
 - Base spacing steps: 4, 6, 8, 12, 16, 20.
@@ -874,6 +973,43 @@ sentence is present.
 - Repeated utilities may become icon-first: inspect film, delegate, pause, speed and tactical view.
   Their accessible names remain explicit. Destinations and irreversible decisions retain visible text;
   a familiar icon may support that label but never replace its meaning.
+
+### 6.3a Forge Field space and shape (2026-08-29 amendment)
+
+One ladder: **4 / 8 / 12 / 16 / 24 / 32 / 44**. Nothing off-ladder.
+
+**One radius: 3 px** — every panel, button, plate, chip and mark. The only 14 px in the system is the
+outer device frame. There is no second radius.
+
+One **12-column grid**, 9 px gutters, 10 px margins, on every surface. Panels span whole columns.
+
+| Token | Value |
+|---|---:|
+| `row-dense` | 32 (legal only when the whole row is inert) |
+| `row-touch` / `hit-min` | 44 |
+| `chrome-height` | 30 |
+| `panel-head` | 19 |
+| `overlay-max` | 420 |
+| `viewport` | 852 x 393 |
+
+**Two levels of elevation.** Panels sit flat with an inset hairline and cast nothing. Only a flooded
+field and an ember control cast a shadow. Overlays get one scrim, never a stack.
+
+| Token | Value |
+|---|---|
+| `edge-panel` | `inset 0 0 0 1px hairline/.12` |
+| `edge-raised` | `inset 0 0 0 1px hairline/.22` |
+| `edge-gold` | `inset 0 0 0 1px gold/.34` |
+| `edge-ember` | `inset 0 0 0 1px ember/.4` |
+| `seam-hair` / `seam-hard` | `1px solid hairline/.12` / `/.3` |
+| `shadow-flood` | `0 16px 40px rgb(0 0 0 / .6)` |
+| `shadow-ember` | `0 2px 24px ember/.42, inset 0 1px 0 rgb(255 255 255 / .42)` |
+| `scrim` | `ground-0/.78` |
+| `glass` | `ground-0/.6` with `blur(14px) saturate(1.06)` |
+| `scanline` | 1-in-3 px `overlay` blend at 50%, fixed furniture on every surface |
+
+**Glass is used in exactly one place**: plates that sit on top of the live field — score bug,
+play-caller panel, lower third, win-probability plate. A panel on a Desk surface is opaque.
 
 ### 6.4 High-density SwiftUI component pipeline
 
@@ -1082,6 +1218,29 @@ without the shipping form beside it. A verdict at high confidence is not the onl
 drawing: a thin sample and a low-confidence judgement are what make a simulation honest under
 uncertainty, so a surface that can produce them draws one.
 
+### 6.6a Forge Field has no icon set (2026-08-29 amendment)
+
+**This reverses §6.3's "Icons use SF Symbols as one coherent line family."** Forge Field ships no icon
+set, and states it as a deliberate choice rather than a gap: status is a signal dot, identity is a
+mark plate, and the only permitted glyphs are `★` U+2605 and the arrows `←` `→`. A glyph beside every
+row reads as a data point whether or not it carries information, which is what would break §2.5's
+data-point budget. §6.6's symbol register is therefore retired for Forge Field surfaces, not amended.
+
+**If an icon is ever needed, the class is specified first, with a per-class cap.** Adding a symbol
+family without one is the failure this section exists to prevent.
+
+**There is no icon set, and that is deliberate.** Status is a signal dot: a 6–12 px circle in one of
+the four fixed signals, filled for open and hollow for closed. Identity is a **mark plate** — an
+18–48 px rounded square holding a club mark, a jersey numeral, staff initials, a cold rival mark, or
+a hatched absence.
+
+Two Unicode characters and no more: `★` U+2605 for a standing badge, and `←` `→` in navigation
+labels. Prime marks appear in heights. **No emoji, anywhere.** No hand-drawn SVG.
+
+**If an icon is needed, the class is specified first, with a per-class cap.** A glyph next to every
+row reads as a data point whether or not it carries information, and would break the data-point
+budget in §2.5.
+
 ### 6.7 The motion register (added 2026-08-18)
 
 *Written for values that were already shipping in `CoachWorldTokens.Motion`
@@ -1157,6 +1316,23 @@ and it is the only file permitted the raw vocabulary (`Animation.timingCurve`, `
 `.repeatForever`) that schedules motion at all. Every other file reaches motion through
 `.coachWorldAnimation(_:value:)` or `.coachWorldPulse()`, never directly, so an off-token duration or
 an un-reduced animation is unrepresentable outside this one file rather than merely catchable in it.
+
+### 6.7a Forge Field motion (2026-08-29 amendment)
+
+Four transitions, one duration each, and nothing else moves.
+
+| Transition | Between | Duration | Curve |
+|---|---|---:|---|
+| Scrim drop | any -> overlay | 160 ms | `cubic-bezier(.2,0,0,1)` |
+| Seam slide | Desk <-> Desk | 180 ms | `cubic-bezier(.2,0,0,1)` |
+| Plate lift | any -> Dossier | 240 ms | `cubic-bezier(.2,0,0,1)` |
+| Flood wipe | Desk -> Broadcast | 320 ms | `cubic-bezier(.3,0,.1,1)` |
+
+Ceremony may run to 1200 ms, because it happens once. Travel: seam 12 px, overlay 8 px.
+
+**Nothing loops.** The only continuously animated element in the product is a live match clock.
+`prefers-reduced-motion` collapses all four to a 90 ms opacity crossfade and turns the flood wipe
+into a cut (0 ms). No state is communicated by movement alone.
 
 ## 7. Device and accessibility contract
 
