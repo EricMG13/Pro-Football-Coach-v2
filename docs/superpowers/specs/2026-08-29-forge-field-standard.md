@@ -116,7 +116,10 @@ Three families, each with one job and no overlap.
 | **Figtree** | people — staff quotes, scout prose, press questions, explanatory copy |
 | **JetBrains Mono** | the record — anything compared down a column, plus clock, week, cost, ratio and rank. Always `tabular-nums` |
 
-Six steps. Anything not on this list fails review.
+**Six steps, expressed as ten sizes.** The three large steps each pair a broadcast size with its
+desk equivalent: 120/62, 34/26, 19/14. The three small steps are 13.5, 12.5 and 11/9. Anything not
+on this list fails review. The eleventh row below, `fs-prose-min` at 11.5, is deliberately **not** a
+step — it is the prose floor, one of the three floors stated under this table.
 
 | Token | Size | Use |
 |---|---:|---|
