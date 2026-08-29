@@ -34,9 +34,14 @@ import FootballSimCore
 /// and the pin caught every one of them -- which is the whole reason it is a literal in a source
 /// file rather than a computed value.
 ///
-/// Every value here reproduced across three independent debug processes and a release build.
-private let PINNED_PRO_GAME_FINGERPRINT: UInt64 = 12_885_352_638_595_568_582
-private let PINNED_COLLEGE_GAME_FINGERPRINT: UInt64 = 4_944_418_517_511_382_355
+/// Both moved again on 2026-08-29 for `03` section 1.1a: a pass now sends every eligible receiver
+/// in the formation into the pattern -- three wide, a tight end and a back -- where it had sent
+/// four and left the third receiver out. More routes means a different openness set on every pass
+/// snap, so both tiers move, and the pin catching it is the pin doing its job.
+///
+/// Every value here reproduced across three independent release processes and in debug.
+private let PINNED_PRO_GAME_FINGERPRINT: UInt64 = 4_718_615_544_137_084_975
+private let PINNED_COLLEGE_GAME_FINGERPRINT: UInt64 = 9_010_867_806_927_344_531
 
 func runEngineTests() {
     suite("Leverage") {
@@ -504,13 +509,32 @@ func runSnapResolverTests() {
                 "pass assignment excluded every running back from the route progression"
             )
             let groups = assignment.routes.map(\.receiver.position.group)
-            expectEqual(groups.filter { $0 == .receivers }.count, 3,
-                        "the route progression did not contain the three receiver positions")
+            expectEqual(groups.filter { $0 == .receivers }.count, 4,
+                        "the route progression did not contain every receiver position")
             expectEqual(groups.filter { $0 == .runningBacks }.count, 1,
                         "the route progression gave more than one read to running backs")
+            // `03` section 1.1a: the formation is 11 personnel, so all three receivers run.
             let positions = assignment.routes.map(\.receiver.position)
-            expectEqual(positions.filter { $0 == .wideReceiver }.count, 2)
+            expectEqual(positions.filter { $0 == .wideReceiver }.count, 3)
             expectEqual(positions.filter { $0 == .tightEnd }.count, 1)
+        }
+
+        test("the third receiver is in the pattern, not standing in it") {
+            // `03` section 1.1a. The third receiver was on the field on every snap and in no route
+            // on any of them, so nobody below WR2 could record a catch in an entire career.
+            let assignment = Assignment.assign(
+                offensiveCall: OffensiveCall(playType: .pass),
+                defensiveCall: DefensiveCall(coverage: .man),
+                personnel: even
+            )
+            let onField = even.offensive(.wideReceiver)
+            expectEqual(onField.count, 3, "the fixture is not 11 personnel")
+            let routed = Set(assignment.routes.map(\.receiver.id))
+            for receiver in onField {
+                expect(routed.contains(receiver.id),
+                       "a receiver on the field was given no route")
+            }
+            expect(assignment.routes.allSatisfy { $0.defender.id != $0.receiver.id })
         }
 
         test("designed runs reach the primary back, reserve back, and quarterback") {

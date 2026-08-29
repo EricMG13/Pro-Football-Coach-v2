@@ -87,7 +87,10 @@ public enum MatchupRules {
     /// What each extra rusher costs the coverage, in leverage units. The cost that makes a blitz a
     /// decision rather than a free choice (`02` §2.2's third test).
     public static let rusherCoverageDrain = 0.09
-    public static let receiversInRoute = 4
+    /// `03` section 1.1a: everyone eligible in the formation runs. `02` section 11.2.1's offensive
+    /// personnel is three receivers, a tight end and a back, so five go into the pattern. It was
+    /// four, which left the third receiver on the field and out of every route ever run.
+    public static let receiversInRoute = 5
     public static let runLaneMatchups = 3
 
     // MARK: - Coverage shells
@@ -126,7 +129,16 @@ public enum MatchupRules {
     public static let aggressionCoverageBonus = 0.32
     public static let pressureThrowPenalty = 0.30
     /// How much being open helps the throw, in leverage units at full openness.
-    public static let opennessThrowHelp = 0.30
+    /// Refit on the tuning ladder for the five-man progression `03` section 1.1a introduced.
+    ///
+    /// The chosen target is the *maximum* openness over the routed receivers, so the size of the
+    /// progression moves the expected help even when nothing about a receiver changes: the expected
+    /// maximum of n candidates scales about n/(n+1), which is 0.800 at four and 0.833 at five. This
+    /// coefficient was fitted against a max-of-four and over-helped every throw once the third
+    /// receiver joined the pattern -- more completions, more points, and the passer taking the open
+    /// shallow man over the covered deep one. Scaled by the inverse of that ratio to hold the
+    /// expected help invariant to progression size, then measured.
+    public static let opennessThrowHelp = 0.288
 
     /// The passer a throw is measured against, and how much of the throw his accuracy is allowed
     /// to be.

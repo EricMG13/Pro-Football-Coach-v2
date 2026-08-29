@@ -205,6 +205,21 @@ The honest picture: what exists, what is verified, what is not.
 > so the row remains unverified and outside the commitment gate table. The current worktree's
 > `--catalog` and `--commitment-coverage` release-mode runs are **not run**: another worktree was
 > already running a full Swift verification, so this pass did not start a concurrent release build.
+> **2026-08-29 — the calibration gate is red, deliberately.** `03` §1.1a put the third receiver in
+> the pass pattern, fixing a defect where nobody below WR2 could record a catch in a career. It takes
+> the pro engine out of five bands: 4 of 24 pro checks fail on the tuning ladder and 5 on the
+> holdout, the two `[Q]` misses (explosive pass rate, points per drive) appearing on both. The gate
+> passes on `79209b4`, confirmed twice independently, so this is a regression introduced knowingly:
+> the structural defect was judged worse than the mistuning, and the mistuning is recorded rather
+> than hidden. One principled refit is in (`opennessThrowHelp` 0.30 → 0.288, scaled by the n/(n+1)
+> order statistic the max-openness selection follows); it is not enough, and the remaining failures
+> pull in opposing directions. `docs/handoff/2026-08-29-wr3-route-calibration.md` carries the
+> mechanism, the measurements and what the model needs next.
+>
+> Note also that `./scripts/verify.sh` does **not** cover calibration: `runCalibrationGateTests` is
+> reachable only from `--calibration-gate` and `--calibration-tuning`, and the default run calls
+> neither. A green verify lane is not evidence the engine is calibrated.
+
 > **2026-08-26 — approval policy.** Final approval is machine-gated. Player, owner, onboarding,
 > walkthrough, and timing observations are optional product evidence and do not block completion.
 > The 6–8 hour season target remains product direction, not a required human sign-off; the

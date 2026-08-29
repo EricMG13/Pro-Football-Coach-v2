@@ -127,7 +127,10 @@ public enum Assignment {
             let eligible = SnapPersonnel.ranked(personnel.offense.filter {
                 $0.position.group == .receivers || $0.position == .runningBack
             })
-            let preferred = Array(eligible.filter { $0.position == .wideReceiver }.prefix(2))
+            // `03` section 1.1a: the whole formation's eligible receivers, in progression order --
+            // three wide, one tight end, one back. Taking two wide receivers left the third in the
+            // formation and out of the pattern, so no player below WR2 could be thrown to.
+            let preferred = Array(eligible.filter { $0.position == .wideReceiver }.prefix(3))
                 + Array(eligible.filter { $0.position == .tightEnd }.prefix(1))
                 + Array(eligible.filter { $0.position == .runningBack }.prefix(1))
             let preferredIDs = Set(preferred.map(\.id))

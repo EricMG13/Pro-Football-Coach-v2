@@ -38,6 +38,24 @@ Stages, in fixed order (the order is part of the determinism contract):
    - **Kick:** distance, angle, leg strength, snap and hold quality, weather.
 4. **Consequence.** Yards, clock, turnover, penalty, injury, fatigue accumulation.
 
+### 1.1a Everyone eligible runs a route (added 2026-08-29)
+
+A pass sends **every eligible receiver in the formation** into the pattern. `02` §11.2.1's offensive
+personnel is eleven players including **three wide receivers**, a tight end and a back, so a pass
+puts five in a route and the passer chooses among five.
+
+Stated because the engine did otherwise and nothing said so. `Assignment` built its route set as the
+top two wide receivers, one tight end and one back, capped at four, while the formation kept putting
+three receivers on the field. The third stood in the pattern's place on every snap of every game and
+could never be thrown to: no reception, no receiving yard, no receiving touchdown, for an entire
+career. Everything downstream that reads production -- development, awards, statistics leaders, the
+draft and recruiting evaluation -- read that hole as fact about the player rather than as an absence
+in the model.
+
+The off-screen model matches by construction (`§4.1`): `CompetitionRules.wr3PlusTargetShare` is the
+abstracted half of this clause and was `0.0` for exactly as long as the detailed engine's was. The
+two must move together or the two-tier gate is the thing that breaks.
+
 ### 1.2 Attribute → outcome mapping
 
 Each matchup names the attributes it reads. This table is the contract between the ratings model in

@@ -88,24 +88,21 @@ public enum CompetitionRules {
     /// worlds on 2026-08-26; `01` has no target-share row, so none of these is transcribed and all
     /// five must be replaced together the moment it grows one.
     ///
-    /// **`wr3PlusTargetShare` is 0.0 because the detailed engine's is, and it is a defect in both.**
-    /// `Assignment.swift` sends four players into a route -- `prefix(2)` wide receivers, one tight
-    /// end, one back, capped at `MatchupRules.receiversInRoute` -- so WR3 and below are never in a
-    /// pattern and can never be targeted on screen. This constant was brought to zero to make the
-    /// off-screen model agree, which `TwoTierConsistencyGateTests` requires and which is the right
-    /// call while the two must match: raising it here alone breaks that gate and makes the two
-    /// models disagree, which is strictly worse than agreeing on something wrong.
+    /// **Measured from the detailed engine, not fitted.** `03` section 4.1 asks the off-screen model
+    /// to agree with the on-screen one, so these are what `TwoTierConsistencyGateTests` observes the
+    /// detailed engine producing once `03` section 1.1a put every eligible receiver in the pattern:
+    /// college and pro agree to within 0.0005 of each other, and the five sum to 1.0000.
     ///
-    /// What it costs while it stands: every WR3+ in the league records no reception, no receiving
-    /// yard and no receiving touchdown for an entire career, and development, awards, statistics
-    /// leaders and draft evaluation all read that hole as fact. Fixing it means widening the route
-    /// distribution in the detailed engine first -- a `03` question and a calibration re-run -- and
-    /// only then giving this constant the share that follows.
-    public static let wr1TargetShare = 0.34
-    public static let wr2TargetShare = 0.27
-    public static let wr3PlusTargetShare = 0.0
-    public static let tightEndTargetShare = 0.22
-    public static let runningBackTargetShare = 0.17
+    /// `wr3PlusTargetShare` was `0.0` until 2026-08-29, and so was the detailed engine's -- the
+    /// third receiver stood on the field and ran no route, so no player below WR2 could record a
+    /// catch in a career. The zero here was correct agreement with that defect rather than a defect
+    /// of its own, which is why raising it alone failed the two-tier gate on both tiers before the
+    /// engine was fixed. The two halves move together or not at all.
+    public static let wr1TargetShare = 0.2983
+    public static let wr2TargetShare = 0.2364
+    public static let wr3PlusTargetShare = 0.1901
+    public static let tightEndTargetShare = 0.1572
+    public static let runningBackTargetShare = 0.1181
     public static let primaryBackCarryShare = 0.70
     public static let reserveBackCarryShare = 0.25
     public static let quarterbackCarryShare = 0.05
