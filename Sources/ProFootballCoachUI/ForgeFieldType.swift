@@ -23,6 +23,30 @@ public enum ForgeFieldType {
         case record
     }
 
+    /// `04` section 6.2a's five named tracking values, in em: "numeral -.02em, lockup .11em,
+    /// chrome .14em, colhead .19em, ceremony .34em."
+    ///
+    /// Tracking is a separate axis from the eleven size steps, not a property of one: canon's
+    /// `fs-chrome` row names two roles for its one size ("club lockup, button label"), and those
+    /// two roles carry two different tracking values. Hanging tracking directly off `Step` as a
+    /// literal per case is what lost the fifth value (`.11`) the first time -- `chrome` and
+    /// `panel` both took `.14` because nothing forced a reader back to this sentence to check.
+    /// Named exactly as canon names them (`colhead` spelled out as `columnHead` to match
+    /// `Step.columnHead`'s own spelling) so the two documents read side by side.
+    public enum Tracking: CaseIterable, Sendable {
+        case numeral, lockup, chrome, columnHead, ceremony
+
+        public var em: CGFloat {
+            switch self {
+            case .numeral: -0.02
+            case .lockup: 0.11
+            case .chrome: 0.14
+            case .columnHead: 0.19
+            case .ceremony: 0.34
+            }
+        }
+    }
+
     public enum Step: String, CaseIterable, Sendable {
         case ceremony, fixture, title, heading, panel, chrome
         case row, prose, proseMin, figure, columnHead
@@ -116,13 +140,25 @@ public enum ForgeFieldType {
             }
         }
 
-        /// `04` section 6.2a tracking, in em.
+        /// `04` section 6.2a tracking, in em. Expressed via `Tracking` rather than a repeated
+        /// literal, so this and the enum above cannot drift apart the way `chrome` and `panel`
+        /// already did once.
         public var tracking: CGFloat {
             switch self {
-            case .ceremony: 0.34
-            case .fixture, .title, .heading: -0.02
-            case .chrome, .panel: 0.14
-            case .columnHead: 0.19
+            case .ceremony: Tracking.ceremony.em
+            case .fixture, .title, .heading: Tracking.numeral.em
+            // `fs-chrome`'s 14 pt size serves two roles per canon's own row ("club lockup,
+            // button label"), and the two carry different tracking: the club lockup at `.11em`
+            // (the composed `--text-lockup` token `faceName`'s comment above already cites for
+            // this same case) and a plain button label at `.14em`. Canon's row lists the lockup
+            // first, so that is this step's default; a button-label call site passes
+            // `Tracking.chrome.em` explicitly instead of taking `Step.chrome.tracking`.
+            case .chrome: Tracking.lockup.em
+            // Canon does not name panel's tracking. `fs-panel` is an uppercase tracked
+            // structural label -- exactly what `.chrome` (`.14em`) tracking is for -- so panel
+            // takes it too. A decision, not a guess.
+            case .panel: Tracking.chrome.em
+            case .columnHead: Tracking.columnHead.em
             case .row, .prose, .proseMin, .figure: 0
             }
         }

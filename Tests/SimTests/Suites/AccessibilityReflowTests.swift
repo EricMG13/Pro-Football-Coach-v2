@@ -450,5 +450,73 @@ func runAccessibilityReflowTests() {
                            + "ForgeFieldFonts actually registered: \(shipped.sorted())")
             }
         }
+
+        // 04 section 6.2a names five tracking values, not one per size step: "numeral -.02em,
+        // lockup .11em, chrome .14em, colhead .19em, ceremony .34em." Round 1 review found the
+        // code only ever produced four of them -- `.11` was unreachable -- because `Step.tracking`
+        // held the values as literals instead of naming this enum. Asserted by construction over
+        // `Tracking.allCases` so a sixth value added to one side without the other is caught here.
+        test("the five named tracking values match 04 section 6.2a") {
+            expectEqual(ForgeFieldType.Tracking.allCases.count, 5,
+                        "04 section 6.2a names five tracking values; the enum must hold exactly them")
+            expectEqual(ForgeFieldType.Tracking.numeral.em, -0.02, "numeral")
+            expectEqual(ForgeFieldType.Tracking.lockup.em, 0.11, "lockup")
+            expectEqual(ForgeFieldType.Tracking.chrome.em, 0.14, "chrome")
+            expectEqual(ForgeFieldType.Tracking.columnHead.em, 0.19, "columnHead")
+            expectEqual(ForgeFieldType.Tracking.ceremony.em, 0.34, "ceremony")
+        }
+
+        // Every step's tracking default and line height, all eleven of each -- until this test,
+        // only `points` was checked, so a wrong tracking or line height (Task 3/4's own `.14`
+        // mix-up on `chrome` being the example) would have shipped silently into Phase 2.
+        //
+        // Tracking: each default traces to a named `Tracking` case -- either directly from 04
+        // section 6.2a's sentence, or from the `chrome`/`panel` dual-role ruling on `Step.tracking`
+        // above. `row`, `prose`, `proseMin` and `figure` carry no tracking in canon at all, so
+        // their default is the bare literal 0, not a sixth `Tracking` case.
+        test("every step's tracking matches its 04 section 6.2a source") {
+            expectEqual(ForgeFieldType.Step.ceremony.tracking, ForgeFieldType.Tracking.ceremony.em,
+                        "ceremony")
+            expectEqual(ForgeFieldType.Step.fixture.tracking, ForgeFieldType.Tracking.numeral.em,
+                        "fixture")
+            expectEqual(ForgeFieldType.Step.title.tracking, ForgeFieldType.Tracking.numeral.em,
+                        "title")
+            expectEqual(ForgeFieldType.Step.heading.tracking, ForgeFieldType.Tracking.numeral.em,
+                        "heading")
+            expectEqual(ForgeFieldType.Step.panel.tracking, ForgeFieldType.Tracking.chrome.em,
+                        "panel")
+            expectEqual(ForgeFieldType.Step.chrome.tracking, ForgeFieldType.Tracking.lockup.em,
+                        "chrome — the club-lockup role, .04 section 6.2a's fs-chrome row lists it "
+                            + "first; a button label passes Tracking.chrome.em explicitly")
+            expectEqual(ForgeFieldType.Step.row.tracking, 0, "row")
+            expectEqual(ForgeFieldType.Step.prose.tracking, 0, "prose")
+            expectEqual(ForgeFieldType.Step.proseMin.tracking, 0, "proseMin")
+            expectEqual(ForgeFieldType.Step.figure.tracking, 0, "figure")
+            expectEqual(ForgeFieldType.Step.columnHead.tracking, ForgeFieldType.Tracking.columnHead.em,
+                        "columnHead")
+        }
+
+        // Line height: 04 section 6.2a names exactly four values by name -- "numeral .82, title
+        // 1.04, prose 1.5, row 1.4" -- covering ceremony/fixture (numeral), title/heading (title),
+        // prose/proseMin (prose) and row itself. The other four steps (panel, chrome, figure,
+        // columnHead) are not named individually anywhere in canon; each takes the "row" value,
+        // read as canon's own description of row -- "the densest thing in the system" -- naming
+        // the default register for compact UI text that is neither a display numeral, a title,
+        // nor prose. That reading is this codebase's inference, marked here as such, not a fifth
+        // canon-stated value.
+        test("every step's line height matches its 04 section 6.2a source") {
+            expectEqual(ForgeFieldType.Step.ceremony.lineHeight, 0.82, "ceremony — canon: numeral")
+            expectEqual(ForgeFieldType.Step.fixture.lineHeight, 0.82, "fixture — canon: numeral")
+            expectEqual(ForgeFieldType.Step.title.lineHeight, 1.04, "title — canon: title")
+            expectEqual(ForgeFieldType.Step.heading.lineHeight, 1.04, "heading — canon: title")
+            expectEqual(ForgeFieldType.Step.panel.lineHeight, 1.4, "panel — inferred: row's register")
+            expectEqual(ForgeFieldType.Step.chrome.lineHeight, 1.4, "chrome — inferred: row's register")
+            expectEqual(ForgeFieldType.Step.row.lineHeight, 1.4, "row — canon: row")
+            expectEqual(ForgeFieldType.Step.prose.lineHeight, 1.5, "prose — canon: prose")
+            expectEqual(ForgeFieldType.Step.proseMin.lineHeight, 1.5, "proseMin — canon: prose")
+            expectEqual(ForgeFieldType.Step.figure.lineHeight, 1.4, "figure — inferred: row's register")
+            expectEqual(ForgeFieldType.Step.columnHead.lineHeight, 1.4,
+                        "columnHead — inferred: row's register")
+        }
     }
 }
