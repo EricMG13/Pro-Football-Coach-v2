@@ -61,19 +61,20 @@ extension EnvironmentValues {
 
 // MARK: - The scanline
 
-/// `04` section 6.3a: "1-in-3 px overlay blend at 50%", fixed furniture on every surface. Drawn
-/// once, at the device level, on top of everything else in the `ZStack` -- the same reason it must
-/// never be a tap target (`allowsHitTesting(false)`) or be spoken (`accessibilityHidden(true)`): it
-/// sits over every surface including text, and it is not content.
+/// `04` section 6.3a: `#FFFFFF`, "1-in-3 px overlay blend at 50%", fixed furniture on every
+/// surface. Drawn once, at the device level, on top of everything else in the `ZStack` -- the same
+/// reason it must never be a tap target (`allowsHitTesting(false)`) or be spoken
+/// (`accessibilityHidden(true)`): it sits over every surface including text, and it is not content.
 ///
-/// **A value the token layer does not supply.** `Material.scanlinePeriod` (3) and
-/// `Material.scanlineOpacity` (0.02) are `ForgeFieldTokens` constants; the *colour* of the line
-/// itself is not -- neither `04` section 6.1e nor 6.3a states a `scanline` hex, only the geometry
-/// ("1-in-3 px overlay blend at 50%"). Plain white is what `.blendMode(.overlay)` needs in order to
-/// lighten rather than darken, and it matches the one existing precedent for a texture overlay in
-/// this house style: `CoachWorldGrainOverlay` (`CoachWorldDeskComponents.swift`) draws its grain the
-/// identical way -- `.white.opacity(...)` under `.blendMode(.overlay)`. Flagged in the phase report
-/// rather than silently chosen.
+/// **Colour is now a canon-stated value, not an invented one.** As shipped in Tasks 2-4's first
+/// pass, neither `04` section 6.1e nor 6.3a stated a `scanline` hex -- only the geometry -- so this
+/// used plain white with the choice flagged as a gap in the phase report. The 2026-08-30 fix round
+/// closed that gap doc-first: `04` section 6.3a's `scanline` row now states `#FFFFFF` (with the
+/// reason -- `.overlay` blend needs a source lighter than 50% grey to lighten rather than darken,
+/// and every ground in this dark-only palette sits far below that midpoint), and
+/// `Material.scanlineColor` carries it here. It still matches the one existing precedent for a
+/// texture overlay in this house style: `CoachWorldGrainOverlay` (`CoachWorldDeskComponents.swift`)
+/// draws its grain the identical way -- white under `.blendMode(.overlay)`.
 ///
 /// Horizontal lines, not vertical: "scanline" is a broadcast/CRT term for a horizontal raster line,
 /// and canon does not state an axis, so the name is taken as the instruction.
@@ -95,7 +96,7 @@ private struct ForgeFieldScanline: View {
                 context.fill(
                     Path(CGRect(x: 0, y: y, width: size.width,
                                 height: ForgeFieldTokens.Edge.hairlineWidth)),
-                    with: .color(.white)
+                    with: .color(ForgeFieldTokens.Material.scanlineColor.color)
                 )
                 y += period
             }

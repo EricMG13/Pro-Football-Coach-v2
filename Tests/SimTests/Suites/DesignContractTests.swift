@@ -1,6 +1,7 @@
 import CoreGraphics
 import CoreText
 import Foundation
+import SwiftUI
 @testable import ProFootballCoachUI
 
 // The M8 production-UI entry gate, as tests (05, phase P11a).
@@ -258,6 +259,18 @@ private func repeatedColourLiterals(in files: [(path: String, text: String)]) ->
 }
 
 func runDesignContractTests() {
+    // Child-process probe for "an empty cost traps at construction" (Forge Field ember suite,
+    // below). `precondition` failures abort the process rather than throwing a catchable Swift
+    // error, so the only way to prove one fires is to watch it from outside: re-exec this same
+    // binary with `--design-contracts` plus this environment variable set, and check the child's
+    // exit status. Checked before anything else runs, same shape as `runPortalPolicyTests`'s own
+    // `INVALID_EMPTY_PORTAL_OBSERVER_PROBE` early-return -- the one other place in this suite that
+    // proves a fail-fast path by crashing a child process rather than catching an error.
+    if ProcessInfo.processInfo.environment["FORGE_FIELD_EMBER_EMPTY_COST_PROBE"] != nil {
+        _ = ForgeFieldEmber(label: "Lock the plan", cost: "", isEnabled: true) {}
+        return
+    }
+
     let canon = canonText()
 
     suite("Orientation policy") {
@@ -1346,6 +1359,65 @@ func runDesignContractTests() {
         test("press is the accent ramp's press stop, never a scale") {
             expect(ForgeFieldEmber.pressScale == 1.0,
                    "04 6.1e: press goes to the press stop of the ramp. No shrink, no scale.")
+        }
+    }
+
+    // Fix round 1 of 5 on Phase 2A Tasks 2-4, 2026-08-30. A new suite rather than insertions into
+    // the ones above, so the diff for this round is a pure appension and the two rounds' coverage
+    // stay separately readable.
+    suite("Forge Field fix round 1 (06.1e, 06.3a)") {
+        test("an ember built with an empty cost traps at construction") {
+            // precondition() aborts the process; it cannot be caught with do/catch. Proven the
+            // same way runPortalPolicyTests proves its own fail-fast path (PortalPolicyTests.swift):
+            // re-exec this binary as a child with the probe environment variable set (see the
+            // early-return at the top of this function) and check the child's exit status.
+            let probe = Process()
+            probe.executableURL = currentExecutableURL()
+            probe.arguments = ["--design-contracts"]
+            var probeEnvironment = ProcessInfo.processInfo.environment
+            probeEnvironment["FORGE_FIELD_EMBER_EMPTY_COST_PROBE"] = "1"
+            probe.environment = probeEnvironment
+            probe.standardOutput = Pipe()
+            probe.standardError = Pipe()
+            try probe.run()
+            probe.waitUntilExit()
+            expect(probe.terminationStatus != 0,
+                   "04 6.1e: an ember built with an empty cost must trap at construction, not "
+                       + "render a blank cost line with the gap still reserved")
+        }
+
+        test("the ember does not pin a line limit at accessibility sizes") {
+            expectEqual(ForgeFieldEmber.lineLimit(for: .large), 1,
+                        "at the default size, a long label or cost line truncates rather than "
+                            + "wrapping")
+            for size in DynamicTypeSize.allCases where size.isAccessibilitySize {
+                expect(ForgeFieldEmber.lineLimit(for: size) == nil,
+                       "\(size): 04 section 7's Dynamic Type floor outranks the default size's "
+                           + "single-line decision -- the label and cost must be free to wrap "
+                           + "rather than losing their ending")
+            }
+        }
+
+        test("shadow-ember's three numbers are named tokens, and the shared alpha aliases one "
+                + "primary") {
+            expectEqual(ForgeFieldTokens.Material.shadowEmberBlur, 24)
+            expectEqual(ForgeFieldTokens.Material.shadowEmberOffsetY, 2)
+            expectEqual(ForgeFieldTokens.Edge.emberHighlight, 0.42)
+            expectEqual(ForgeFieldTokens.Material.shadowEmberAlpha, ForgeFieldTokens.Edge.emberHighlight,
+                        "04 6.3a states one alpha for both shadow-ember's glow and its inset "
+                            + "highlight -- a value shared by two roles must be one declaration "
+                            + "aliased, not two")
+        }
+
+        test("the scanline's colour is a named token, and its own canon row states it") {
+            expectEqual(ForgeFieldTokens.Material.scanlineColor,
+                        CoachWorldTokens.ColorValue(hex: 0xFFFFFF))
+            let scanlineRow = canon.split(separator: "\n", omittingEmptySubsequences: false)
+                .map(String.init)
+                .first { $0.contains("| `scanline` |") }
+            expect(scanlineRow?.contains("#FFFFFF") == true,
+                   "04 section 6.3a's scanline row must state the colour "
+                       + "Material.scanlineColor carries, not just the geometry")
         }
     }
 

@@ -137,6 +137,13 @@ public enum ForgeFieldTokens {
         public static let gold = 0.34
         public static let ember = 0.40
         public static let goldStrong = ember
+        /// `shadow-ember`'s inset highlight, 04 6.3a: "inset 0 1px 0 rgb(255 255 255 / .42)" —
+        /// distinct from `ember`'s own .40 border alpha above, which is a different number from
+        /// the same section. `Material.shadowEmberAlpha` aliases this rather than repeating it:
+        /// both come from the same canon row, and canon happens to state one alpha for both the
+        /// shadow's glow and its highlight, so one declaration is the primary and the other
+        /// follows it — the same shape as `seamHair` aliasing `panel` above.
+        public static let emberHighlight = 0.42
         public static let alarm = 0.44
         /// Same reasoning as `Space.radius`: `hairlineWidth: CGFloat = 1` contains `lineWidth:` as a
         /// substring of its own type annotation, which the same scan reads as a SwiftUI argument
@@ -151,9 +158,22 @@ public enum ForgeFieldTokens {
         public static let glass = 0.60
         public static let glassBlur: CGFloat = 14
         public static let glassSaturation = 1.06
-        /// Fixed furniture on every surface: a 1-in-3 px overlay blend at 50%.
+        /// Fixed furniture on every surface: a 1-in-3 px overlay blend at 50%. 04 6.3a's
+        /// `scanline` row states white (`#FFFFFF`) as of the 2026-08-30 fix-round amendment: white
+        /// is what `.overlay` blend needs to lighten rather than darken every ground in this
+        /// dark-only palette, all of which sit far below 50% grey.
+        public static let scanlineColor = CoachWorldTokens.ColorValue(hex: 0xFFFFFF)
         public static let scanlineOpacity = 0.02
         public static let scanlinePeriod: CGFloat = 3
+        /// `shadow-ember`, 04 6.3a: `0 2px 24px ember/.42, inset 0 1px 0 rgb(255 255 255 / .42)`.
+        /// Blur and y-offset are this row's only two numbers with no other role to alias;
+        /// `shadowEmberAlpha` aliases `Edge.emberHighlight` rather than repeating .42 a second
+        /// time, because canon states one alpha for both the shadow's glow and its highlight —
+        /// `Edge.emberHighlight` is the primary declaration (it is also the highlight's own alpha,
+        /// with nothing else to alias), and this name follows it.
+        public static let shadowEmberBlur: CGFloat = 24
+        public static let shadowEmberOffsetY: CGFloat = 2
+        public static let shadowEmberAlpha = Edge.emberHighlight
     }
 
     /// `04` section 6.7a. Four transitions, one duration each, and nothing else moves.

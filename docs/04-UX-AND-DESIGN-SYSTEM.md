@@ -1063,7 +1063,7 @@ field and an ember control cast a shadow. Overlays get one scrim, never a stack.
 | `shadow-ember` | `0 2px 24px ember/.42, inset 0 1px 0 rgb(255 255 255 / .42)` |
 | `scrim` | `ground-0/.78` |
 | `glass` | `ground-0/.6` with `blur(14px) saturate(1.06)` |
-| `scanline` | 1-in-3 px `overlay` blend at 50%, fixed furniture on every surface |
+| `scanline` | `#FFFFFF`, 1-in-3 px `overlay` blend at 50%, fixed furniture on every surface. White is what `overlay` blend needs to lighten rather than darken every ground this dark-only palette has, all of which sit far below 50% grey. (2026-08-30 fix-round amendment: the colour was previously unstated.) |
 
 **Glass is used in exactly one place**: plates that sit on top of the live field — score bug,
 play-caller panel, lower third, win-probability plate. A panel on a Desk surface is opaque.
