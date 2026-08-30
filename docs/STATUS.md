@@ -18,9 +18,13 @@ The honest picture: what exists, what is verified, what is not.
 > like Forge Field and will not until Phase 2. `docs/FRONTEND-CHANGE-LEDGER.md` Part E rows E6 to E14
 > are that gap.
 >
-> **What was NOT run:** the full `swift run SimTests` suite did not complete during Phase 1. It was
-> attempted and descoped to the phase gate. Until it runs green, the 57 existing consumers are
-> unproven against the widened colour scans.
+> **The phase gate has since run green: 1,169 tests, 932,553 checks, all passed.** That is the run
+> proving the 57 existing `CoachWorldTokens` consumers still hold against the widened colour scans.
+> One caveat stated plainly: the gate ran at `b7cb155`, one commit behind the branch head. The delta
+> to `8119ad2` removes an unused constant from the new token layer and restructures that layer's own
+> duplicate-literal test — it touches no engine code and no existing consumer — and
+> `--design-contracts` is green at the head at 84 tests and 1,232 checks. A full re-run at the head
+> has not been done.
 >
 > **Three runtime defects were found by building the app rather than by testing it** — Xcode silently
 > drops `INFOPLIST_KEY_UIAppFonts`, SwiftPM nests library resources in a separate bundle, and
