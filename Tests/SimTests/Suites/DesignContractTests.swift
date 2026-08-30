@@ -1245,4 +1245,67 @@ func runDesignContractTests() {
         }
     }
 
+    suite("Forge Field device (06.3a)") {
+        test("the device frame is the only 14 pt radius in the system") {
+            expectEqual(ForgeFieldTokens.Space.radiusDevice, 14)
+            expectEqual(ForgeFieldTokens.Space.radius, 3)
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let offenders = ui.filter {
+                !$0.path.hasSuffix("/ForgeFieldDevice.swift")
+                    && !$0.path.hasSuffix("Tokens.swift")
+                    && $0.text.contains("radiusDevice")
+            }
+            expect(offenders.isEmpty,
+                   "\(offenders.count) file(s) outside ForgeFieldDevice reach for the device "
+                       + "radius: \(offenders.map(\.path).sorted().joined(separator: ", ")). "
+                       + "04 6.3a states there is no second radius, so the 14 pt exception lives "
+                       + "in exactly one place.")
+        }
+        test("the scanline is fixed furniture, present on every surface") {
+            expectEqual(ForgeFieldTokens.Material.scanlinePeriod, 3)
+            expectEqual(ForgeFieldTokens.Material.scanlineOpacity, 0.02)
+        }
+
+        // Item 3 of the phase-2A brief: the scanline sits over every surface, text included
+        // (04 6.3a: "fixed furniture on every surface"), so its composite must not erode 04
+        // section 7's 4.5:1 floor. Enumerated over every club and every ink/ground pairing rather
+        // than one hand-picked pair, per CLAUDE.md's coverage-boundary rule. `overlayChannel`
+        // reproduces `.blendMode(.overlay)` against a pure-white source (what `ForgeFieldScanline`
+        // draws); the composite formula is the standard "blend, then alpha-composite by the
+        // layer's own opacity" rule (`destination*(1-a) + blend(source,destination)*a`) that
+        // `.opacity(_:)` plus `.blendMode(_:)` implement together. `ColorValue(hex:)` round-trips
+        // the perturbed doubles through 8-bit quantisation (~0.4% max per channel), which only
+        // ever makes this check more conservative, never less.
+        test("the scanline never turns a passing ink/ground pairing into a failing one, across "
+                + "every club") {
+            func overlayChannel(_ base: Double) -> Double { base < 0.5 ? 2 * base : 1 }
+            func withScanline(_ value: CoachWorldTokens.ColorValue) -> CoachWorldTokens.ColorValue {
+                let alpha = ForgeFieldTokens.Material.scanlineOpacity
+                func composite(_ base: Double) -> UInt32 {
+                    let blended = base * (1 - alpha) + overlayChannel(base) * alpha
+                    return UInt32((min(1, max(0, blended)) * 255).rounded())
+                }
+                let hex = (composite(value.red) << 16) | (composite(value.green) << 8)
+                    | composite(value.blue)
+                return CoachWorldTokens.ColorValue(hex: hex)
+            }
+
+            for club in ForgeFieldTokens.Club.allCases {
+                let palette = club.palette
+                let grounds = [palette.ground0, palette.ground1, palette.ground2, palette.ground3]
+                let inks = [palette.ink1, palette.ink2, palette.ink3, palette.ink4]
+                for ground in grounds {
+                    for ink in inks {
+                        let before = contrastRatio(ink, ground)
+                        guard before >= 4.5 else { continue }   // not a claimed text pairing
+                        let after = contrastRatio(withScanline(ink), withScanline(ground))
+                        expect(after >= 4.5,
+                               "\(club) clears 4.5:1 at \(before) but the scanline's 2 percent "
+                                   + "white overlay drops it to \(after)")
+                    }
+                }
+            }
+        }
+    }
+
 }
