@@ -106,6 +106,14 @@ public struct ForgeFieldSeam: View {
 
 /// A row fixed to one of 04 6.3a's two legal heights. `.dense` (32) is legal only when the whole
 /// row is inert; anything tappable takes `.touch` (44), which clears `Space.hitMin`.
+///
+/// **Fix round, 2026-08-30 (finding 4).** `04` section 7's Dynamic Type contract is a floor, not
+/// a preference, and a bare `.frame(height:)` is a fixed height, not a floor: the chrome bar and
+/// the ember both already branch on `dynamicTypeSize.isAccessibilitySize`, but this type pinned
+/// its height unconditionally, so anything composed inside a row -- an ember included -- clips at
+/// AX5 rather than growing with it. `.frame(minHeight:)` at an accessibility size keeps the same
+/// 32/44 pt floor while letting content that needs more room take it, exactly the shape
+/// `ForgeFieldEmber`'s own `minHeight: .hitMin` already uses for the same reason.
 public struct ForgeFieldRow: View {
     public enum Height {
         case dense, touch
@@ -118,6 +126,8 @@ public struct ForgeFieldRow: View {
         }
     }
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
     private let height: Height
     private let content: AnyView
 
@@ -127,9 +137,15 @@ public struct ForgeFieldRow: View {
     }
 
     public var body: some View {
-        content
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: height.points)
+        if dynamicTypeSize.isAccessibilitySize {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: height.points)
+        } else {
+            content
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: height.points)
+        }
     }
 }
 

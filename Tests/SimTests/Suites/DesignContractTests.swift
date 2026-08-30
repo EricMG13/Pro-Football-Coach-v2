@@ -1273,16 +1273,16 @@ func runDesignContractTests() {
                             + "transcribes it")
         }
 
-        // The bar showing five does not license a screen being unreachable. This is the alias-host
-        // defect the reference package named: fifteen identities reachable by saved route and by
-        // nothing on screen. Enumerated over every screen by construction.
-        test("every screen still resolves to a family, including the two off the bar") {
-            let unfamilied = CoachWorldScreenID.allCases.filter { $0.family == nil }
-            expect(unfamilied.isEmpty,
-                   "\(unfamilied.count) screen(s) resolve to no family: "
-                       + "\(unfamilied.map(\.rawValue.description).sorted().joined(separator: ", "))")
-        }
-
+        // "every screen still resolves to a family, including the two off the bar" lived here
+        // until the fix round of 2026-08-30 (finding 3). It filtered on `$0.family == nil`, but
+        // `family` (ScreenRegistry.swift) is a non-optional `switch` over every case, so the
+        // filter could never select anything -- the compiler warns "always returns false" on
+        // exactly this line. Deleted rather than patched: what it was reaching for -- "the bar
+        // showing five does not license a screen being unreachable" -- is the real, by-
+        // construction question, and it takes more than resolving to *a* family to answer: a
+        // screen can resolve to a real family and still be unreachable, which is exactly what
+        // this dead check could never have caught. "Chrome bar exit reachability" at the end of
+        // this file is that real check.
         test("career and entry keep a family while they are off the bar") {
             expect(!CoachWorldSurfaceFamily.chromeBarFamilies.contains(.career),
                    "04 section 6.1f leaves career's placement open; it must not be smuggled into "
@@ -1379,15 +1379,15 @@ func runDesignContractTests() {
     }
 
     suite("Forge Field ember (06.1e)") {
-        test("an ember cannot be built without a cost line") {
-            // A non-optional `cost` makes this a compile-time guarantee. The test records the
-            // rule so a later change to an optional is a deliberate, visible edit.
-            let ember = ForgeFieldEmber(label: "Lock the plan",
-                                        cost: "3 calls open · costs 9 freshness",
-                                        isEnabled: true) {}
-            expect(!ember.cost.isEmpty,
-                   "04 6.1e: if an action has no cost worth naming, it is not an ember")
-        }
+        // "an ember cannot be built without a cost line" lived here until the fix round of
+        // 2026-08-30 (finding 5). It only ever echoed a struct back its own constructor argument
+        // -- `ember.cost` cannot be anything but the literal this test itself passed in -- so it
+        // could not fail short of the test author typing `cost: ""` into the test. Deleted rather
+        // than strengthened: the real proof of the rule already exists twice over, immediately
+        // below in "Forge Field fix round 1" (the subprocess probe proving `assert` actually
+        // traps on an empty string) and in "Forge Field fix round 2" at the end of this file (the
+        // build-time scan proving every real call site's `cost:` is a literal or a named
+        // constant). A third, vacuous check next to two real ones is decoration.
         test("the cost line is set in the record face, tabular") {
             expectEqual(ForgeFieldEmber.costStep, ForgeFieldType.Step.figure)
             expectEqual(ForgeFieldType.Step.figure.family, ForgeFieldType.Family.record)
@@ -1402,9 +1402,24 @@ func runDesignContractTests() {
     // the ones above, so the diff for this round is a pure appension and the two rounds' coverage
     // stay separately readable.
     suite("Forge Field fix round 1 (06.1e, 06.3a)") {
-        test("an ember built with an empty cost traps at construction") {
-            // precondition() aborts the process; it cannot be caught with do/catch. Proven the
-            // same way runPortalPolicyTests proves its own fail-fast path (PortalPolicyTests.swift):
+        test("an ember built with an empty cost traps in a debug build") {
+            // **Retitled in the fix round of 2026-08-30 (finding 5).** The trap moved from
+            // `precondition` to `assert` (ForgeFieldEmber.swift): `precondition` aborted a
+            // release build too, which is the wrong severity for a copy mistake, so this probe
+            // now only proves the debug half of 04 6.1e's rule. `assert` compiles out of release
+            // by design, and this test's own name said otherwise until this round -- "traps at
+            // construction," unconditionally, was no longer true the moment the trap became an
+            // `assert`, and a test whose name overclaims what it proves is the same defect this
+            // file's own header warns about. `swift run SimTests` builds and runs debug, so the
+            // probe below still observes a real trap -- evidence for the debug path this suite
+            // actually runs in, not for release, which this test cannot see and does not claim
+            // to. Release's half of the rule is "an ember's cost argument is a string literal or
+            // a named constant," in "Forge Field fix round 2" at the end of this file: a
+            // build-time scan, which is the only kind of check that still holds once `assert`
+            // itself is gone from the binary.
+            //
+            // assert() aborts the process; it cannot be caught with do/catch. Proven the same way
+            // runPortalPolicyTests proves its own fail-fast path (PortalPolicyTests.swift):
             // re-exec this binary as a child with the probe environment variable set (see the
             // early-return at the top of this function) and check the child's exit status.
             let probe = Process()
@@ -1418,7 +1433,7 @@ func runDesignContractTests() {
             try probe.run()
             probe.waitUntilExit()
             expect(probe.terminationStatus != 0,
-                   "04 6.1e: an ember built with an empty cost must trap at construction, not "
+                   "04 6.1e: an ember built with an empty cost must trap in a debug build, not "
                        + "render a blank cost line with the gap still reserved")
         }
 
@@ -1545,5 +1560,177 @@ func runDesignContractTests() {
                    "the production chrome provider must pass the week hub's own week label into "
                        + "the chrome read model")
         }
+    }
+
+    // Fix round 2 of the Phase 2A adversarial review, 2026-08-30 -- a DO-NOT-SHIP verdict on five
+    // findings. A new suite rather than insertions into the ones above, for the same reason fix
+    // round 1 was: the diff for this round stays a pure appension and each round's coverage stays
+    // separately readable. Finding 2 (the stale XCUITest) is fixed in
+    // Tests/ProFootballCoachUITests/ProFootballCoachUITests.swift, outside this target. Finding 3
+    // (the dead nil-check) is deleted from the "Forge Field navigation (06.1f)" suite above, and
+    // what it was reaching for is folded into the first test below.
+    suite("Forge Field fix round 2 (06.1f, 06.3a, 06.1e)") {
+        // Finding 1 [Critical]: the Forge Field chrome bar has no back control at all -- 04 6.1f
+        // fixes its contents to mark/club/record/five families/week, full stop -- and the Press
+        // Box identity band it replaced was the only thing that ever rendered `model.back` or a
+        // sibling strip. A screen whose family is not one of the bar's five, and which renders no
+        // exit of its own, is reachable and then unleavable except by force-quitting. This also
+        // folds in what the deleted dead nil-check (finding 3) was reaching for: resolving to *a*
+        // family is not the same question as being *reachable*, and this is the real,
+        // by-construction version of that question.
+        //
+        // Both sides are derived, never hand-listed: the reachable side from the registry
+        // (`CoachWorldSurfaceFamily.chromeBarFamilies`), the exit side from the view layer via
+        // `landedFamilies()` -- the same fixpoint-resolved partition `AccessibilityReflowTests`
+        // and `ReduceMotionContractTests` already share, not a second one this file could
+        // silently disagree with.
+        test("every landed screen reaches the bar's five families, or renders its own exit") {
+            let app = swiftFiles(under: "Sources")
+
+            // A screen the production app never once hands a real chrome read model never
+            // "reached its exit through the chrome" to begin with -- `chrome(for: .screen` is
+            // `CoachWorldChromeProvider`'s one production entry point for building one. 04 6.1f's
+            // own reasoning for `entry` ("surfaces reach the world before a coaching week exists,
+            // so there is nowhere sideways to go from them") turns out to cover every screen this
+            // exempts, and it falls out of the call sites rather than a hand-picked family list:
+            // today that is `titleContinue` (the app's own root, never chromed) and
+            // `newCareerCoachIdentity` (chromeless setup, and it separately renders its own
+            // `Button("Cancel", action: onCancel)` regardless, per the check below).
+            func isEverChromed(_ screen: CoachWorldScreenID) -> Bool {
+                let needle = "chrome(for: .\(String(describing: screen))"
+                return app.contains { $0.text.contains(needle) }
+            }
+            // `onClose`/`onCancel` are this codebase's own two exit-callback conventions (every
+            // dossier-style surface from PlayerProfileView to SettingsAccessibilityView to the
+            // onboarding flow's NewCareerSetupView uses one or the other) -- checked for being
+            // wired to a rendered control, not merely declared, since a stored-but-unread closure
+            // is exactly the shape of the regression this test exists to catch.
+            func hasRenderedExit(_ family: FamilyView) -> Bool {
+                family.renderedText.contains("action: onClose")
+                    || family.renderedText.contains("action: onCancel")
+                    || family.renderedText.contains("onClose()")
+                    || family.renderedText.contains("onCancel()")
+            }
+
+            var stranded: [String] = []
+            for family in landedFamilies().landed {
+                guard !CoachWorldSurfaceFamily.chromeBarFamilies.contains(family.screen.family)
+                else { continue }   // always reachable -- the five tabs never move, 04 6.1f
+                guard isEverChromed(family.screen) else { continue }
+                guard hasRenderedExit(family) else {
+                    stranded.append("\(family.screen.canonicalName) (\(family.path))")
+                    continue
+                }
+            }
+            expect(stranded.isEmpty,
+                   "\(stranded.count) screen(s) are chromed, off the bar's five families, and "
+                       + "render no exit of their own: \(stranded.sorted().joined(separator: "; "))."
+                       + " Give each its own onClose-wired control, PlayerProfileView's shape.")
+        }
+
+        test("the reachability check would catch a planted regression") {
+            // Self-test, this file's own header rule: a scan that has never failed is not known
+            // to be a scan. This is CareerHubView.swift's own shape before this fix round --
+            // `onClose` stored and threaded through three call sites (careerHub, stakeholders,
+            // promotionDecision) but never wired to a rendered control, because those three used
+            // to leave through the retired Press Box band's own back control instead.
+            let stranded = """
+            public struct PlantedView: View {
+                public let onClose: () -> Void
+                public var body: some View { Text("no control reads onClose") }
+            }
+            """
+            expect(!stranded.contains("action: onClose") && !stranded.contains("onClose()"),
+                   "a view that stores onClose but never wires it to a control must not read as "
+                       + "having a rendered exit")
+
+            let fixed = """
+            public struct PlantedView: View {
+                public let onClose: () -> Void
+                public var body: some View { Button(action: onClose) { Text("Close") } }
+            }
+            """
+            expect(fixed.contains("action: onClose"),
+                   "a view that wires onClose to a real Button must read as having one")
+        }
+
+        // Finding 4 [Important]: `ForgeFieldRow` pinned `.frame(height:)` unconditionally, with no
+        // AX5 branch, while the chrome bar and the ember both already handle it. 04 section 7's
+        // Dynamic Type contract is a floor, not a preference, so anything composed inside a row --
+        // an ember included -- clipped at an accessibility size. Checked the same source-visible
+        // way 04 section 7.1 already licenses elsewhere in this file: a headless suite has no
+        // laid-out frame to measure.
+        test("a row is a height floor at accessibility sizes, not a fixed height") {
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let primitives = ui.first { $0.path.hasSuffix("/ForgeFieldPrimitives.swift") }?.text ?? ""
+            expect(primitives.contains("dynamicTypeSize.isAccessibilitySize"),
+                   "ForgeFieldRow must branch on accessibility size -- 04 section 7 is a floor, "
+                       + "not a preference")
+            expect(primitives.contains("frame(minHeight: height.points)"),
+                   "at an accessibility size ForgeFieldRow's height must be a floor (minHeight), "
+                       + "not a fixed .frame(height:), or anything composed inside it -- an ember "
+                       + "included -- clips at AX5")
+            expect(primitives.contains("frame(height: height.points)"),
+                   "the standard, non-accessibility size must keep the exact fixed row height 04 "
+                       + "6.3a states -- the fix is an added floor, not a removed one")
+        }
+
+        // Finding 5 [Important], release-build half: `assert` (ForgeFieldEmber.swift, above)
+        // catches an empty cost only in a debug build. This is the enforcement that still holds
+        // in release -- a build-time scan of every real call site, so a missing or
+        // assembled-on-the-fly cost is an authoring error the gate catches, never a shipped gap.
+        test("an ember's cost argument is a string literal or a named constant, every call site") {
+            // Zero ForgeFieldEmber( call sites exist under Sources/ today (2B-2F have not landed
+            // yet), so this currently passes vacuously -- the self-test below is what proves the
+            // scan itself works.
+            let production = swiftFiles(under: "Sources")
+            for file in production {
+                let offenders = forgeFieldEmberOffendingCostArguments(in: file.text)
+                expect(offenders.isEmpty,
+                       "\(file.path): ForgeFieldEmber cost argument(s) are neither a string "
+                           + "literal nor a named constant: \(offenders.joined(separator: ", "))")
+            }
+        }
+
+        test("the cost-argument scan would catch a planted violation") {
+            let literal =
+                "ForgeFieldEmber(label: \"Lock\", cost: \"3 calls open\", isEnabled: true) {}"
+            let namedConstant =
+                "ForgeFieldEmber(label: \"Lock\", cost: Copy.lockCost, isEnabled: true) {}"
+            let functionCall =
+                "ForgeFieldEmber(label: \"Lock\", cost: describeCost(), isEnabled: true) {}"
+            let concatenation =
+                "ForgeFieldEmber(label: \"Lock\", cost: \"base \" + suffix, isEnabled: true) {}"
+            expect(forgeFieldEmberOffendingCostArguments(in: literal).isEmpty,
+                   "a string literal must not be flagged")
+            expect(forgeFieldEmberOffendingCostArguments(in: namedConstant).isEmpty,
+                   "a dotted named constant must not be flagged")
+            expect(!forgeFieldEmberOffendingCostArguments(in: functionCall).isEmpty,
+                   "a function-call cost must be flagged -- it is neither a literal nor a named "
+                       + "constant")
+            expect(!forgeFieldEmberOffendingCostArguments(in: concatenation).isEmpty,
+                   "a concatenation assembled at the call site must be flagged the same way")
+        }
+    }
+}
+
+/// Whether a `ForgeFieldEmber(` call site's `cost:` argument is neither a string literal nor a
+/// named constant -- 04 6.1e: "if an action has no cost worth naming, it is not an ember." A
+/// text-shape check, like every other scan in this file: it cannot see whether an identifier is
+/// truly declared `let`/`static let` rather than a local `var`, only that it is *shaped* like a
+/// name rather than an expression assembled at the call site. `assert` in `ForgeFieldEmber.init`
+/// catches an *empty* cost, but only in a debug build (finding 5's fix round, 2026-08-30); this is
+/// the release-safe half -- enforced at build time so a missing or assembled cost is an authoring
+/// error caught before a call site ever ships, not a runtime trap a release build has already
+/// compiled out.
+func forgeFieldEmberOffendingCostArguments(in text: String) -> [String] {
+    let pattern = "ForgeFieldEmber\\(\\s*label:[\\s\\S]*?cost:\\s*([^,\\n]+),"
+    return matches(of: pattern, in: text).compactMap { rawArgument in
+        let trimmed = rawArgument.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isStringLiteral = trimmed.hasPrefix("\"") && trimmed.hasSuffix("\"") && trimmed.count >= 2
+        let isNamedConstant = trimmed.range(
+            of: "^[A-Za-z_][A-Za-z0-9_.]*$", options: .regularExpression
+        ) != nil
+        return (isStringLiteral || isNamedConstant) ? nil : trimmed
     }
 }

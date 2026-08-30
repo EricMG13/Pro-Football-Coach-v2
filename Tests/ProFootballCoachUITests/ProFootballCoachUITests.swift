@@ -73,7 +73,37 @@ final class ProFootballCoachUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Back to HQ"].exists)
     }
 
-    func testPressBoxNavigatorPanelsAndBackStates() {
+    /// **Re-targeted, adversarial review fix round, 2026-08-30 (finding 2).**
+    /// `testPressBoxNavigatorPanelsAndBackStates` asserted five Press Box mechanisms Phase 2A
+    /// deleted outright: the family-switcher trigger ("Switch family, X"), the switcher panel it
+    /// revealed ("Career, 9 tasks" and its siblings), the back control ("Back to the previous
+    /// surface"), the "Nothing behind this surface" empty-back state, and the alias host panel
+    /// ("Career Hub" / "3, Job Board" / "4, Offer" / "5, Appointment"). `Tests/SimTests/Suites/
+    /// DesignContractTests.swift`'s "Press Box shared chrome" suite retired the same five at the
+    /// source-scan level; this method asserted them at the live-app level and would have failed
+    /// the instant it ran.
+    ///
+    /// It never ran: `scripts/verify.sh`'s app lane runs `xcodebuild ... build`, never `test`, so
+    /// this whole target compiles but is not executed by any gate. Fixing this method's content
+    /// does not put it behind one — that remains true after this edit, and is recorded here
+    /// rather than left implicit, per the review's own instruction.
+    ///
+    /// Retargeted rather than deleted, per the phase's own rule that an assertion is not removed
+    /// without a replacement:
+    /// - `"Nothing behind this surface"` / `"Back to the previous surface"`: retired outright. 04
+    ///   6.1f's bar has no back control at all; the five families are always visible instead.
+    /// - `"Switch family, This week"` / the switcher panel (`"Career, 9 tasks"` etc.): retired
+    ///   outright. The bar shows all five inline and always (`ForgeFieldChromeBar.familyStrip`),
+    ///   so there is no reveal-on-demand control left to trigger or assert.
+    /// - `"Career Hub"` / `"3, Job Board"` / `"4, Offer"` / `"5, Appointment"` (the alias host
+    ///   panel) / `"Back to Opportunities"`: retired outright, for the same reason — it opened
+    ///   from the sibling strip the switcher revealed, which no longer exists.
+    /// - `top-navigator`: kept. Replaced by real assertions against what the bar actually renders
+    ///   — the five family labels in `CoachWorldSurfaceFamily.chromeBarFamilies` order, each
+    ///   carrying its own `forgeFieldTitle` as its accessible name (`ForgeFieldChromeBar
+    ///   .familyButton`) rather than the retired "Switch family, X" phrasing — plus explicit
+    ///   negative assertions that the five retired controls stay retired.
+    func testForgeFieldChromeBarReplacesThePressBoxNavigator() {
         let app = XCUIApplication()
         app.launchEnvironment["PROOF_NEW_CAREER"] = "424242"
         app.launchEnvironment["PROOF_SCREEN_NUMBER"] = "8"
@@ -81,42 +111,25 @@ final class ProFootballCoachUITests: XCTestCase {
 
         let navigator = app.otherElements["top-navigator"]
         XCTAssertTrue(navigator.waitForExistence(timeout: 30))
-        XCTAssertTrue(app.staticTexts["Nothing behind this surface"].exists)
 
-        app.buttons["Switch family, This week"].tap()
-        XCTAssertTrue(app.buttons["Career, 9 tasks"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons["Recruiting, 7 tasks"].exists)
-        XCTAssertFalse(app.buttons["Pro management, 8 tasks"].exists)
-        let families = XCTAttachment(screenshot: app.screenshot())
-        families.name = "Press Box — family switcher"
-        families.lifetime = .keepAlways
-        add(families)
+        // The five families, in FF Chrome's fixed order (04 6.1f), each by its real accessible
+        // name — not the retired "Switch family, X" label.
+        for title in ["This week", "Squad", "Recruiting", "Front office", "Ridgeline"] {
+            XCTAssertTrue(app.buttons[title].exists, "\(title) must be inline in the chrome bar")
+        }
+        let bar = XCTAttachment(screenshot: app.screenshot())
+        bar.name = "Forge Field — chrome bar"
+        bar.lifetime = .keepAlways
+        add(bar)
 
-        app.buttons["Career, 9 tasks"].tap()
-        XCTAssertTrue(app.buttons["Switch family, Career"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons["Back to the previous surface"].exists)
-        app.buttons["Back to the previous surface"].tap()
-        XCTAssertTrue(app.buttons["Switch family, This week"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.staticTexts["Nothing behind this surface"].exists)
-
-        app.buttons["Switch family, This week"].tap()
-        XCTAssertTrue(app.buttons["Career, 9 tasks"].waitForExistence(timeout: 2))
-        app.buttons["Career, 9 tasks"].tap()
-        XCTAssertTrue(app.buttons["Switch family, Career"].waitForExistence(timeout: 2))
-
-        app.buttons["Career Hub"].tap()
-        XCTAssertTrue(app.buttons["3, Job Board"].waitForExistence(timeout: 2))
-        XCTAssertTrue(app.buttons["4, Offer"].exists)
-        XCTAssertTrue(app.buttons["5, Appointment"].exists)
-        let aliases = XCTAttachment(screenshot: app.screenshot())
-        aliases.name = "Press Box — alias host panel"
-        aliases.lifetime = .keepAlways
-        add(aliases)
-
-        app.buttons["3, Job Board"].tap()
-        XCTAssertTrue(app.buttons["Back to Opportunities"].waitForExistence(timeout: 2))
-        app.buttons["Back to Opportunities"].tap()
-        XCTAssertTrue(app.buttons["Switch family, Career"].waitForExistence(timeout: 2))
+        // 04 6.1f: "mark, club, record, the five surfaces, the week... its contents never vary" —
+        // no back control, no switcher, no host panel. These stay retired.
+        XCTAssertFalse(app.staticTexts["Nothing behind this surface"].exists)
+        XCTAssertFalse(app.buttons["Switch family, This week"].exists)
+        XCTAssertFalse(app.buttons["Back to the previous surface"].exists)
+        XCTAssertFalse(app.buttons["Career, 9 tasks"].exists)
+        XCTAssertFalse(app.buttons["Career Hub"].exists)
+        XCTAssertFalse(app.buttons["3, Job Board"].exists)
     }
 
     func testTeamLogoAssetAndFallbackProof() {

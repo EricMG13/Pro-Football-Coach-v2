@@ -448,6 +448,25 @@ public struct CareerHubView: View, CoachWorldChromedSurface {
                 .foregroundStyle(palette.contentSecondary.color)
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: CoachWorldTokens.Gap.xs)
+            // The chrome bar's own exit, `PlayerProfileView`'s shape (adversarial review fix
+            // round, 2026-08-30, finding 1). `04` 6.1f fixed the Forge Field bar to mark, club,
+            // record, five families and week, with no back control, and `career` -- this view's
+            // own family -- is one of the two families the bar omits. Before this fix `onClose`
+            // was already threaded to every call site here (`closeCareer(in:)`, and the `focus`
+            // wrappers that pass their own `onClose` straight through) but never reached a
+            // rendered control in this file: the comment on `onClose` below used to read "the
+            // shared chrome's sibling row now offers this, so the surface draws no menu of its
+            // own" -- true of the retired Press Box band, not of this bar. That left careerHub,
+            // stakeholders and promotionDecision reachable and never leavable except by force-
+            // quitting. `DesignContractTests`' "chrome bar exit reachability" suite is the by-
+            // construction check that caught it.
+            Button(action: onClose) {
+                Text("Close")
+                    .coachWorldDisplay(CoachWorldTokens.DisplaySize.actionSmall, weight: .bold)
+                    .foregroundStyle(palette.contentQuiet.color)
+                    .frame(minHeight: CoachWorldTokens.Shape.minimumTarget)
+            }
+            .buttonStyle(.plain)
             if model.currentJob?.canResign == true {
                 Button("Resign") { showingResignConfirmation = true }
                     .coachWorldDisplay(CoachWorldTokens.DisplaySize.actionSmall, weight: .bold)

@@ -4,8 +4,9 @@ import SwiftUI
 /// and it always names its price. `cost` is not optional -- "if an action has no cost worth naming,
 /// it is not an ember" -- so the type itself is most of the enforcement. `cost: String` alone only
 /// blocks *absence*, not *emptiness* (`cost: ""` still compiles), so `init` also traps on an empty
-/// string -- see the `precondition` below and "an empty cost traps at construction" in
-/// `DesignContractTests.swift`.
+/// string in a debug build -- see the `assert` below, "an ember built with an empty cost traps in
+/// a debug build" in `DesignContractTests.swift`, and that suite's "an ember's cost argument is a
+/// string literal or a named constant" for the release-safe half of the same rule.
 public struct ForgeFieldEmber: View {
     /// The cost line's type step: the record face, tabular. Exposed so the rule is assertable
     /// without reaching into the view's body.
@@ -53,7 +54,18 @@ public struct ForgeFieldEmber: View {
         // who passes `cost: ""` compiles fine and renders a blank second line with the gap still
         // reserved, which is the same defect with extra steps. This closes that gap at
         // construction rather than leaving it to review.
-        precondition(!cost.isEmpty, "04 6.1e: an ember with no cost worth naming is not an ember")
+        //
+        // **Fix round, 2026-08-30 (finding 5): `assert`, not `precondition`.** `precondition`
+        // traps in a release build too, so a copy mistake -- an empty cost string that reaches a
+        // shipping build -- would hard-crash the game rather than merely rendering wrong. Right
+        // rule, wrong severity for an authoring error. `assert` catches the identical mistake in
+        // every debug build and every test run, which is where an authoring error is actually
+        // caught during development, and compiles out of release. Release-build safety instead
+        // comes from "an ember's cost argument is a string literal or a named constant"
+        // (`DesignContractTests.swift`), a build-time scan of every `ForgeFieldEmber(` call site
+        // under `Sources/` -- enforceable before the app ever ships, rather than only if the bad
+        // path executes.
+        assert(!cost.isEmpty, "04 6.1e: an ember with no cost worth naming is not an ember")
         self.label = label
         self.cost = cost
         self.isEnabled = isEnabled
