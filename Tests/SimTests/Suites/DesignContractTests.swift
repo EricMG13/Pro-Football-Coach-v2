@@ -1216,4 +1216,33 @@ func runDesignContractTests() {
             expectEqual(ForgeFieldTokens.Fixed.rival, ForgeFieldTokens.Fixed.signalCold)
         }
     }
+    suite("Forge Field navigation (06.1f)") {
+        test("the chrome bar names five families in FF Chrome's order") {
+            expectEqual(CoachWorldSurfaceFamily.chromeBarFamilies.map(\.forgeFieldTitle),
+                        ["This week", "Squad", "Recruiting", "Front office", "Ridgeline"],
+                        "FF Chrome.dc.html fixes both the set and the order, and 04 section 6.1f "
+                            + "transcribes it")
+        }
+
+        // The bar showing five does not license a screen being unreachable. This is the alias-host
+        // defect the reference package named: fifteen identities reachable by saved route and by
+        // nothing on screen. Enumerated over every screen by construction.
+        test("every screen still resolves to a family, including the two off the bar") {
+            let unfamilied = CoachWorldScreenID.allCases.filter { $0.family == nil }
+            expect(unfamilied.isEmpty,
+                   "\(unfamilied.count) screen(s) resolve to no family: "
+                       + "\(unfamilied.map(\.rawValue.description).sorted().joined(separator: ", "))")
+        }
+
+        test("career and entry keep a family while they are off the bar") {
+            expect(!CoachWorldSurfaceFamily.chromeBarFamilies.contains(.career),
+                   "04 section 6.1f leaves career's placement open; it must not be smuggled into "
+                       + "the bar by an implementer guessing")
+            expect(!CoachWorldSurfaceFamily.chromeBarFamilies.contains(.entry),
+                   "entry reaches the world before a coaching week exists")
+            expect(!CoachWorldSurfaceFamily.career.registeredSurfaces.isEmpty,
+                   "career surfaces must stay reachable while the question is open")
+        }
+    }
+
 }

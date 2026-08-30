@@ -25,6 +25,35 @@ public enum CoachWorldSurfaceFamily: String, CaseIterable, Sendable, Equatable {
         }
     }
 
+    /// What the Forge Field chrome bar reads for this family, `04` section 6.1f.
+    ///
+    /// Distinct from `canonicalName` because three of them are renamed by Forge Field and the old
+    /// names are still what `04` section 6.1c's header uses. Both exist until Phase 2G retires the
+    /// Press Box header; the case names are unchanged either way, because renaming them would touch
+    /// every file that routes.
+    public var forgeFieldTitle: String {
+        switch self {
+        case .weeklyCommand: "This week"
+        case .personnel: "Squad"
+        case .recruiting: "Recruiting"
+        case .proManagement: "Front office"
+        case .league: "Ridgeline"
+        case .career: "Career"
+        case .entry: "Entry"
+        }
+    }
+
+    /// The five the chrome bar shows, in its order, `04` section 6.1f.
+    ///
+    /// `entry` is absent because its surfaces reach the world before a coaching week exists.
+    /// `career` is absent because Forge Field has not said where it goes — the sheets batch it with
+    /// the league and draw its surfaces there, but do not state it, so `04` section 6.1f leaves the
+    /// question open rather than answering it on the drawings' behalf. Career surfaces stay
+    /// reachable through their own family meanwhile.
+    public static let chromeBarFamilies: [CoachWorldSurfaceFamily] = [
+        .weeklyCommand, .personnel, .recruiting, .proManagement, .league,
+    ]
+
     /// The family's canonical tasks, in registry order — the header's sibling links.
     public var surfaces: [CoachWorldScreenID] {
         CoachWorldScreenID.allCases.filter { $0.family == self && $0.isCanonicalTask }

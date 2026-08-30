@@ -855,6 +855,39 @@ The owner's 2026-08-29 grant makes Forge Field authoritative on this design ques
 ships as authored; this note exists so the collision is a decision on the record and not an
 oversight. Any later re-hue of Maritime's ember is a canon amendment, not a bug fix.
 
+### 6.1f Forge Field navigation (2026-08-30 amendment)
+
+`FF Chrome.dc.html` fixes the chrome bar's contents and their order: **mark, club, record, the five
+surfaces, the week**. The bar is 30 pt at `10, 8`, `832 x 30`, spanning columns 1 to 12 of the
+12-column grid. It is present on every surface and its contents never vary.
+
+The five surfaces, in the bar's order:
+
+| Family | Bar reads |
+|---|---|
+| `weeklyCommand` | **This week** |
+| `personnel` | **Squad** |
+| `recruiting` | **Recruiting** |
+| `proManagement` | **Front office** |
+| `league` | **Ridgeline** |
+
+**Two families are not in the bar, and one of those is an open question.**
+
+`entry` is correctly absent: its surfaces reach the world before a coaching week exists, so there is
+nowhere sideways to go from them. That was already true under section 6.1c.
+
+**`career` is unresolved.** The Forge Field sheets batch it as "League, career and entry" and draw
+Opportunities, Stakeholders and Promotion decision inside that batch, which implies career surfaces
+are reached through **Ridgeline**. The sheets do not say so, and the difference is navigational, not
+visual: whether a coach's job security and promotion arc live inside the league world or beside it is
+a design decision this document will not make on the drawings' behalf. Until it is answered, `career`
+keeps its own family and its surfaces stay reachable; it simply does not appear among the bar's five.
+**Answer it before the League, career and entry batch is drawn** — it decides that batch's shape.
+
+Club colour is legal in the bar as a 3 pt spine. It is **not** legal as the bar's ground; the bar
+sits on ground 1 like every other chrome surface, per section 6.1e.
+
+
 ### 6.2 Typography
 
 Use the system family in production and a system stack in references. The hierarchy relies on scale,
