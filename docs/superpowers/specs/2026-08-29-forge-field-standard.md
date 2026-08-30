@@ -131,14 +131,22 @@ step — it is the prose floor, one of the three floors stated under this table.
 | `fs-chrome` | 14 | club lockup, button label |
 | `fs-row` | 13.5 | table row label — the densest thing in the system |
 | `fs-prose` | 12.5 | all human prose |
-| `fs-prose-min` | 11.5 | prose floor |
+| `fs-prose-min` | 11.5 | prose floor — **superseded, ships at 12**, see the note below |
 | `fs-figure` | 11 | mono figures |
-| `fs-colhead` | 9 | absolute floor, tracked — never smaller |
+| `fs-colhead` | 9 | absolute floor, tracked — **superseded, ships at 10**, see the note below |
 
 Line heights: numeral `.82`, title `1.04`, prose `1.5`, row `1.4`.
 Tracking: numeral `-.02em`, lockup `.11em`, chrome `.14em`, colhead `.19em`, ceremony `.34em`.
 
-Three floors: 9 px absolute, 11.5 px for prose, 12 px before mono stops carrying sentences. **If a
+Three floors as the source states them: 9 px absolute, 11.5 px for prose, 12 px before mono stops
+carrying sentences.
+
+> **Two of those floors are superseded and do not ship (2026-08-30).** This document transcribes
+> what the source project says, so its numbers stay as the source wrote them — but `04` section
+> 6.2a(i) raised the absolute floor to **10** and the prose floor to **12**, because both sheet
+> values sat below floors `04` section 6.2 had already stated and already cleared through the
+> accessibility matrix. **Build against `04`, not against this table.** The mono floor at 12 is
+> unchanged. **If a
 surface is over its data-point budget, cut rows — never shrink type.**
 
 Sentence case for prose, uppercase for labels. Never uppercase a sentence.
