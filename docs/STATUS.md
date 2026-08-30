@@ -4,6 +4,24 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-30 — Forge Field Phase 2A is on screen, and it is the shell only.** The chrome bar now
+> renders on device: the five families (This week, Squad, Recruiting, Front office, Ridgeline), the
+> club as a 3 pt spine rather than a coloured band, and no sibling strip — which removes the
+> truncation that clipped `PLAYER PROFILE...` and `OPPONENT REPORT...` on five screens, by removing
+> the class of thing that truncated rather than widening it. `ForgeFieldDevice`, the four primitives
+> and the ember all exist and are contract-tested. **No screen body has been redrawn**: every surface
+> below the bar is still Press Box, so the app does not yet look like the drawings. Ledger Part E
+> rows E6 to E14 are that gap.
+>
+> **Three faults in the drawings were fixed rather than transcribed**, under the owner's 2026-08-30
+> directive that the sheets are mock-ups: the 9 pt column head and 11.5 pt prose floor were raised to
+> the 10 and 12 this document had already cleared; the 30 pt bar's family names, which are tappable,
+> were given 44 pt hit areas exceeding the visual; and a fixed 832 pt bar width that clipped the week
+> off screen at the real 761 pt hosting width became a yield ladder. **Two faults are recorded and
+> open**: at AX5 the bar consumes roughly half the viewport (E18), and `career` has no home among the
+> five families (E19).
+
+
 > **2026-08-29 — Forge Field is the design standard, and Phase 1 is canon plus tokens only.** The
 > owner replaced Press Box with Forge Field (Claude Design project `8c511c92-...`) on 2026-08-29.
 >
