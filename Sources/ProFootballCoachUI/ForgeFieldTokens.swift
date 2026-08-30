@@ -107,6 +107,12 @@ public enum ForgeFieldTokens {
         public static let rowDense: CGFloat = 32
         /// Anything tappable, on its short edge.
         public static let rowTouch: CGFloat = 44
+        /// The 44 pt touch floor, by its own name. An alias of `rowTouch`, never a second literal
+        /// -- 04 6.3a states one number for both roles ("row-touch / hit-min | 44"), and the
+        /// repeated-literal discipline `06.1a(ii)` states for colour applies to numbers the same
+        /// way: two names for one value must share one declaration, or a future edit to one could
+        /// silently leave the other behind.
+        public static let hitMin = rowTouch
         public static let chromeHeight: CGFloat = 30
         public static let panelHead: CGFloat = 19
         public static let overlayMax: CGFloat = 420

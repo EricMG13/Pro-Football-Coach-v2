@@ -1308,4 +1308,25 @@ func runDesignContractTests() {
         }
     }
 
+    suite("Forge Field primitives (06.3a)") {
+        test("a dense row is legal only when the whole row is inert") {
+            expectEqual(ForgeFieldRow.Height.dense.points, 32)
+            expectEqual(ForgeFieldRow.Height.touch.points, 44)
+            expect(ForgeFieldRow.Height.touch.points >= ForgeFieldTokens.Space.hitMin,
+                   "a tappable row must clear the 44 pt hit floor on its short edge")
+        }
+        test("the seam carries both alphas and they do not drift") {
+            expectEqual(ForgeFieldSeam.Weight.hair.alpha, ForgeFieldTokens.Edge.seamHair)
+            expectEqual(ForgeFieldSeam.Weight.hard.alpha, ForgeFieldTokens.Edge.seamHard)
+        }
+        test("panels cast nothing") {
+            expect(!ForgeFieldPanel.castsShadow,
+                   "04 6.3a: panels sit flat with an inset hairline. Only a flooded field and an "
+                       + "ember control cast a shadow.")
+        }
+        test("hitMin is an alias of rowTouch, not a second literal") {
+            expectEqual(ForgeFieldTokens.Space.hitMin, ForgeFieldTokens.Space.rowTouch)
+        }
+    }
+
 }
