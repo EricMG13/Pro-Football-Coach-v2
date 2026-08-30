@@ -66,6 +66,14 @@ public enum ForgeFieldTokens {
     }
 
     /// Fixed for every club.
+    ///
+    /// `04` section 6.1e's fixed table also states `turf-lit` `#2A8850`, `turf-deep` `#05150D` and
+    /// `leather` `#7A3E1C`. All three are deliberately absent below: `DesignTokens.swift` already
+    /// ships those exact colours as `CoachWorldTokens.Floodlit.turfCrown`,
+    /// `CoachWorldTokens.Floodlit.turfNight` and `CoachWorldTokens.Floodlit.ballMid`, and
+    /// re-declaring them here would be a repeated literal under 04 section 6.1a(ii) and the
+    /// `DesignContractTests` scan that enforces it. Phase 2 re-homes them here once
+    /// `CoachWorldTokens` is deleted (change-ledger row E14).
     public enum Fixed {
         /// Earned standing only: records, trophies, the lit chrome of match day.
         public static let gold = CoachWorldTokens.ColorValue(hex: 0xE8C36A)
@@ -77,7 +85,6 @@ public enum ForgeFieldTokens {
         /// than repeated, per 04 section 6.1a(ii): diverging the pair later must be a deliberate edit.
         public static let rival = signalCold
         public static let failureGround = CoachWorldTokens.ColorValue(hex: 0x241110)
-        public static let leather = CoachWorldTokens.ColorValue(hex: 0x7A3E1C)
     }
 
     /// `04` section 6.3a. One ladder, one radius, one grid. Nothing off-ladder.

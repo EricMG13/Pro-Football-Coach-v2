@@ -234,6 +234,29 @@ func runDocumentManifestTests() {
     }
 }
 
+/// Every colour literal across `files`, mapped to every file path where it occurs, filtered down
+/// to the values that occur more than once.
+///
+/// Built as one collection spanning every file rather than a `seen` set reset at the top of each
+/// file's own loop: a per-file `seen` set can only ever catch a literal repeated within that one
+/// file, so widening the caller's file filter from one token file to N silently changed the
+/// invariant it enforces from "the token layer holds no repeated literal" to "no single file
+/// does" — the gap that let `ForgeFieldTokens.swift`'s `leather` silently repeat
+/// `DesignTokens.swift`'s `ballMid`, both `0x7A3E1C`, until this collected across files instead.
+private func repeatedColourLiterals(in files: [(path: String, text: String)]) -> [String: [String]] {
+    var occurrences: [String: [String]] = [:]
+    for file in files {
+        // Stripped, because the alias declarations explain themselves in prose that names the
+        // very hex they replaced — 04 section 6.1a(ii)'s own example among them.
+        let literals = matches(of: "(0x[0-9A-Fa-f]{6})\\b", in: strippingLineComments(file.text))
+            .map { $0.uppercased() }
+        for literal in literals {
+            occurrences[literal, default: []].append(file.path)
+        }
+    }
+    return occurrences.filter { $0.value.count > 1 }
+}
+
 func runDesignContractTests() {
     let canon = canonText()
 
@@ -306,20 +329,19 @@ func runDesignContractTests() {
                 .filter { $0.path.hasSuffix("Tokens.swift") }
             expect(!tokenFiles.isEmpty,
                    "no *Tokens.swift found under Sources/ProFootballCoachUI")
-            for file in tokenFiles {
-                // Stripped, because the alias declarations explain themselves in prose that names
-                // the very hex they replaced — 04 section 6.1a(ii)'s own example among them.
-                let literals = matches(of: "(0x[0-9A-Fa-f]{6})\\b",
-                                       in: strippingLineComments(file.text))
-                    .map { $0.uppercased() }
-                var seen: Set<String> = []
-                let repeated = Set(literals.filter { !seen.insert($0).inserted }).sorted()
-                expect(repeated.isEmpty,
-                       "\(file.path) repeats \(repeated.count) colour literal(s): "
-                           + "\(repeated.joined(separator: ", ")). 04 section 6.1a(ii) requires a "
-                           + "shared value to be declared once and aliased by each role that takes "
-                           + "it, so that diverging them later is a deliberate edit.")
-            }
+
+            // Gathered from every matched file into one collection before checking for
+            // duplicates — see `repeatedColourLiterals`'s own comment for why a per-file loop
+            // cannot stand in for this.
+            let repeated = repeatedColourLiterals(in: tokenFiles)
+            let detail = repeated.keys.sorted().map { value in
+                "\(value) in \(Set(repeated[value] ?? []).sorted().joined(separator: ", "))"
+            }.joined(separator: "; ")
+            expect(repeated.isEmpty,
+                   "the token layer repeats \(repeated.count) colour literal(s): \(detail). 04 "
+                       + "section 6.1a(ii) requires a shared value to be declared once and "
+                       + "aliased by each role that takes it, so that diverging them later is a "
+                       + "deliberate edit.")
         }
 
         test("the repeated-literal scan would notice a duplicated value") {
@@ -332,6 +354,23 @@ func runDesignContractTests() {
             var seen: Set<String> = []
             expect(!literals.filter { !seen.insert($0).inserted }.isEmpty,
                    "a planted duplicate colour literal must be caught")
+        }
+
+        test("the repeated-literal scan would notice a duplicate split across two files") {
+            // The exact shape of the bug this reproduces: a `seen` set reset at the top of each
+            // file's loop cannot see a value declared once in file A and again in file B — which
+            // is precisely how `ForgeFieldTokens.swift`'s `leather` silently repeated
+            // `DesignTokens.swift`'s `ballMid` while the scan still passed.
+            let planted = [
+                (path: "A.swift", text: "static let one = ColorValue(hex: 0x7A3E1C)"),
+                (path: "B.swift", text: "static let two = ColorValue(hex: 0x7A3E1C)")
+            ]
+            let repeated = repeatedColourLiterals(in: planted)
+            expect(repeated.count == 1,
+                   "a colour literal repeated across two files, and not repeated within either "
+                       + "file alone, must still be caught")
+            expect(repeated.values.first?.sorted() == ["A.swift", "B.swift"],
+                   "the caught duplicate must name both files it appears in")
         }
 
         test("glass rules become legible for both contrast branches") {
