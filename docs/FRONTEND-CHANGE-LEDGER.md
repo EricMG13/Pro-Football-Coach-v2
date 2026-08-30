@@ -1,11 +1,24 @@
-# Frontend change ledger — Press Box
+# Frontend change ledger
 
 **A living record, not canon.** `docs/DOC-MANIFEST.md` governs what is canon; nothing here amends a
 canon document. Opened 2026-08-23.
 
-**Standard:** Press Box, Claude Design project `3e8bedda-4c56-4be1-8f3a-98f9c2e82d9d`, owner-approved
-2026-08-23 as the design standard. Its own `AUTHORITY.md` states what that overrides and — more
-importantly — what it does not.
+**Standard, from 2026-08-29:** Forge Field, Claude Design project
+`8c511c92-3337-4cfb-850c-140a659f3034`, owner-approved as the design standard, replacing Press Box.
+`docs/superpowers/specs/2026-08-29-forge-field-standard.md` is the self-sufficient transcription;
+`docs/DOC-MANIFEST.md` section 4b records the supersession; `04` sections 6.1e, 6.2a, 6.3a, 6.6a and
+6.7a are the canon a builder implements against.
+
+**The grant is scoped exactly as the Press Box grant was.** Forge Field decides how a thing is drawn.
+It does not override a fact, a read model, the legal guardrail, or the accessibility floor.
+`docs/reviews/2026-08-22-all-screen-presentation-contract.md` still outranks it on what a surface
+holds and must omit.
+
+**Standard until 2026-08-29:** Press Box, Claude Design project
+`3e8bedda-4c56-4be1-8f3a-98f9c2e82d9d`, owner-approved 2026-08-23. Its `AUTHORITY.md` states what
+that overrode and what it did not, and that boundary carries forward verbatim. **Parts A to D below
+are the Press Box record and are not rewritten.** Work marked LANDED there shipped and stays
+shipped; Part E is where it is adapted to Forge Field values.
 
 **Purpose:** every change the SwiftUI frontend needs to meet that standard, with enough detail to
 act on without re-deriving it. One row per change. Nothing here is speculative: each entry names a
@@ -16,10 +29,19 @@ cannot open, so every value a builder needs is written out here in full rather t
 entry says "see the standard" and nothing else, that entry is incomplete and should be treated as a
 defect in this document.
 
-**What has landed, and what has not.** Part A's shared layer is where the work started, because six
-files there are read by every surface. A1, A2 and A3 are **built and verified** (`3bd44a58`); A4
-onward and the whole of Parts B and C are **not written yet**. Nothing in Part B should start before
-A4 lands, because every plate width in it assumes the widened content column.
+**What has landed, and what has not — corrected 2026-08-29.** This paragraph had gone stale against
+the body it summarises: it said "A4 onward and the whole of Parts B and C are not written yet", while
+A4's own heading says LANDED, A4b and A4c say RESOLVED, A4d says ADOPTED, and eight Part B entries
+say complete with their counts. Reading the header instead of the body is the same failure
+`AUTHORITY.md` names — infer nothing about a document you have not read — so the summary is replaced
+rather than patched.
+
+Part A's shared layer is where the work started, because six files there are read by every surface.
+**A1 through A4 are built and verified** (`3bd44a58` for A1-A3); A4b, A4c and A4d were settled by the
+2026-08-23 grant. Part B carries substantial completed work, each entry stating its own count. Part C
+holds a mix of resolved and open component work. Part D is asks blocked on the engine or on a
+decision, three of which have been withdrawn or closed as partly wrong. **Per-entry status marks are
+authoritative; this paragraph is not.**
 
 ---
 
@@ -1139,3 +1161,71 @@ it — not when it looks right. Press Box's own verification is worth copying:
 - **The check must be ancestor-aware on both axes.** An element clipped by its own container is not
   overflowing the frame; one cut off *inside* a plate leaves the frame measuring perfectly while the
   content is gone. Both directions caught real defects, and both took a corrected check to see.
+
+---
+
+## Part E — Forge Field
+
+Opened 2026-08-29, when Forge Field replaced Press Box as the design standard.
+
+**Why a new part rather than a rewrite of A to D.** Parts A to D record real, shipped work against
+the Press Box standard, and closing completed entries as obsolete would be false. The standard
+changed; the history did not. Part E carries the migration.
+
+**Phase 1 — canon and the token layer — is complete.** Plan:
+`docs/plans/2026-08-29-forge-field-standard-phase-1.md`. It deliberately touched no surface view:
+`CoachWorldTokens` still ships, and the 57 files that read it still compile and still draw Press Box
+geometry. **Nothing in the running app looks different yet.**
+
+| # | Status | What | Where |
+|---|---|---|---|
+| E1 | **DONE** | Authority recorded; Press Box marked `SUPERSEDED-BY Forge Field`. A fourth classification was added to section 1 because the legend defined only three and a bare `SUPERSEDED` was undefined | `docs/DOC-MANIFEST.md` section 1 and section 4b |
+| E2 | **DONE** | Palette, type, space, symbols and motion written into canon. All 72 hex values verified digit for digit against the spec | `04` sections 6.1e, 6.2a, 6.3a, 6.6a, 6.7a |
+| E3 | **DONE** | Ten OFL faces bundled with their licences, and registered with CoreText from `Bundle.module` | `Sources/ProFootballCoachUI/Resources/Fonts/`, `ForgeFieldFonts.swift` |
+| E4 | **DONE** | Eleven type steps mapped onto Dynamic Type, each naming its exact PostScript face; five-case `Tracking` enum | `Sources/ProFootballCoachUI/ForgeFieldType.swift` |
+| E5 | **DONE** | Token layer landed beside `CoachWorldTokens`; both colour scans widened to cover it | `Sources/ProFootballCoachUI/ForgeFieldTokens.swift` |
+| E6 | **TODO** | Migrate the 57 files reading `CoachWorldTokens` onto `ForgeFieldTokens`, surface by surface | Phase 2 — needs its own plan |
+| E7 | **TODO** | Retire `CoachWorldCutCorner` and its 4/22/4/22 presets once E6 lands; the single 3 pt radius replaces them | `Sources/ProFootballCoachUI/`, `DesignContractTests` "Floodlit geometry (06.1a)" |
+| E8 | **TODO** | Re-target the "Press Box shared chrome" suite at Forge Field's 30 pt chrome bar | `Tests/SimTests/Suites/DesignContractTests.swift` |
+| E9 | **TODO** | Re-measure and restate every contrast ratio for all four clubs, both ink-on-ground directions | `04` section 6.1e |
+| E10 | **TODO** | Retire the symbol register for Forge Field surfaces per `04` 6.6a; re-target or remove the "Symbol register" and "Retired symbols (06.1c)" suites | `Tests/SimTests/Suites/DesignContractTests.swift` |
+| E11 | **TODO** | Backgrounds: floods at 102 degrees, lamp washes, the oversized ghost mark, the scanline — gradients, never imagery | spec section 2.7 |
+| E12 | **TODO** | The seam law — one per surface, staged above or left, studied below or right — and the 30 pt chrome bar's fixed contents and order | spec sections 2.3 and 3 |
+| E13 | **TODO** | House voice: a cost sub-label on every ember, `unseen` as a legal value, qualified numbers, failures naming what survived | spec section 2.8; needs a canon amendment first |
+| E14 | **TODO** | Delete `CoachWorldTokens` once nothing reads it | `Sources/ProFootballCoachUI/DesignTokens.swift` |
+
+### Defects observed in the running app, 2026-08-29
+
+Found by building the app and driving four surfaces on a booted iPhone 17e. These are **not** Forge
+Field divergences — they are defects in what ships today, and they are recorded here so Phase 2 does
+not redraw them faithfully.
+
+| Surface | What was seen |
+|---|---|
+| This Week | The week label renders twice: `WEEK 1 · WEEK 1` |
+| This Week | Both options of a mandatory decision read `NO RECORDED COST`, so the choice states no cost either way. `04` 6.2a's voice rule requires an action to state its cost |
+| This Week | A `WHY IT IS HERE` heading with nothing beneath it |
+| Recruiting | A `RELATIONSHIP LOG` heading with nothing beneath it |
+| Recruiting | A prospect row is clipped mid-height by the panel edge rather than scrolling cleanly |
+| Recruiting | `SLOTS 0 open` while `Add to board` is still offered, at `0 contact points`, under a header reading `CONTACT 100 left` |
+| Every surface | Sibling labels truncate against the right-hand chip: `PLAYER PROFILE...`, `OPPONENT REPORT...`, `PROSPECT PROFILE...` |
+
+### Three runtime defects the tests could not see, 2026-08-29
+
+Found by building the real app and inspecting the product, not by any test. Recorded because each
+would have shipped silently.
+
+1. `INFOPLIST_KEY_UIAppFonts` is accepted into `project.pbxproj` and then **silently dropped** by
+   Xcode — the built `Info.plist` carries no `UIAppFonts` key and no warning is emitted. Xcode's
+   `INFOPLIST_KEY_` mechanism honours a fixed set of keys and this is not one of them.
+2. SwiftPM places a library target's processed resources in a nested `<App>_<Target>.bundle`, not at
+   the app bundle root, and `.process()` flattens the directory, so no `Fonts/` path exists in the
+   product.
+3. `UIAppFonts` resolves relative to the app bundle root, so even a surviving key pointed at nothing.
+
+Net effect had this shipped: every Forge Field surface rendering in the system face, silently. The
+fix registers the faces with `CTFontManagerRegisterFontsForURL` from `Bundle.module`. The test that
+now guards it asks CoreText to resolve each PostScript name and compares what comes back — because
+`CTFontCreateWithName` returns a **fallback font rather than nil** for an unknown name, and a
+nil-check proves nothing. Asking for an unregistered name in that test returns a font reporting
+`Helvetica`.

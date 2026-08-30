@@ -4,6 +4,29 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-29 — Forge Field is the design standard, and Phase 1 is canon plus tokens only.** The
+> owner replaced Press Box with Forge Field (Claude Design project `8c511c92-...`) on 2026-08-29.
+>
+> **What is verified, under a real Swift 6.3.3 toolchain:** the `DOC-MANIFEST` authority change; `04`
+> sections 6.1e, 6.2a, 6.3a, 6.6a and 6.7a; ten OFL type faces bundled with their licences and
+> registered through CoreText; the eleven type steps mapped onto Dynamic Type; and `ForgeFieldTokens`
+> landed beside `CoachWorldTokens`. `swift build` green and `swift run SimTests --design-contracts`
+> green at 83 tests and 1231 checks. The app builds for the simulator and runs.
+>
+> **What is NOT done, and must not be read as done: no surface has been migrated.** Fifty-seven files
+> still read `CoachWorldTokens` and still draw Press Box geometry, so the running app does not look
+> like Forge Field and will not until Phase 2. `docs/FRONTEND-CHANGE-LEDGER.md` Part E rows E6 to E14
+> are that gap.
+>
+> **What was NOT run:** the full `swift run SimTests` suite did not complete during Phase 1. It was
+> attempted and descoped to the phase gate. Until it runs green, the 57 existing consumers are
+> unproven against the widened colour scans.
+>
+> **Three runtime defects were found by building the app rather than by testing it** — Xcode silently
+> drops `INFOPLIST_KEY_UIAppFonts`, SwiftPM nests library resources in a separate bundle, and
+> `.process()` flattens the directory. All three are fixed; all three are recorded in the ledger's
+> Part E because each would otherwise have shipped as silent system-face rendering.
+
 > **2026-08-25 — Loop 920 closed the app-layer promotion route.** Accepting a professional offer
 > now consumes the pending opportunity, seats the coach in the pro tier, routes the live root back to
 > Career Hub, and persists that destination before autosave. A child-process E2E-F walk proves the
