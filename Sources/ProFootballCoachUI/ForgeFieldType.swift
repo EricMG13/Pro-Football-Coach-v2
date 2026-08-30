@@ -52,6 +52,14 @@ public enum ForgeFieldType {
         case row, prose, proseMin, figure, columnHead
 
         /// The `04` section 6.2a value at the standard content size.
+        ///
+        /// **Two values differ from the Forge Field sheets, deliberately** (`04` section 6.2a(i),
+        /// owner directive 2026-08-30 that the sheets are mock-ups and do not account for
+        /// legibility on a real device): `columnHead` ships at 10 rather than the sheets' 9, and
+        /// `proseMin` at 12 rather than 11.5. Both sheet values sat below floors `04` section 6.2
+        /// already states and that already passed the accessibility matrix — Caption is 10 to 11 pt
+        /// for column labels, and working prose stays at 12. The sheets set the column head in a
+        /// condensed face at .19em tracking, which is less legible again at the same size.
         public var points: CGFloat {
             switch self {
             case .ceremony: 120
@@ -62,9 +70,9 @@ public enum ForgeFieldType {
             case .chrome: 14
             case .row: 13.5
             case .prose: 12.5
-            case .proseMin: 11.5
+            case .proseMin: 12
             case .figure: 11
-            case .columnHead: 9
+            case .columnHead: 10
             }
         }
 

@@ -1193,6 +1193,7 @@ geometry. **Nothing in the running app looks different yet.**
 | E12 | **TODO** | The seam law — one per surface, staged above or left, studied below or right — and the 30 pt chrome bar's fixed contents and order | spec sections 2.3 and 3 |
 | E13 | **TODO** | House voice: a cost sub-label on every ember, `unseen` as a legal value, qualified numbers, failures naming what survived | spec section 2.8; needs a canon amendment first |
 | E14 | **TODO** | Delete `CoachWorldTokens` once nothing reads it | `Sources/ProFootballCoachUI/DesignTokens.swift` |
+| E15 | **DONE** | Raised two type floors the sheets set below `04` section 6.2's already-cleared ones: `fs-colhead` 9 to 10, `fs-prose-min` 11.5 to 12. First deviation taken under the 2026-08-30 adaptation rule. | `04` section 6.2a(i), `Sources/ProFootballCoachUI/ForgeFieldType.swift` |
 
 ### Defects observed in the running app, 2026-08-29
 

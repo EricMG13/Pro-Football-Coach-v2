@@ -937,7 +937,7 @@ Three families, each with one job and no overlap.
 
 **Six steps, expressed as ten sizes.** The three large steps each pair a broadcast size with its
 desk equivalent: 120/62, 34/26, 19/14. The three small steps are 13.5, 12.5 and 11/9. Anything not
-on this list fails review. The eleventh row below, `fs-prose-min` at 11.5, is deliberately **not** a
+on this list fails review. The eleventh row below, `fs-prose-min` at 12, is deliberately **not** a
 step — it is the prose floor, one of the three floors stated under this table.
 
 | Token | Size | Use |
@@ -950,17 +950,38 @@ step — it is the prose floor, one of the three floors stated under this table.
 | `fs-chrome` | 14 | club lockup, button label |
 | `fs-row` | 13.5 | table row label — the densest thing in the system |
 | `fs-prose` | 12.5 | all human prose |
-| `fs-prose-min` | 11.5 | prose floor |
+| `fs-prose-min` | 12 | prose floor (raised from the sheets' 11.5, see below) |
 | `fs-figure` | 11 | mono figures |
-| `fs-colhead` | 9 | absolute floor, tracked — never smaller |
+| `fs-colhead` | 10 | absolute floor, tracked — never smaller (raised from the sheets' 9, see below) |
 
 Line heights: numeral `.82`, title `1.04`, prose `1.5`, row `1.4`.
 Tracking: numeral `-.02em`, lockup `.11em`, chrome `.14em`, colhead `.19em`, ceremony `.34em`.
 
-Three floors: 9 px absolute, 11.5 px for prose, 12 px before mono stops carrying sentences. **If a
+Three floors: 10 pt absolute, 12 pt for prose, 12 pt before mono stops carrying sentences. **If a
 surface is over its data-point budget, cut rows — never shrink type.**
 
 Sentence case for prose, uppercase for labels. Never uppercase a sentence.
+
+#### 6.2a(i) The two floors raised from the drawings (2026-08-30 amendment)
+
+**The Forge Field sheets are mock-ups and do not account for legibility on a real device**
+(owner directive, 2026-08-30). Two of their floors sit below floors this document already states and
+that have already passed the accessibility matrix, so they are raised here before anything ships
+them.
+
+| Token | Sheets | Ships at | Why |
+|---|---:|---:|---|
+| `fs-colhead` | 9 | **10** | Section 6.2's Caption role is `10–11 pt` for "metadata, column labels and dense table cells" — the same job. 9 pt is below the smallest size this document has ever cleared, and the sheets set it in a **condensed** face at `.19em` tracking, which is less legible again than the system caption face at the same size. |
+| `fs-prose-min` | 11.5 | **12** | Section 6.2 states "Working prose stays at 12 pt; 10–11 pt is reserved for short labels, ratings, metadata", and ships `authoredFloor = 12`. A prose floor of 11.5 contradicts a floor this document already holds. |
+
+**Nothing else moves.** `fs-figure` at 11 stays: section 6.2's Numeral role runs `10–28 pt tabular`,
+so 11 is inside a range this document already cleared. The other nine steps are all above both
+floors and are transcribed from the sheets unchanged.
+
+**This is a fault fix, not a redesign.** Raising a floor by one point and by half a point does not
+touch the register model, the seam, the budgets, the single radius, or the colour system. Where the
+sheets and this section now disagree on these two numbers, this section is right.
+
 
 ### 6.3 Shape, spacing and touch
 

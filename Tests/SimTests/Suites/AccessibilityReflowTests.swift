@@ -407,18 +407,22 @@ func runAccessibilityReflowTests() {
             expectEqual(ForgeFieldType.Step.chrome.points, 14)
             expectEqual(ForgeFieldType.Step.row.points, 13.5)
             expectEqual(ForgeFieldType.Step.prose.points, 12.5)
-            expectEqual(ForgeFieldType.Step.proseMin.points, 11.5)
+            expectEqual(ForgeFieldType.Step.proseMin.points, 12)
             expectEqual(ForgeFieldType.Step.figure.points, 11)
-            expectEqual(ForgeFieldType.Step.columnHead.points, 9)
+            expectEqual(ForgeFieldType.Step.columnHead.points, 10)
         }
 
         test("no step sits below its stated floor") {
             for step in ForgeFieldType.Step.allCases {
-                expect(step.points >= 9,
-                       "\(step) is \(step.points) pt — 04 section 6.2a's absolute floor is 9")
+                expect(step.points >= 10,
+                       "\(step) is \(step.points) pt — 04 section 6.2a's absolute floor is 10. "
+                           + "The sheets say 9; section 6.2a(i) raised it, because 6.2's Caption "
+                           + "role has been 10 to 11 pt since before Forge Field and had already "
+                           + "passed the accessibility matrix at that floor.")
                 if step.family == .prose {
-                    expect(step.points >= 11.5,
-                           "\(step) is prose at \(step.points) pt — the prose floor is 11.5")
+                    expect(step.points >= 12,
+                           "\(step) is prose at \(step.points) pt — the prose floor is 12, per "
+                               + "04 section 6.2's 'working prose stays at 12 pt'")
                 }
                 if step.family == .record {
                     expect(step.points >= 11,
