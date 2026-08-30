@@ -31,6 +31,10 @@ public extension CoachWorldReadModelProvider {
             world: world(for: canonicalScreen),
             club: hub.team,
             record: hub.recordLabel,
+            // The Forge Field chrome bar's fixed last slot, `04` 6.1f. The week hub already
+            // resolves this fact for its own display (`CoachingHQView.swift` reads the identical
+            // `hub.week.weekLabel`); the chrome read model just did not carry it until Task 5.
+            week: hub.week.weekLabel,
             ranking: hub.rankLabel,
             conference: conference,
             context: context,

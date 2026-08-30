@@ -100,6 +100,11 @@ public enum ForgeFieldTokens {
         public static let radius = CGFloat(3)
         /// The outer device frame, and nothing else.
         public static let radiusDevice: CGFloat = 14
+        /// Club colour's accent spine, `04` 6.1e and 6.1f: "a 3 pt spine." The same numeral as the
+        /// corner radius above, and aliased rather than repeated for the same reason `hitMin`
+        /// aliases `rowTouch` below: two names for one value must share one declaration, or a
+        /// future edit to one could silently leave the other behind.
+        public static let spine = radius
         public static let gridColumns = 12
         public static let gutter: CGFloat = 9
         public static let margin: CGFloat = 10
@@ -114,6 +119,10 @@ public enum ForgeFieldTokens {
         /// silently leave the other behind.
         public static let hitMin = rowTouch
         public static let chromeHeight: CGFloat = 30
+        /// The chrome bar's y-origin, `04` 6.1f: "origin 10, 8." `margin` above is the x-origin and
+        /// the same value the 12-column grid uses everywhere else; this one has no other role to
+        /// alias, the same standing `panelHead` already has below.
+        public static let chromeTop: CGFloat = 8
         public static let panelHead: CGFloat = 19
         public static let overlayMax: CGFloat = 420
         public static let viewport = CGSize(width: 852, height: 393)

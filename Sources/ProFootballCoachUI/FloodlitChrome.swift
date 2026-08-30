@@ -96,6 +96,14 @@ public struct FloodlitChromeReadModel: Sendable, Equatable {
     public let club: CoachWorldTeamReference
     /// `4-2`, already formatted with the en dash `04` section 6.1's copy rules ask for.
     public let record: String
+    /// The week label the Forge Field chrome bar's fixed last slot reads, `04` 6.1f: "mark, club,
+    /// record, the five surfaces, the week." Nil only for a caller that predates this field (a
+    /// hand-built read model in a test that does not exercise the week slot) — every real chrome
+    /// provider supplies it. The fact already exists one level up
+    /// (`CoachingHQReadModel.WeekContext.weekLabel`); this only threads it into the chrome's own
+    /// read model, which never carried a raw week fact before Task 5 because Press Box's chrome
+    /// baked everything into `context`/`contextShort` instead.
+    public let week: String?
     /// `#21`, or nil when the programme is unranked — an absent ranking is not a ranking of zero.
     public let ranking: String?
     /// Nil when the programme's conference is not retained on this route. An absent conference is
@@ -143,6 +151,7 @@ public struct FloodlitChromeReadModel: Sendable, Equatable {
         world: World,
         club: CoachWorldTeamReference,
         record: String,
+        week: String? = nil,
         ranking: String? = nil,
         conference: String? = nil,
         context: String? = nil,
@@ -156,6 +165,7 @@ public struct FloodlitChromeReadModel: Sendable, Equatable {
         self.world = world
         self.club = club
         self.record = record
+        self.week = week
         self.ranking = ranking
         self.conference = conference
         self.context = context
@@ -346,534 +356,30 @@ struct CoachWorldWorldBackdrop: View {
 
 // MARK: - Identity header
 
-/// The whole management chrome in one 34 point row: back, identity, family, siblings, context.
+/// Hosts the Forge Field chrome bar (`ForgeFieldChromeBar.swift`, `04` section 6.1f) in place of
+/// the retired Press Box identity band -- the club-coloured band ground, the back control, the
+/// family switcher panel, the sibling strip and its folds-into panel, and the short-context yielding
+/// ladder. `04` 6.1f's bar has none of those: fixed contents, fixed order, mark, club, record, the
+/// five surfaces, the week, "present on every surface and its contents never vary." See
+/// `Tests/SimTests/Suites/DesignContractTests.swift`'s retargeted "Press Box shared chrome" suite
+/// for which of the retired controls that is and why, one by one.
+///
+/// Kept as a thin wrapper rather than inlining `ForgeFieldChromeBar` at
+/// `CoachWorldFloodlitComposition`'s two call sites, so both keep compiling unchanged against this
+/// same three-parameter shape, and so `top-navigator` -- the one identifier the retargeted contract
+/// keeps -- stays owned by one type regardless of what renders inside it. `palette` is accepted and
+/// stored, not read: the caller passes the Press Box palette both call sites already resolve, and
+/// removing the parameter would touch `CoachWorldFloodlitComposition.swift`, a file this task's
+/// brief does not list.
 struct FloodlitIdentityHeader: View {
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @State private var showingFamilies = false
-    @State private var openHost: CoachWorldScreenID?
-
-    private var bandTargetOffset: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? 0 : Chrome.bandTargetOffset
-    }
-
     let model: FloodlitChromeReadModel
     let palette: CoachWorldTokens.Palette
     let onNavigate: (CoachWorldIntentID) -> Void
 
-    private var identity: CoachWorldTeamIdentity? {
-        CoachWorldTeamIdentity(
-            team: model.club,
-            behind: CoachWorldTokens.Floodlit.roomDeep,
-            inks: [CoachWorldTokens.Floodlit.clubInk, CoachWorldTokens.dark.contentPrimary]
-        )
-    }
-
     var body: some View {
-        VStack(spacing: .zero) {
-            if dynamicTypeSize.isAccessibilitySize {
-                accessibleNavigator
-            } else {
-                navigator
-                    .overlayPreferenceValue(ChromePanelAnchorKey.self) { anchors in
-                        GeometryReader { proxy in
-                            standardPresentedPanel(anchors: anchors, proxy: proxy)
-                        }
-                    }
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("top-navigator")
-    }
-
-    private var navigator: some View {
-        ViewThatFits(in: .horizontal) {
-            navigatorRow(context: model.context)
-            navigatorRow(context: model.contextShort ?? model.context)
-        }
-        .frame(height: CoachWorldTokens.Stage.headerHeight)
-        .background(navigatorGround)
-        .overlay(alignment: .leading) {
-            Rectangle().fill((identity?.accent ?? CoachWorldTokens.Floodlit.clubInk).color)
-                .frame(width: Chrome.headerRail)
-                .accessibilityHidden(true)
-        }
-        .overlay {
-            CoachWorldCutCorner.headerBand.stroke(
-                CoachWorldTokens.Rule.row.color(
-                    palette: palette,
-                    contrast: contrast,
-                    reduceTransparency: reduceTransparency
-                ),
-                lineWidth: CoachWorldTokens.Shape.hairline
-            )
-        }
-        .clipShape(CoachWorldCutCorner.headerBand)
-    }
-
-    private var navigatorGround: some View {
-        CoachWorldTokens.Floodlit.navigatorGround(
-            field: identity?.field ?? CoachWorldTokens.Floodlit.clubField
-        )
-    }
-
-    private var rowRuleColor: Color {
-        CoachWorldTokens.Rule.row.color(
-            palette: palette,
-            contrast: contrast,
-            reduceTransparency: reduceTransparency
-        )
-    }
-
-    private func navigatorRow(context: String?) -> some View {
-        HStack(spacing: .zero) {
-            backControl
-            identityBlock
-            Rectangle()
-                .fill(rowRuleColor)
-                .frame(width: CoachWorldTokens.Shape.hairline)
-                .accessibilityHidden(true)
-            familyButton
-            siblingStrip
-                .frame(minWidth: Chrome.siblingFloor)
-            Spacer(minLength: .zero)
-            if let context { contextBlock(context) }
-        }
-    }
-
-    @ViewBuilder
-    private var backControl: some View {
-        switch model.back {
-        case let .plain(intentID):
-            Button { onNavigate(intentID) } label: { backWedge(opacity: 0.58) }
-                .buttonStyle(.plain)
-                .frame(width: Chrome.backWidth, height: CoachWorldTokens.Shape.minimumTarget)
-                .padding(.vertical, bandTargetOffset)
-                .accessibilityLabel("Back to the previous surface")
-                .overlay(alignment: .trailing) { backRule }
-        case let .up(hostName, intentID):
-            Button { onNavigate(intentID) } label: {
-                HStack(spacing: CoachWorldTokens.Gap.xs) {
-                    backWedge(opacity: 0.72)
-                    Text(hostName.uppercased())
-                        .coachWorldDisplay(Chrome.familySize, weight: .bold)
-                        .tracking(CoachWorldTokens.DisplaySize.tracking(0.08, at: Chrome.familySize))
-                        .lineLimit(1)
-                }
-                .padding(.horizontal, CoachWorldTokens.Gap.smPlus)
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: Chrome.backUpMaxWidth, minHeight: CoachWorldTokens.Shape.minimumTarget)
-            .padding(.vertical, bandTargetOffset)
-            .accessibilityLabel("Back to \(hostName)")
-            .accessibilityHint("This surface folds into that task")
-            .overlay(alignment: .trailing) { backRule }
-        case .none:
-            backWedge(opacity: 1 / 6)
-                .frame(width: Chrome.backWidth, height: CoachWorldTokens.Stage.headerHeight)
-                .accessibilityElement()
-                .accessibilityLabel("Nothing behind this surface")
-                .accessibilityAddTraits(.isStaticText)
-                .overlay(alignment: .trailing) { backRule }
-        }
-    }
-
-    private func backWedge(opacity: Double) -> some View {
-        FloodlitBackWedge()
-            .fill(CoachWorldTokens.Floodlit.clubInk.color.opacity(opacity))
-            .frame(width: Chrome.backWedgeWidth, height: Chrome.backWedgeHeight)
-    }
-
-    private var backRule: some View {
-        Rectangle()
-            .fill(rowRuleColor)
-            .frame(width: CoachWorldTokens.Shape.hairline)
-            .accessibilityHidden(true)
-    }
-
-    private var identityBlock: some View {
-        HStack(spacing: CoachWorldTokens.Gap.sm) {
-            CoachWorldTeamLogo(
-                team: model.club,
-                size: .desk,
-                surface: CoachWorldTokens.Floodlit.roomDeep,
-                palette: palette
-            )
-            Text(model.club.name.uppercased())
-                .coachWorldDisplay(CoachWorldTokens.DisplaySize.lead, weight: .bold)
-                .tracking(Chrome.clubTracking)
-                .lineLimit(1)
-            Text(model.ranking.map { "\(model.record) · \($0)" } ?? model.record)
-                .coachWorldFigure(Chrome.recordSize, weight: .semibold)
-                .foregroundStyle(CoachWorldTokens.Floodlit.clubInk.color.opacity(0.78))
-                .lineLimit(1)
-        }
-        .foregroundStyle(CoachWorldTokens.Floodlit.clubInk.color)
-        .padding(.horizontal, CoachWorldTokens.Gap.mdPlus)
-        .fixedSize(horizontal: true, vertical: false)
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(identityLabel)
-    }
-
-    private var identityLabel: String {
-        var parts = [model.club.name, model.record]
-        if let ranking = model.ranking { parts.append("ranked \(ranking)") }
-        if let conference = model.conference { parts.append(conference) }
-        return parts.joined(separator: ", ")
-    }
-
-    private var familyButton: some View {
-        Button {
-            openHost = nil
-            showingFamilies.toggle()
-        } label: {
-            HStack(spacing: CoachWorldTokens.Gap.xxs) {
-                Text(model.family.canonicalName.uppercased())
-                    .coachWorldDisplay(Chrome.familySize, weight: .bold)
-                    .tracking(CoachWorldTokens.DisplaySize.tracking(0.16, at: Chrome.familySize))
-                FloodlitCaret(pointsUp: showingFamilies)
-                    .fill(CoachWorldTokens.Floodlit.clubInk.color)
-                    .frame(width: Chrome.caretWidth, height: Chrome.caretHeight)
-                    .accessibilityHidden(true)
-            }
-            .padding(.horizontal, CoachWorldTokens.Gap.mdPlus)
-            .frame(minHeight: CoachWorldTokens.Shape.minimumTarget)
-            .background(CoachWorldTokens.Surfacing.wash(.faint, palette: palette))
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(CoachWorldTokens.Floodlit.clubInk.color)
-                    .frame(height: Chrome.siblingUnderline)
-            }
-        }
-        .anchorPreference(key: ChromePanelAnchorKey.self, value: .bounds) {
-            [.family: $0]
-        }
-        .buttonStyle(.plain)
-        .padding(.vertical, bandTargetOffset)
-        .accessibilityLabel("Switch family, \(model.family.canonicalName)")
-        .accessibilityValue(showingFamilies ? "Expanded" : "Collapsed")
-    }
-
-    private var siblingStrip: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal) {
-                HStack(spacing: CoachWorldTokens.Gap.md) {
-                    ForEach(model.siblings) { sibling in siblingLink(sibling) }
-                }
-                .padding(.horizontal, CoachWorldTokens.Gap.mdPlus)
-            }
-            .scrollIndicators(.hidden)
-            .mask {
-                LinearGradient(
-                    stops: [.init(color: .black, location: 0),
-                            .init(color: .black, location: 0.82),
-                            .init(color: .clear, location: 1)],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-            }
-            .overlay(alignment: .trailing) {
-                if model.siblings.count > 1 {
-                    Text("…")
-                        .foregroundStyle(CoachWorldTokens.Floodlit.clubInk.color.opacity(0.72))
-                        .accessibilityHidden(true)
-                }
-            }
-            .onAppear { proxy.scrollTo(model.screen, anchor: .center) }
-            .onChange(of: model.screen) { _, screen in proxy.scrollTo(screen, anchor: .center) }
-        }
-        .layoutPriority(-1)
-    }
-
-    private func siblingLink(_ sibling: FloodlitChromeReadModel.Sibling) -> some View {
-        let current = sibling.screen == model.screen
-        return Button {
-            if sibling.hostedAliases.isEmpty {
-                onNavigate(sibling.intentID)
-            } else {
-                showingFamilies = false
-                openHost = openHost == sibling.screen ? nil : sibling.screen
-            }
-        } label: {
-            HStack(spacing: CoachWorldTokens.Gap.xxs) {
-                Text(sibling.title.uppercased())
-                if !sibling.hostedAliases.isEmpty {
-                    Text("\(sibling.hostedAliases.count)").coachWorldFigure(Chrome.hostCountSize, weight: .bold)
-                    FloodlitCaret(pointsUp: openHost == sibling.screen)
-                        .fill(CoachWorldTokens.Floodlit.clubInk.color.opacity(current ? 1 : 0.66))
-                        .frame(width: Chrome.hostCaretWidth, height: Chrome.hostCaretHeight)
-                        .accessibilityHidden(true)
-                }
-            }
-            .coachWorldDisplay(Chrome.siblingSize, weight: .semibold)
-            .tracking(CoachWorldTokens.DisplaySize.tracking(0.09, at: Chrome.siblingSize))
-            .foregroundStyle(CoachWorldTokens.Floodlit.clubInk.color.opacity(current ? 1 : 0.66))
-            .fixedSize()
-            .frame(minHeight: CoachWorldTokens.Shape.minimumTarget)
-            .overlay(alignment: .bottom) {
-                if current {
-                    Rectangle().fill(CoachWorldTokens.Floodlit.clubInk.color)
-                        .frame(height: Chrome.siblingUnderline)
-                }
-            }
-        }
-        .id(sibling.screen)
-        .anchorPreference(key: ChromePanelAnchorKey.self, value: .bounds) {
-            sibling.hostedAliases.isEmpty ? [:] : [.host(sibling.screen): $0]
-        }
-        .buttonStyle(.plain)
-        .padding(.vertical, bandTargetOffset)
-        .accessibilityLabel(sibling.accessibleTitle)
-        .accessibilityValue(sibling.hostedAliases.isEmpty ? "" : "\(sibling.hostedAliases.count) folded routes")
-        .accessibilityAddTraits(current ? .isSelected : [])
-    }
-
-    private func contextBlock(_ context: String) -> some View {
-        HStack(spacing: CoachWorldTokens.Gap.xxs) {
-            if let opponent = model.contextOpponent {
-                CoachWorldTeamLogo(
-                    team: opponent,
-                    size: .context,
-                    surface: CoachWorldTokens.Floodlit.roomDeep,
-                    palette: palette
-                )
-            }
-            Text(context.uppercased())
-                .coachWorldDisplay(Chrome.contextSize, weight: .bold)
-                .fixedSize()
-        }
-        .foregroundStyle(CoachWorldTokens.Floodlit.clubInk.color)
-        .padding(.horizontal, CoachWorldTokens.Gap.mdPlus)
-        .frame(height: CoachWorldTokens.Stage.headerHeight)
-        .background(CoachWorldTokens.Surfacing.recess(.light, palette: palette))
-        .accessibilityLabel(context)
-    }
-
-    @ViewBuilder
-    private func standardPresentedPanel(
-        anchors: [ChromePanelAnchor: Anchor<CGRect>],
-        proxy: GeometryProxy
-    ) -> some View {
-        if showingFamilies, let anchor = anchors[.family] {
-            FloodlitFamilySwitcher(model: model, palette: palette) { destination in
-                showingFamilies = false
-                onNavigate(destination.intentID)
-            }
-            .offset(
-                x: panelLeading(proxy[anchor].minX, inset: 18, width: Chrome.familyPanelWidth),
-                y: CoachWorldTokens.Stage.headerHeight + CoachWorldTokens.Gap.xxs
-            )
-        } else if let openHost,
-                  let anchor = anchors[.host(openHost)],
-                  let sibling = model.siblings.first(where: { $0.screen == openHost }) {
-            FloodlitHostPanel(sibling: sibling, palette: palette) { alias in
-                self.openHost = nil
-                onNavigate(alias.intentID)
-            }
-            .offset(
-                x: panelLeading(proxy[anchor].minX, inset: 12, width: Chrome.hostPanelWidth),
-                y: CoachWorldTokens.Stage.headerHeight + CoachWorldTokens.Gap.xxs
-            )
-        }
-    }
-
-    private func panelLeading(_ anchor: CGFloat, inset: CGFloat, width: CGFloat) -> CGFloat {
-        min(max(anchor - inset, 0), max(CoachWorldTokens.Stage.contentWidth - width, 0))
-    }
-
-    @ViewBuilder
-    private var accessiblePresentedPanel: some View {
-        if showingFamilies {
-            FloodlitFamilySwitcher(model: model, palette: palette) { destination in
-                showingFamilies = false
-                onNavigate(destination.intentID)
-            }
-        } else if let openHost,
-                  let sibling = model.siblings.first(where: { $0.screen == openHost }) {
-            FloodlitHostPanel(sibling: sibling, palette: palette) { alias in
-                self.openHost = nil
-                onNavigate(alias.intentID)
-            }
-        }
-    }
-
-    private var accessibleNavigator: some View {
-        VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.sm) {
-            HStack(spacing: .zero) { backControl; identityBlock }
-            familyButton
-            ForEach(model.siblings) { sibling in siblingLink(sibling) }
-            if let context = model.context { contextBlock(context) }
-            accessiblePresentedPanel
-        }
-        .padding(CoachWorldTokens.Pad.panel.h)
-        .background(navigatorGround)
-        .clipShape(CoachWorldCutCorner.headerBand)
-    }
-}
-
-private enum ChromePanelAnchor: Hashable {
-    case family
-    case host(CoachWorldScreenID)
-}
-
-private struct ChromePanelAnchorKey: PreferenceKey {
-    static var defaultValue: [ChromePanelAnchor: Anchor<CGRect>] = [:]
-
-    static func reduce(
-        value: inout [ChromePanelAnchor: Anchor<CGRect>],
-        nextValue: () -> [ChromePanelAnchor: Anchor<CGRect>]
-    ) {
-        value.merge(nextValue(), uniquingKeysWith: { _, next in next })
-    }
-}
-
-private struct FloodlitFamilySwitcher: View {
-    @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    let model: FloodlitChromeReadModel
-    let palette: CoachWorldTokens.Palette
-    let onSelect: (FloodlitChromeReadModel.FamilyDestination) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: .zero) {
-            panelHead("GO TO", detail: "\(model.families.reduce(0) { $0 + $1.taskCount }) TASKS")
-            ForEach(model.families) { destination in
-                Button { onSelect(destination) } label: {
-                    HStack(spacing: CoachWorldTokens.Gap.sm) {
-                        VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.hair) {
-                            Text(destination.family.canonicalName.uppercased())
-                                .font(CoachWorldTokens.TypeRole.caption.weight(.bold))
-                            Text(destination.family == model.family ? "you are here" : destination.preview)
-                                .font(CoachWorldTokens.TypeRole.microLabel)
-                                .foregroundStyle(palette.contentQuiet.color)
-                                .lineLimit(1)
-                        }
-                        Spacer(minLength: .zero)
-                        Text("\(destination.taskCount)")
-                            .coachWorldFigure(Chrome.familyCountSize, weight: .bold)
-                    }
-                    .padding(.horizontal, CoachWorldTokens.Gap.lg)
-                    .frame(maxWidth: .infinity, minHeight: CoachWorldTokens.Shape.minimumTarget, alignment: .leading)
-                    .background(destination.family == model.family
-                        ? CoachWorldTokens.Surfacing.wash(.faint, palette: palette) : .clear)
-                    .overlay(alignment: .leading) {
-                        if destination.family == model.family {
-                            Rectangle().fill(palette.contentPrimary.color).frame(width: Chrome.headerRail)
-                        }
-                    }
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(destination.family.canonicalName), \(destination.taskCount) tasks")
-                .accessibilityAddTraits(destination.family == model.family ? .isSelected : [])
-            }
-        }
-        .frame(width: Chrome.familyPanelWidth)
-        .background(CoachWorldTokens.Floodlit.glassFlat.color)
-        .overlay {
-            CoachWorldCutCorner.panel.stroke(
-                CoachWorldTokens.Rule.legible.color(
-                    palette: palette,
-                    contrast: contrast,
-                    reduceTransparency: reduceTransparency
-                )
-            )
-        }
-        .clipShape(CoachWorldCutCorner.panel)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Go to family")
-        .zIndex(8)
-    }
-
-    private func panelHead(_ title: String, detail: String) -> some View {
-        HStack {
-            Text(title).font(CoachWorldTokens.TypeRole.caption.weight(.bold))
-            Spacer(minLength: .zero)
-            Text(detail).coachWorldFigure(Chrome.panelDetailSize, weight: .bold)
-                .foregroundStyle(palette.contentQuiet.color)
-        }
-        .padding(.horizontal, CoachWorldTokens.Gap.lg)
-        .frame(height: Chrome.panelHeadHeight)
-        .background(CoachWorldTokens.Floodlit.glassFlatDeep.color)
-    }
-}
-
-private struct FloodlitHostPanel: View {
-    @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    let sibling: FloodlitChromeReadModel.Sibling
-    let palette: CoachWorldTokens.Palette
-    let onSelect: (FloodlitChromeReadModel.Sibling.HostedAlias) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: .zero) {
-            HStack {
-                Text("FOLDS INTO").font(CoachWorldTokens.TypeRole.caption.weight(.bold))
-                Spacer(minLength: .zero)
-                Text(sibling.title.uppercased())
-                    .coachWorldFigure(Chrome.panelDetailSize, weight: .bold)
-                    .foregroundStyle(palette.contentQuiet.color)
-            }
-            .padding(.horizontal, CoachWorldTokens.Gap.lg)
-            .frame(height: Chrome.panelHeadHeight)
-            .background(CoachWorldTokens.Floodlit.glassFlatDeep.color)
-
-            ForEach(sibling.hostedAliases) { alias in
-                Button { onSelect(alias) } label: {
-                    HStack(spacing: CoachWorldTokens.Gap.sm) {
-                        Text("\(alias.screen.number)")
-                            .coachWorldFigure(Chrome.hostNumberSize, weight: .bold)
-                            .foregroundStyle(palette.contentQuiet.color)
-                            .frame(width: Chrome.hostNumberWidth, alignment: .trailing)
-                        Text(alias.screen.canonicalName)
-                            .font(CoachWorldTokens.TypeRole.body.weight(.semibold))
-                        Spacer(minLength: .zero)
-                    }
-                    .padding(.horizontal, CoachWorldTokens.Gap.lg)
-                    .frame(maxWidth: .infinity, minHeight: CoachWorldTokens.Shape.minimumTarget, alignment: .leading)
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(alias.screen.number), \(alias.screen.canonicalName)")
-            }
-        }
-        .frame(width: Chrome.hostPanelWidth)
-        .background(CoachWorldTokens.Floodlit.glassFlat.color)
-        .overlay {
-            CoachWorldCutCorner.panel.stroke(
-                CoachWorldTokens.Rule.legible.color(
-                    palette: palette,
-                    contrast: contrast,
-                    reduceTransparency: reduceTransparency
-                )
-            )
-        }
-        .clipShape(CoachWorldCutCorner.panel)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel("Folds into \(sibling.title)")
-        .zIndex(8)
-    }
-}
-
-private struct FloodlitBackWedge: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.maxX, y: rect.minY))
-        path.addLine(to: CGPoint(x: rect.minX, y: rect.midY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        path.closeSubpath()
-        return path
-    }
-}
-
-private struct FloodlitCaret: Shape {
-    let pointsUp: Bool
-
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.move(to: CGPoint(x: rect.minX, y: pointsUp ? rect.maxY : rect.minY))
-        path.addLine(to: CGPoint(x: rect.midX, y: pointsUp ? rect.minY : rect.maxY))
-        path.addLine(to: CGPoint(x: rect.maxX, y: pointsUp ? rect.maxY : rect.minY))
-        path.closeSubpath()
-        return path
+        ForgeFieldChromeBar(model: model, onNavigate: onNavigate)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("top-navigator")
     }
 }
 

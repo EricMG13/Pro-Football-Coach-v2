@@ -1909,6 +1909,7 @@ public enum CoachWorldSampleData {
             world: world,
             club: homeTeam,
             record: "4\u{2013}2",
+            week: "Week 9",
             ranking: "#21",
             conference: "Meridian Valley",
             context: context ?? "Sat \u{00B7} Southern State",

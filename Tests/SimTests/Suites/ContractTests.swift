@@ -1043,10 +1043,18 @@ func runContractTests() {
                    "sibling link size drifted to a value that cannot be a micro-label")
             expect(Chrome.familyPanelWidth == 250 && Chrome.hostPanelWidth == 232,
                    "the two navigator panels must retain their measured Press Box widths")
-            expect(floodlitChrome.contains("Switch family, ")
-                       && floodlitChrome.contains("FloodlitFamilySwitcher")
-                       && floodlitChrome.contains("FloodlitHostPanel"),
-                   "the identity band must expose truthful family and alias navigation")
+            // Re-targeted for the Forge Field chrome bar (Phase 2A Task 5, 04 section 6.1f): the
+            // identity band's family switcher panel and folds-into panel are retired along with the
+            // sibling strip they hung from -- the bar shows all five families inline and always
+            // instead of behind a reveal control, so "truthful family... navigation" is now the
+            // bar itself being hosted, not a panel string surviving in the source. Full retirement
+            // reasoning lives in DesignContractTests.swift's retargeted "Press Box shared chrome"
+            // suite; this is the same fact checked from the file this older test already reads.
+            expect(floodlitChrome.contains("ForgeFieldChromeBar")
+                       && !floodlitChrome.contains("FloodlitFamilySwitcher")
+                       && !floodlitChrome.contains("FloodlitHostPanel"),
+                   "the identity band must host the Forge Field chrome bar and not the retired "
+                       + "family switcher or folds-into panels")
             expect(!composition.contains("SurfaceRegistryOverlay")
                        && !floodlitChrome.contains("ALL TASKS"),
                    "the family switcher must replace the retired all-task index screen")

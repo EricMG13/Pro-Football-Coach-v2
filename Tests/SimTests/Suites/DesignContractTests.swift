@@ -914,26 +914,62 @@ func runDesignContractTests() {
     }
 
     suite("Press Box shared chrome") {
-        test("the shared layer exposes the three navigator controls and short context") {
+        // Re-targeted for Phase 2A Task 5 (04 6.1f): the Forge Field chrome bar replaces the Press
+        // Box identity band. Its fixed contents -- "mark, club, record, the five surfaces, the
+        // week... present on every surface and its contents never vary" -- have no back control, no
+        // family switcher panel, no folds-into panel and no short-context yielding ladder, so each
+        // of the five things the old test named is either retired here with a stated reason or kept
+        // unchanged. Nothing is silently dropped: "do not delete an assertion without replacing it
+        // -- a check that quietly disappeared is how the shipped truncation survived five screens."
+        test("Press Box's four chrome-only controls are retired; top-navigator survives") {
             let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
             let chrome = ui.first { $0.path.hasSuffix("/FloodlitChrome.swift") }?.text ?? ""
             let composition = ui.first {
                 $0.path.hasSuffix("/CoachWorldFloodlitComposition.swift")
             }?.text ?? ""
 
-            expect(chrome.contains("backControl")
-                       && chrome.contains("FamilySwitcher")
-                       && chrome.contains("HostPanel"),
-                   "the one-row navigator must own all three Press Box controls")
-            expect(chrome.contains("contextShort"),
-                   "the navigator must carry authored short context for its yielding ladder")
-            expect(chrome.contains("ChromePanelAnchorKey")
-                       && chrome.contains("overlayPreferenceValue"),
-                   "family and host panels must hang from their actual controls")
+            // Retired: 04 6.1f's fixed bar has no back control. The five families are always
+            // visible in the bar itself now, so jumping anywhere no longer needs a dedicated
+            // back step the way a hidden switcher behind one button did.
+            expect(!chrome.contains("backControl"),
+                   "the Forge Field bar has no back control -- 04 6.1f names none")
+            // Retired: the switcher's only job was revealing the five families on demand. The
+            // Forge Field bar shows all five inline and always (ForgeFieldChromeBar.familyStrip),
+            // so the reveal mechanism it hung from is structurally gone, not merely restyled.
+            expect(!chrome.contains("FamilySwitcher"),
+                   "the family switcher panel has nothing left to reveal -- its five families are "
+                       + "always inline in the bar")
+            // Retired: the folds-into panel opened from a sibling-strip entry that carried hosted
+            // aliases. This bar carries no sibling strip at all -- 04 6.1f's whole reason to
+            // exist, since that strip is what truncated on five screens -- so there is no control
+            // left to hang the panel from.
+            expect(!chrome.contains("HostPanel"),
+                   "the folds-into panel has no sibling strip left to hang from")
+            // Retired alongside FamilySwitcher and HostPanel: this anchor-preference plumbing
+            // existed only to position those two panels under their triggering controls.
+            expect(!chrome.contains("ChromePanelAnchorKey")
+                       && !chrome.contains("overlayPreferenceValue"),
+                   "the anchor-preference plumbing that hung the retired panels must go with them")
+            // Retired from rendering: contextShort existed only to shorten the right-hand context
+            // chip once the sibling strip reached its width floor. The bar has neither a context
+            // chip nor a sibling strip, so the yielding ladder it served no longer exists. The
+            // field itself stays on FloodlitChromeReadModel -- read-model data outliving the one
+            // renderer that used it is not this task's problem to solve, and dropping it would
+            // touch call sites outside this task's file list for no behavioural gain -- so this
+            // checks the usage is gone, not the declaration, which legitimately still contains
+            // the word.
+            expect(!chrome.contains("model.contextShort"),
+                   "the bar has no context chip, so nothing should still read contextShort")
+            // Kept: automation that looks for "the navigator" at the top of a surface must keep
+            // finding it, regardless of what now renders inside it.
             expect(chrome.contains("top-navigator"),
-                   "the shared band must expose the top-navigator accessibility identifier")
+                   "the shared band must still expose the top-navigator accessibility identifier")
+            // The replacement must actually be hosted, not just leave a gap where the retired
+            // controls were.
+            expect(chrome.contains("ForgeFieldChromeBar"),
+                   "the identity header must host the Forge Field chrome bar")
             expect(!chrome.contains("ALL TASKS") && !composition.contains("SurfaceRegistryOverlay"),
-                   "the family switcher replaces the retired all-task index screen")
+                   "the retired all-task index screen must not be restored by this retargeting")
             expect(!chrome.contains("Sections"),
                    "the navigator must not restore the retired Sections accessibility label")
         }
@@ -1421,4 +1457,93 @@ func runDesignContractTests() {
         }
     }
 
+    // Phase 2A Task 5: the chrome bar, `04` 6.1f. `ForgeFieldChromeBar.swift` hosts from
+    // `FloodlitIdentityHeader` in place of the Press Box identity band -- see the retargeted
+    // "Press Box shared chrome" suite above for what that retired and why.
+    suite("Forge Field chrome bar (06.1f)") {
+        test("the bar is 30 pt at the stated origin and spans the content column") {
+            expectEqual(ForgeFieldChromeBar.height, ForgeFieldTokens.Space.chromeHeight)
+            expectEqual(ForgeFieldChromeBar.origin.x, ForgeFieldTokens.Space.margin)
+            expectEqual(ForgeFieldChromeBar.origin.y, 8)
+            expectEqual(ForgeFieldChromeBar.width,
+                        ForgeFieldTokens.Space.viewport.width - 2 * ForgeFieldTokens.Space.margin)
+        }
+
+        test("nothing in the bar truncates at the install floor") {
+            // The defect this replaces: PLAYER PROFILE, OPPONENT REPORT and PROSPECT PROFILE all
+            // clipped against the right-hand chip on the shipped build. Forge Field's bar carries
+            // no sibling strip, so the class is removed rather than the instances widened.
+            expect(!ForgeFieldChromeBar.carriesSiblingStrip,
+                   "FF Chrome fixes the bar's contents: mark, club, record, five surfaces, week")
+        }
+
+        test("the five family controls reach for the 44 pt hit floor, not the 30 pt bar height") {
+            // A headless suite has no laid-out frame to measure (04 section 7.1: "the suite ...
+            // cannot see a laid-out frame"), so this is the source-visible proxy the same
+            // limitation already accepts elsewhere in this file -- proof the mechanism is wired,
+            // not proof of the rendered pixels. The phase report's screenshots and an on-device tap
+            // just above and below a nav label's visible text are the render-level evidence.
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let bar = ui.first { $0.path.hasSuffix("/ForgeFieldChromeBar.swift") }?.text ?? ""
+            expect(bar.contains("minWidth: ForgeFieldTokens.Space.hitMin")
+                       && bar.contains("minHeight: ForgeFieldTokens.Space.hitMin")
+                       && bar.contains(".contentShape(Rectangle())"),
+                   "04 6.3a: anything tappable is 44 pt on its short edge -- the bar's own visual "
+                       + "row stays 30, so the hit region must be asked for explicitly rather than "
+                       + "inherited from the row")
+            expectEqual(ForgeFieldTokens.Space.hitMin, 44)
+        }
+
+        test("the five family names are read from the registry, never hard-coded") {
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let bar = ui.first { $0.path.hasSuffix("/ForgeFieldChromeBar.swift") }?.text ?? ""
+            expect(bar.contains("CoachWorldSurfaceFamily.chromeBarFamilies")
+                       && bar.contains(".forgeFieldTitle"),
+                   "Task 1 built the ordered five and their titles; the bar must read them rather "
+                       + "than re-listing its own copy that could drift")
+            for title in CoachWorldSurfaceFamily.chromeBarFamilies.map(\.forgeFieldTitle) {
+                expect(!bar.contains("\"\(title)\"") && !bar.contains("\"\(title.uppercased())\""),
+                       "\"\(title)\" must not appear as its own string literal in the bar's source")
+            }
+        }
+
+        test("club colour is the bar's spine, never its ground") {
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let bar = ui.first { $0.path.hasSuffix("/ForgeFieldChromeBar.swift") }?.text ?? ""
+            expect(bar.contains("ForgeFieldTokens.Space.spine"),
+                   "04 6.1e and 6.1f: club colour is legal in the bar as a 3 pt spine")
+            expect(bar.contains("palette.ground1.color"),
+                   "04 6.1f: the bar sits on ground 1 like every other chrome surface")
+            expect(!bar.contains(".background(spineColor)") && !bar.contains(".background(club."),
+                   "club colour must never become the bar's own ground fill")
+        }
+
+        test("the mark plate keeps the one system-wide radius, not Press Box's cut corner") {
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let bar = ui.first { $0.path.hasSuffix("/ForgeFieldChromeBar.swift") }?.text ?? ""
+            // Usage syntax, not the bare name: the file's own doc comment names both types by
+            // way of explaining why it does not use them ("Deliberately not CoachWorldTeamLogo
+            // ... clips to CoachWorldCutCorner"), so a bare-substring check would fail on that
+            // prose. `(` and `.` are how each would actually be reached from code.
+            expect(!bar.contains("CoachWorldTeamLogo(") && !bar.contains("CoachWorldCutCorner."),
+                   "04 6.3a: one radius system-wide, mark named explicitly among the things that "
+                       + "share it -- a Press Box cut-corner shape has no place in this bar")
+            expect(bar.contains("ForgeFieldChip"),
+                   "the mark plate must clip through the shared Forge Field primitive, not a "
+                       + "one-off shape")
+        }
+
+        test("the week fact is threaded from the week hub, not left unset") {
+            // 04 6.1f's bar has no content slot that may go blank -- "its contents never vary" --
+            // so the week label needs a real fact from the same read model CoachingHQView.swift
+            // already reads (model.week.weekLabel), not a placeholder invented for the bar alone.
+            let app = swiftFiles(under: "Sources/CoachWorldApp")
+            let provider = app.first {
+                $0.path.hasSuffix("/CoachWorldChromeProvider.swift")
+            }?.text ?? ""
+            expect(provider.contains("week: hub.week.weekLabel"),
+                   "the production chrome provider must pass the week hub's own week label into "
+                       + "the chrome read model")
+        }
+    }
 }
