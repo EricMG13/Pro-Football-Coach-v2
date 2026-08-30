@@ -1329,4 +1329,24 @@ func runDesignContractTests() {
         }
     }
 
+    suite("Forge Field ember (06.1e)") {
+        test("an ember cannot be built without a cost line") {
+            // A non-optional `cost` makes this a compile-time guarantee. The test records the
+            // rule so a later change to an optional is a deliberate, visible edit.
+            let ember = ForgeFieldEmber(label: "Lock the plan",
+                                        cost: "3 calls open · costs 9 freshness",
+                                        isEnabled: true) {}
+            expect(!ember.cost.isEmpty,
+                   "04 6.1e: if an action has no cost worth naming, it is not an ember")
+        }
+        test("the cost line is set in the record face, tabular") {
+            expectEqual(ForgeFieldEmber.costStep, ForgeFieldType.Step.figure)
+            expectEqual(ForgeFieldType.Step.figure.family, ForgeFieldType.Family.record)
+        }
+        test("press is the accent ramp's press stop, never a scale") {
+            expect(ForgeFieldEmber.pressScale == 1.0,
+                   "04 6.1e: press goes to the press stop of the ramp. No shrink, no scale.")
+        }
+    }
+
 }
