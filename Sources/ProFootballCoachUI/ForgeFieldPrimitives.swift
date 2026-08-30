@@ -36,7 +36,7 @@ public struct ForgeFieldPanel: View {
         let palette = club.palette
         let shape = RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
 
-        VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: .zero) {
             if let title {
                 Text(title.uppercased())
                     .font(ForgeFieldType.font(.panel))
