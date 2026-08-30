@@ -281,8 +281,8 @@ func runDesignContractTests() {
                        + "not the tokens, is what failed")
 
             let tokenFiles = swiftFiles(under: "Sources/ProFootballCoachUI")
-                .filter { $0.path.hasSuffix("DesignTokens.swift") }
-            expect(!tokenFiles.isEmpty, "DesignTokens.swift not found under Sources/ProFootballCoachUI")
+                .filter { $0.path.hasSuffix("Tokens.swift") }
+            expect(!tokenFiles.isEmpty, "no *Tokens.swift found under Sources/ProFootballCoachUI")
 
             for file in tokenFiles {
                 let shipped = Set(matches(of: "0x([0-9A-Fa-f]{6})\\b", in: file.text)
@@ -303,9 +303,9 @@ func runDesignContractTests() {
         // NOT pin which roles are equal, because canon permits diverging a pair on purpose.
         test("no colour literal is repeated in the token layer") {
             let tokenFiles = swiftFiles(under: "Sources/ProFootballCoachUI")
-                .filter { $0.path.hasSuffix("DesignTokens.swift") }
+                .filter { $0.path.hasSuffix("Tokens.swift") }
             expect(!tokenFiles.isEmpty,
-                   "DesignTokens.swift not found under Sources/ProFootballCoachUI")
+                   "no *Tokens.swift found under Sources/ProFootballCoachUI")
             for file in tokenFiles {
                 // Stripped, because the alias declarations explain themselves in prose that names
                 // the very hex they replaced — 04 section 6.1a(ii)'s own example among them.
@@ -1134,6 +1134,47 @@ func runDesignContractTests() {
                            + "CoreText's fallback font, so \(entry.postScriptName) is not "
                            + "actually registered")
             }
+        }
+    }
+
+    suite("Forge Field tokens (06.1e, 06.3a, 06.7a)") {
+        test("all four clubs derive a full palette") {
+            expectEqual(ForgeFieldTokens.Club.allCases.count, 4)
+            for club in ForgeFieldTokens.Club.allCases {
+                let p = club.palette
+                expect(p.ground0 != p.ground1, "\(club) ground 0 and 1 must differ")
+                expect(p.ink1 != p.ink4, "\(club) ink 1 and 4 must differ")
+            }
+        }
+
+        test("the single radius is 3 and the device frame is the only exception") {
+            expectEqual(ForgeFieldTokens.Space.radius, 3)
+            expectEqual(ForgeFieldTokens.Space.radiusDevice, 14)
+        }
+
+        test("the ladder holds seven steps and nothing off-ladder") {
+            expectEqual(ForgeFieldTokens.Space.ladder, [4, 8, 12, 16, 24, 32, 44])
+        }
+
+        test("the four transitions carry 04 section 6.7a's durations") {
+            expectEqual(ForgeFieldTokens.Motion.scrim, 0.160)
+            expectEqual(ForgeFieldTokens.Motion.seam, 0.180)
+            expectEqual(ForgeFieldTokens.Motion.plate, 0.240)
+            expectEqual(ForgeFieldTokens.Motion.flood, 0.320)
+            expectEqual(ForgeFieldTokens.Motion.ceremony, 1.200)
+            expectEqual(ForgeFieldTokens.Motion.reduced, 0.090)
+        }
+
+        test("the two elevation levels keep their stated alphas") {
+            expectEqual(ForgeFieldTokens.Edge.panel, 0.12)
+            expectEqual(ForgeFieldTokens.Edge.raised, 0.22)
+            expectEqual(ForgeFieldTokens.Edge.seamHard, 0.30)
+            expectEqual(ForgeFieldTokens.Material.glass, 0.60)
+            expectEqual(ForgeFieldTokens.Material.glassBlur, 14)
+        }
+
+        test("rival is an alias of the cold signal, not a second literal") {
+            expectEqual(ForgeFieldTokens.Fixed.rival, ForgeFieldTokens.Fixed.signalCold)
         }
     }
 }
