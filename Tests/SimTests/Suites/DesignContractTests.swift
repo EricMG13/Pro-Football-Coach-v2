@@ -1712,6 +1712,124 @@ func runDesignContractTests() {
                    "a concatenation assembled at the call site must be flagged the same way")
         }
     }
+
+    suite("Weekly-command register budgets (06.1e, 06.3a)") {
+        test("the table covers exactly the weekly-command family, by construction") {
+            let budgeted = Set(ForgeFieldBudget.weeklyCommand.keys)
+            let family = Set(CoachWorldSurfaceFamily.weeklyCommand.surfaces)
+            expectEqual(budgeted, family,
+                        "ForgeFieldBudget.weeklyCommand must hold exactly the screens "
+                            + "CoachWorldSurfaceFamily.weeklyCommand.surfaces enumerates -- a "
+                            + "tenth surface added to the family, or a budgeted screen that "
+                            + "leaves it, must fail here")
+        }
+
+        test("the coverage check would catch a planted regression, either direction") {
+            var extraScreen = ForgeFieldBudget.weeklyCommand
+            extraScreen[.roster] = extraScreen[.coachingHQ]
+            expect(Set(extraScreen.keys) != Set(CoachWorldSurfaceFamily.weeklyCommand.surfaces),
+                   "a table with a stray screen outside the family must not read as exact "
+                       + "coverage")
+
+            var missingScreen = ForgeFieldBudget.weeklyCommand
+            missingScreen.removeValue(forKey: .inbox)
+            expect(Set(missingScreen.keys) != Set(CoachWorldSurfaceFamily.weeklyCommand.surfaces),
+                   "a table missing one of the family's screens -- the same shape a tenth "
+                       + "surface added to the family and not yet budgeted would leave -- must "
+                       + "not read as exact coverage")
+        }
+
+        test("every Desk-register surface carries zero gold") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand
+            where budget.register.lean == .desk {
+                expectEqual(budget.goldMax, 0,
+                            "\(screen.canonicalName) is a Desk surface -- the sheet states "
+                                + "\"zero gold on a Desk surface\" as a rule, not a coincidence")
+            }
+        }
+
+        test("every Desk-register surface's stage sits at or under the desk stage ceiling") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand
+            where budget.register.lean == .desk {
+                guard let stage = budget.stageFraction else {
+                    expect(false, "\(screen.canonicalName) is Desk but stamps no stage fraction")
+                    continue
+                }
+                expect(stage.upperBound <= ForgeFieldTokens.Register.deskStageMax,
+                       "\(screen.canonicalName) stamps \(stage.upperBound), above "
+                           + "ForgeFieldTokens.Register.deskStageMax "
+                           + "(\(ForgeFieldTokens.Register.deskStageMax))")
+            }
+        }
+
+        test("the two READOUT surfaces carry zero ember; every other surface carries exactly "
+                + "one") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand {
+                if budget.register.tone == .readout {
+                    expectEqual(budget.emberCount, 0,
+                                "\(screen.canonicalName) is READOUT -- an ember here would claim "
+                                    + "the result is a decision you made")
+                } else {
+                    expectEqual(budget.emberCount, ForgeFieldTokens.Register.emberPerSurface,
+                                "\(screen.canonicalName) is not READOUT and must carry the "
+                                    + "standard one ember per surface")
+                }
+            }
+        }
+
+        test("each Broadcast-band surface's stage sits inside the broadcast band; each Dossier "
+                + "one inside the dossier band; Match day at 100% is the explicit exception") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand
+            where budget.register.lean == .broadcast && screen != .matchDay {
+                guard let stage = budget.stageFraction else {
+                    expect(false, "\(screen.canonicalName) is Broadcast but stamps no stage")
+                    continue
+                }
+                expectIn(stage.lowerBound, ForgeFieldTokens.Register.broadcastStage,
+                         "\(screen.canonicalName) (Broadcast) lower bound")
+                expectIn(stage.upperBound, ForgeFieldTokens.Register.broadcastStage,
+                         "\(screen.canonicalName) (Broadcast) upper bound")
+            }
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand
+            where budget.register.lean == .dossier {
+                guard let stage = budget.stageFraction else {
+                    expect(false, "\(screen.canonicalName) is Dossier but stamps no stage")
+                    continue
+                }
+                expectIn(stage.lowerBound, ForgeFieldTokens.Register.dossierStage,
+                         "\(screen.canonicalName) (Dossier) lower bound")
+                expectIn(stage.upperBound, ForgeFieldTokens.Register.dossierStage,
+                         "\(screen.canonicalName) (Dossier) upper bound")
+            }
+
+            // Match day is deliberately excluded above and asserted here instead: at 100% stage
+            // there is no chrome bar and nothing to divide, so the broadcast band does not
+            // govern it. Explicit, not a silent skip.
+            guard let matchDayStage = ForgeFieldBudget.weeklyCommand[.matchDay]?.stageFraction
+            else {
+                expect(false, "Match day must stamp a stage fraction")
+                return
+            }
+            expectEqual(matchDayStage, 1.0...1.0, "Match day is Broadcast at 100%")
+            expect(!ForgeFieldTokens.Register.broadcastStage.contains(matchDayStage.lowerBound),
+                   "Match day's 100% must sit outside the broadcast band -- otherwise it would "
+                       + "not be an exception worth calling out")
+        }
+
+        test("no surface exceeds the gold ceiling for its register") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand {
+                let ceiling: Int
+                switch budget.register.lean {
+                case .broadcast: ceiling = ForgeFieldTokens.Register.goldMaxBroadcast
+                case .dossier: ceiling = ForgeFieldTokens.Register.goldMaxDossier
+                case .desk: ceiling = 0
+                }
+                expect(budget.goldMax <= ceiling,
+                       "\(screen.canonicalName) stamps goldMax \(budget.goldMax), above its "
+                           + "register's ceiling of \(ceiling)")
+            }
+        }
+    }
 }
 
 /// Whether a `ForgeFieldEmber(` call site's `cost:` argument is neither a string literal nor a
