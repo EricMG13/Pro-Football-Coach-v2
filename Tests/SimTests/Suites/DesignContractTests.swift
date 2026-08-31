@@ -2049,6 +2049,117 @@ func runDesignContractTests() {
                         "Coaching HQ must draw exactly the stamped background count")
         }
     }
+
+    // Task 3 of docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md: Inbox, drawn to
+    // `ForgeFieldDevice`. Asserts `InboxView`'s own assertable static facts (its doc comment,
+    // "Assertable budget facts") against the budget Task 1 already stamped, matching the Coaching
+    // HQ suite's own pattern above.
+    suite("Inbox (06.1e, 06.1f, 06.2a, 06.3a, 06.6a) -- weekly-command Task 3") {
+        let budget = ForgeFieldBudget.weeklyCommand[.inbox]
+
+        test("Inbox's data-point roles are distinct and the total sits at or under the stamped "
+                + "ceiling") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .inbox")
+                return
+            }
+            guard let stamped = budget.dataPoints else {
+                expect(false, "Inbox's budget stamps no dataPoints")
+                return
+            }
+            expect(InboxView.dataPointCount <= stamped,
+                   "InboxView.dataPointCount (\(InboxView.dataPointCount)) exceeds the stamped "
+                       + "ceiling of \(stamped)")
+            let roles = InboxView.headerDataPointRoles + InboxView.rowDataPointRoles
+                + InboxView.readingPaneDataPointRoles
+            expectEqual(Set(roles).count, roles.count,
+                        "Inbox's data-point roles must be distinct, not repeat one")
+            expect(InboxView.referenceRowCount > 0,
+                   "Inbox's reference row count collapsed to zero -- the list column's own "
+                       + "geometry no longer fits a single row")
+        }
+
+        test("Inbox draws no flood -- its stage fraction is zero, matching its stamped Desk band") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .inbox")
+                return
+            }
+            guard let stamped = budget.stageFraction else {
+                expect(false, "Inbox's budget stamps no stage fraction")
+                return
+            }
+            expectEqual(InboxView.stageFraction, 0.0, "InboxView.stageFraction")
+            expectEqual(stamped, 0.0...0.0, "Inbox's stamped stage fraction")
+        }
+
+        test("Inbox carries zero gold -- a review failure, not a guideline, on a Desk surface") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .inbox")
+                return
+            }
+            expectEqual(budget.goldMax, 0, "Inbox's stamped goldMax")
+            expectEqual(InboxView.goldElementCount, 0, "InboxView.goldElementCount")
+        }
+
+        test("Inbox's ember count matches its stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .inbox")
+                return
+            }
+            expectEqual(InboxView.emberElementCount, budget.emberCount,
+                        "Inbox must carry exactly the stamped ember count")
+        }
+
+        test("Inbox draws no ghost mark, matching its stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .inbox")
+                return
+            }
+            expect(budget.ghost == nil, "Inbox's stamped budget must carry no ghost")
+            expect(InboxView.hasGhostMark == false, "InboxView must draw no ghost mark")
+        }
+
+        test("Inbox's own background count matches its stamped budget -- ground 1 only") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .inbox")
+                return
+            }
+            guard let stamped = budget.backgrounds else {
+                expect(false, "Inbox's budget stamps no backgrounds count")
+                return
+            }
+            expectEqual(InboxView.backgroundCount, stamped,
+                        "Inbox must draw exactly the stamped background count")
+        }
+
+        test("Inbox's rows are the touch tier, never dense -- 04 6.3a: dense is legal only when "
+                + "the whole row is inert, and Inbox rows route and mark read") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/InboxView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "InboxView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(!source.contains("ForgeFieldRow(.dense"),
+                   "Inbox's rows route (onOpen) and mark read (onRead) on tap -- they must never "
+                       + "use the 32 pt dense tier reserved for a fully inert row")
+            expect(source.contains("ForgeFieldRow(.touch"),
+                   "Inbox must draw its tappable rows through ForgeFieldRow(.touch")
+        }
+
+        test("Inbox's ember calls onContinue, never a composition action the contract forbids "
+                + "(ruling 1)") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/InboxView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "InboxView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(source.contains("ForgeFieldEmber(label: \"ADVANCE\", cost: emberCost, "
+                                        + "isEnabled: model.canContinue, action: onContinue)"),
+                   "Inbox's one ember must be costed from the model and wired to onContinue")
+        }
+    }
 }
 
 /// Whether a view stores the screen-navigation closure `04` 6.1f(i)'s route bar is for.

@@ -1746,9 +1746,15 @@ func runContractTests() {
             let inboxModel = uiFiles.first { $0.path.hasSuffix("/InboxReadModels.swift") }?.text ?? ""
             let inboxProvider = swiftFiles(under: "Sources/CoachWorldApp")
                 .first { $0.path.hasSuffix("/CoachWorldInboxProvider.swift") }?.text ?? ""
+            // "ForgeFieldTokens.Space.hitMin" replaces the Press Box "minimumTarget" this check
+            // used to look for -- Phase 2B Task 3 redraws Inbox onto Forge Field
+            // (`docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md`), which states its
+            // own 44 pt touch floor under that name (`04` 6.3a: "row-touch / hit-min | 44"). The
+            // check's own intent -- a stated hit-target-size guarantee on a production,
+            // accessibility-sized surface -- is unchanged.
             expect(inbox.contains("public struct InboxView")
                        && inbox.contains("dynamicTypeSize.isAccessibilitySize")
-                       && inbox.contains("minimumTarget"),
+                       && inbox.contains("ForgeFieldTokens.Space.hitMin"),
                    "Inbox must be a production, accessibility-sized surface")
             expect(inboxModel.contains("public struct InboxReadModel"),
                    "Inbox must consume a bounded immutable read model")
