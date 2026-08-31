@@ -2931,6 +2931,8 @@ func runDesignContractTests() {
                    "the standard chrome context must precede the outcome header in reading order")
             expect(accessible.contains("chromeBarRegion\n                    .accessibilitySortPriority(3)"),
                    "the AX5 chrome context must precede the outcome header in reading order")
+            expect(accessible.contains("floodContent\n                    .accessibilitySortPriority(1)"),
+                   "the AX5 flood must remain below chrome context and the outcome header in reading order")
         }
 
         test("Aftermath standard plan owns its authored-height scroll cue") {

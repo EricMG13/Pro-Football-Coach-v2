@@ -509,6 +509,7 @@ public struct AftermathView: View, CoachWorldChromedSurface {
                 outcomeHeader
                     .padding(.horizontal, AftermathMetric.inset)
                 floodContent
+                    .accessibilitySortPriority(1)
                     .padding(AftermathMetric.inset)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(club.palette.clubDeep.color)
