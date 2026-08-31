@@ -2305,6 +2305,152 @@ func runDesignContractTests() {
                        + "the selected plan and close")
         }
     }
+
+    // Task 5 of docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md: Practice plan, drawn
+    // to `ForgeFieldDevice`. Asserts `PracticePlanView`'s own assertable static facts (its doc
+    // comment, "Assertable budget facts") against the budget Task 1 already stamped, matching the
+    // Coaching HQ, Inbox and Game plan suites' own pattern above.
+    suite("Practice plan (06.1e, 06.1f, 06.2a, 06.3a) -- weekly-command Task 5") {
+        let budget = ForgeFieldBudget.weeklyCommand[.practicePlan]
+
+        test("Practice plan's data-point roles are distinct and the total sits at or under the "
+                + "stamped ceiling") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .practicePlan")
+                return
+            }
+            guard let stamped = budget.dataPoints else {
+                expect(false, "Practice plan's budget stamps no dataPoints")
+                return
+            }
+            expect(PracticePlanView.dataPointCount <= stamped,
+                   "PracticePlanView.dataPointCount (\(PracticePlanView.dataPointCount)) exceeds "
+                       + "the stamped ceiling of \(stamped)")
+            let roles = PracticePlanView.allocationDataPointRoles
+                + PracticePlanView.optionDataPointRoles
+            expectEqual(Set(roles).count, roles.count,
+                        "Practice plan's data-point roles must be distinct, not repeat one")
+        }
+
+        test("Practice plan's flooded strip sits inside its stamped stage band") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .practicePlan")
+                return
+            }
+            guard let stamped = budget.stageFraction else {
+                expect(false, "Practice plan's budget stamps no stage fraction")
+                return
+            }
+            // The stamped band is itself the sheet's own rounding of 74/393 (0.1882...), so the
+            // drawn surface is checked with the same tolerance `CoachingHQView`'s identical test
+            // uses, not bit-exact equality.
+            let tolerance = 0.01
+            let stage = PracticePlanView.stageFraction
+            expect(stage >= stamped.lowerBound - tolerance && stage <= stamped.upperBound + tolerance,
+                   "PracticePlanView.stageFraction (\(stage)) must sit within \(tolerance) of the "
+                       + "stamped band \(stamped)")
+        }
+
+        test("Practice plan carries zero gold -- a review failure, not a guideline, on a Desk "
+                + "surface") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .practicePlan")
+                return
+            }
+            expectEqual(budget.goldMax, 0, "Practice plan's stamped goldMax")
+            expectEqual(PracticePlanView.goldElementCount, 0, "PracticePlanView.goldElementCount")
+        }
+
+        test("Practice plan carries zero embers, matching the contract's omission of any "
+                + "separate remaining/unallocated-minutes field (row 12)") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .practicePlan")
+                return
+            }
+            expectEqual(budget.emberCount, 0, "Practice plan's stamped emberCount")
+            expectEqual(PracticePlanView.emberElementCount, 0, "PracticePlanView.emberElementCount")
+        }
+
+        test("Practice plan draws no ghost mark, matching its stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .practicePlan")
+                return
+            }
+            expect(budget.ghost == nil, "Practice plan's stamped budget must carry no ghost")
+            expect(PracticePlanView.hasGhostMark == false, "PracticePlanView must draw no ghost mark")
+        }
+
+        test("Practice plan's own background count matches its stamped budget -- flood, ground 1") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .practicePlan")
+                return
+            }
+            guard let stamped = budget.backgrounds else {
+                expect(false, "Practice plan's budget stamps no backgrounds count")
+                return
+            }
+            expectEqual(PracticePlanView.backgroundCount, stamped,
+                        "Practice plan must draw exactly the stamped background count")
+        }
+
+        test("Practice plan's option rows are the comfortable tier, never dense -- Rule A-1: an "
+                + "ACTION surface may not exceed 44 pt on any control") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/PracticePlanView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "PracticePlanView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(!source.contains("ForgeFieldRow(.dense"),
+                   "Practice plan's option rows commit a plan on tap -- they must never use the "
+                       + "32 pt dense tier reserved for a fully inert row")
+            expect(source.contains("ForgeFieldRow(.touch"),
+                   "Practice plan must draw its option rows through ForgeFieldRow(.touch")
+        }
+
+        test("Practice plan draws no ForgeFieldEmber -- the committing control is a plain choice "
+                + "(ruling, dispatch 2026-08-30/31)") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/PracticePlanView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "PracticePlanView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(!source.contains("ForgeFieldEmber("),
+                   "row 12 omits any separate remaining/unallocated-minutes field, so this "
+                       + "surface's committing control must not be a ForgeFieldEmber")
+        }
+
+        test("Practice plan draws no remaining or unallocated-minutes field (ruling 4)") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/PracticePlanView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "PracticePlanView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(!source.contains("\u{2032} total"),
+                   "the Press Box surface this file replaces printed a weekly-minutes total "
+                       + "beside the allocator (\"60\u{2032} total\"); row 12's omission forbids "
+                       + "restating it here")
+        }
+
+        test("Practice plan's committing control selects locally and its own action commits and "
+                + "closes") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/PracticePlanView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "PracticePlanView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(source.contains("Option preview")
+                       && source.contains("Choose the week")
+                       && !source.contains("onSelect(option.plan)")
+                       && source.contains("onSelect(selectedOption.plan)")
+                       && source.contains("onClose()"),
+                   "option rows must select locally and commitControl's own action must commit "
+                       + "the selected plan and close")
+        }
+    }
 }
 
 /// Whether a view stores the screen-navigation closure `04` 6.1f(i)'s route bar is for.

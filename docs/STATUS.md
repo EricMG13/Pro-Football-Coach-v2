@@ -4,7 +4,7 @@ The honest picture: what exists, what is verified, what is not.
 
 > **2026-08-31 — the career family can be navigated again, and what that cost is not yet fully
 > measured.** Phase 2A retired the Press Box identity band. `41f96a5` restored the *back control* it
-> took (ledger E21); this restores the *sibling row* it also took (E34). Both were the same defect
+> took (ledger E21); this restores the *sibling row* it also took (E36). Both were the same defect
 > shape — a closure stored on the view, threaded to every call site, and wired to no rendered
 > control — and neither was visible to any test until one was written for the class.
 >
@@ -28,7 +28,7 @@ The honest picture: what exists, what is verified, what is not.
 > plan embers) landed from a concurrent session afterwards and are covered by their own author's
 > gate, not by this one.
 >
-> **What is owed.** Ledger E36: the route bar stacks one pill per line at AX5, up to eight on a career
+> **What is owed.** Ledger E38: the route bar stacks one pill per line at AX5, up to eight on a career
 > surface. It sits inside the scroll view, so it is reachable rather than permanent cost — but E18's
 > open decision about the chrome bar at AX5 should measure both navigation rows together rather than
 > treating the chrome bar as the only one.
