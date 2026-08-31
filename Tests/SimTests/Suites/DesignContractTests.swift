@@ -2920,6 +2920,17 @@ func runDesignContractTests() {
                    "the outcome header must be one ordered accessibility element")
             expect(header.contains(".accessibilitySortPriority(2)"),
                    "the outcome header must precede flood content in accessibility order")
+            guard let accessibleStart = source.range(of: "private var accessibleComposition"),
+                  let helperStart = source.range(of: "private func styledText")
+            else {
+                expect(false, "Aftermath must keep separate standard and AX5 accessibility compositions")
+                return
+            }
+            let accessible = String(source[accessibleStart.upperBound..<helperStart.lowerBound])
+            expect(standard.contains("chromeBarRegion\n                .accessibilitySortPriority(3)"),
+                   "the standard chrome context must precede the outcome header in reading order")
+            expect(accessible.contains("chromeBarRegion\n                    .accessibilitySortPriority(3)"),
+                   "the AX5 chrome context must precede the outcome header in reading order")
         }
 
         test("Aftermath standard plan owns its authored-height scroll cue") {

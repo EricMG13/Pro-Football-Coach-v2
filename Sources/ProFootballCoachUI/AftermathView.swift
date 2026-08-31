@@ -111,6 +111,7 @@ public struct AftermathView: View, CoachWorldChromedSurface {
     private var standardComposition: some View {
         ZStack(alignment: .topLeading) {
             chromeBarRegion
+                .accessibilitySortPriority(3)
                 .frame(width: AftermathMetric.chromeSize.width, height: AftermathMetric.chromeSize.height)
                 .position(AftermathMetric.center(AftermathMetric.chromeOrigin, AftermathMetric.chromeSize))
 
@@ -504,6 +505,7 @@ public struct AftermathView: View, CoachWorldChromedSurface {
         ScrollView {
             VStack(alignment: .leading, spacing: AftermathMetric.sectionGap) {
                 chromeBarRegion
+                    .accessibilitySortPriority(3)
                 outcomeHeader
                     .padding(.horizontal, AftermathMetric.inset)
                 floodContent

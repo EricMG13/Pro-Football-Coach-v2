@@ -28,30 +28,37 @@ final class ProFootballCoachUITests: XCTestCase {
         let window = app.windows.firstMatch
         XCTAssertTrue(window.waitForExistence(timeout: 10))
         XCTAssertGreaterThan(window.frame.width, window.frame.height)
+        XCTAssertEqual(window.frame.width, 844, accuracy: 1)
+        XCTAssertEqual(window.frame.height, 390, accuracy: 1)
         let viewport = app.scrollViews.firstMatch
         XCTAssertTrue(viewport.waitForExistence(timeout: 10))
         XCTAssertFalse(app.staticTexts["Scroll for call-ins and injuries"].exists)
 
-        let retainedSequence = [
+        let sharedSequence = [
+            "CARSON TECH",
+            "Record 4–2",
+            "This week",
+            "Week 9",
+            "FINAL. MEMORIAL FIELD. CAR WIN.",
             "Carson Tech, 31",
             "Southern State, 17",
             "Carson Tech took the third quarter and held the result.",
+            "BOX SCORE",
+            "CONTINUE →",
             "GRADES",
             "WHAT THE PLAN DID",
             "WHAT THE GAME TURNED ON",
+            "Stopped.",
             "CALLED IN",
+        ] + (1...16).map { "Overflow proof call-in \($0)." } + [
             "INJURIES",
         ]
-        for label in retainedSequence {
-            XCTAssertTrue(app.staticTexts[label].exists, "Missing retained Aftermath element: \(label)")
+        let initialAccessibilitySequence = app.descendants(matching: .any).allElementsBoundByIndex.map(\.label)
+        let initialIndexes = sharedSequence.compactMap {
+            initialAccessibilitySequence.firstIndex(of: $0)
         }
-        XCTAssertTrue(app.descendants(matching: .any)["FINAL. MEMORIAL FIELD. CAR WIN."].exists)
-        XCTAssertTrue(app.buttons["BOX SCORE"].exists)
-        XCTAssertTrue(app.buttons["CONTINUE →"].exists)
-        let tree = app.staticTexts.allElementsBoundByIndex.map(\.label)
-        let sequenceIndexes = retainedSequence.compactMap { tree.firstIndex(of: $0) }
-        XCTAssertEqual(sequenceIndexes.count, retainedSequence.count)
-        XCTAssertEqual(sequenceIndexes, sequenceIndexes.sorted())
+        XCTAssertEqual(initialIndexes.count, sharedSequence.count)
+        XCTAssertEqual(initialIndexes, initialIndexes.sorted())
 
         let outcome = app.staticTexts["Carson Tech, 31"]
         for _ in 0..<6 where !outcome.isHittable {
@@ -65,6 +72,18 @@ final class ProFootballCoachUITests: XCTestCase {
             viewport.swipeUp()
         }
         XCTAssertTrue(plan.isHittable)
+        let finalInjury = app.staticTexts["Cleared."]
+        for _ in 0..<6 where !finalInjury.isHittable {
+            viewport.swipeUp()
+        }
+        XCTAssertTrue(finalInjury.isHittable)
+
+        let postScrollAccessibilitySequence = app.descendants(matching: .any).allElementsBoundByIndex.map(\.label)
+        let postScrollIndexes = (sharedSequence + ["Cleared."]).compactMap {
+            postScrollAccessibilitySequence.firstIndex(of: $0)
+        }
+        XCTAssertEqual(postScrollIndexes.count, sharedSequence.count + 1)
+        XCTAssertEqual(postScrollIndexes, postScrollIndexes.sorted())
 
         let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
         screenshot.name = "Aftermath AX5 landscape post-scroll"
@@ -74,26 +93,39 @@ final class ProFootballCoachUITests: XCTestCase {
 
     func testAftermathProofShowsOutcomeHeader() {
         let app = XCUIApplication()
-        app.launchEnvironment["PROOF_SCREEN"] = "aftermath"
+        app.launchEnvironment["PROOF_SCREEN"] = "aftermath-overflow"
         app.launch()
 
         let header = app.descendants(matching: .any)["FINAL. MEMORIAL FIELD. CAR WIN."]
         XCTAssertTrue(header.waitForExistence(timeout: 10))
 
         let accessibilitySequence = app.descendants(matching: .any).allElementsBoundByIndex.map(\.label)
-        guard let headerIndex = accessibilitySequence.firstIndex(of: header.label),
-              let scoreIndex = accessibilitySequence.firstIndex(of: "Carson Tech, 31"),
-              let headlineIndex = accessibilitySequence.firstIndex(of: "Carson Tech took the third quarter and held the result."),
-              let boxScoreIndex = accessibilitySequence.firstIndex(of: "BOX SCORE"),
-              let continueIndex = accessibilitySequence.firstIndex(of: "CONTINUE →")
-        else {
+        let retainedSequence = [
+            "CAR",
+            "CARSON TECH",
+            "Record 4–2",
+            "This week",
+            "Week 9",
+            header.label,
+            "Carson Tech, 31",
+            "Southern State, 17",
+            "Carson Tech took the third quarter and held the result.",
+            "BOX SCORE",
+            "CONTINUE →",
+            "GRADES",
+            "WHAT THE PLAN DID",
+            "WHAT THE GAME TURNED ON",
+            "Stopped.",
+            "CALLED IN",
+            "INJURIES",
+            "Cleared.",
+        ]
+        let sequenceIndexes = retainedSequence.compactMap { accessibilitySequence.firstIndex(of: $0) }
+        guard sequenceIndexes.count == retainedSequence.count else {
             XCTFail("Aftermath accessibility tree is missing its retained outcome reading sequence")
             return
         }
-        XCTAssertLessThan(headerIndex, scoreIndex)
-        XCTAssertLessThan(headerIndex, headlineIndex)
-        XCTAssertLessThan(headerIndex, boxScoreIndex)
-        XCTAssertLessThan(headerIndex, continueIndex)
+        XCTAssertEqual(sequenceIndexes, sequenceIndexes.sorted())
     }
 
     func testAftermathMinimumProofReachesPlanContentAfterSwipe() {
