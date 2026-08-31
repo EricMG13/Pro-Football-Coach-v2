@@ -40,6 +40,58 @@ Observed on device, recorded in ledger Part E. Fix each as part of the surface t
 
 ---
 
+---
+
+## Task 2 is blocked, and this is the finding that blocks it (2026-08-31)
+
+**Coaching HQ cannot be drawn from `CoachingHQReadModel` as it stands.** Checked before dispatching
+any drawing work, under this plan's own Step 2 — *"if the drawing shows a fact the read model does
+not hold, STOP and escalate"*.
+
+What the read model holds: `team`, `coach`, `recordLabel`, `rankLabel`, `venue`, `opponent`,
+`week` (`seasonLabel`, `weekLabel`, `currentDay`, `nextDeadline`), `weekPlan`, `obligations`
+(`title`, `due`, `consequence`, `isMandatory`), `decision`, `staffRecommendation`, `correspondence`,
+`squadHealth`, `stakeholders`.
+
+What the drawing needs and the model does not hold:
+
+| Drawn | Needed for | Status |
+|---|---|---|
+| `6–3 · #23 · lost two` | the opponent's half of the fixture | Only **our** `recordLabel` and `rankLabel` exist. The opponent is a bare `CoachWorldTeamReference` |
+| `won four` / `lost two` | form, both sides | Not held |
+| `SATURDAY 14:00` | the kickoff line | `WeekContext` has no kickoff time |
+| `HOME` | the kickoff line | `venue` exists; no home/away flag |
+| `★ WON FOUR — LONGEST ACTIVE STREAK IN THE RIDGELINE` | the gold standing badge, 1 of this surface's 2 gold | Not held |
+| `3 calls open · costs 9 freshness` | the ember's cost line, which `ForgeFieldEmber` makes non-optional | Not held |
+| `Nabb, Costa and Kalb handled the rest · 3 DONE` | the delegated-work summary below the seam | `Obligation` records no completion and no completing staff |
+
+**One listed defect is not a defect.** `NO RECORDED COST` on the two decision options is
+`CoachWorldReadModelProvider.swift:560`, and its comment is right: *"A mandatory-decision option
+records no price. State that absence rather than turning its deadline into a cost or inventing a
+number."* Under `04` 6.1e — *"if an action has no cost worth naming, it is not an ember"* — the
+correct reading is that **mandatory-decision options are not embers**. They are plain choices, and
+the surface's one ember is a different action. The fix is presentation: state the absence quietly
+instead of shouting it in caps where a cost line would go. Forge Field's own voice rule agrees —
+*"ignorance is stated, not hidden"*. **Do not add a cost to these options, and do not weaken
+`ForgeFieldEmber`.**
+
+### What this changes
+
+**A read-model backing pass comes before the surfaces.** There is direct precedent:
+`docs/plans/2026-08-24-press-box-phase-2-read-model-backing.md` exists because the Press Box
+migration hit the same wall. Phase 2B is therefore:
+
+| | |
+|---|---|
+| **2B-0** | Read-model backing for the nine surfaces. Needs its own plan, and needs the owner to decide which of the seven facts above the engine should carry — each is an engine question, not a drawing one |
+| **2B-1** | The budget contract. **Done**, commit `21f420d` |
+| **2B-2 onward** | The nine surfaces, unchanged from the tasks below, once 2B-0 lands |
+
+**Do not start 2B-2 before 2B-0.** Every other surface in this family should be checked the same way
+before its task is written; Coaching HQ was checked first because it is drawn first, and it is
+unlikely to be the only one.
+
+
 ## Task 1: The register and budget contract
 
 **Files:** Create `Sources/ProFootballCoachUI/ForgeFieldBudget.swift`. Test: `Tests/SimTests/Suites/DesignContractTests.swift`.
