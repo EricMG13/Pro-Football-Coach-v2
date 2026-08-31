@@ -2893,6 +2893,30 @@ func runDesignContractTests() {
                    "ForgeFieldPanel always fills ground2, which would spend an unstamped third "
                        + "background on this surface")
         }
+
+        test("Aftermath keeps the outcome header from vertically compressing out of the flood") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/AftermathView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8),
+                  let standardStart = source.range(of: "private var standardComposition"),
+                  let chromeStart = source.range(of: "private var chromeBarRegion"),
+                  let headerStart = source.range(of: "private var outcomeHeader"),
+                  let headerEnd = source.range(of: "private var scoreSides")
+            else {
+                expect(false, "Aftermath must isolate its outcome header from flood compression")
+                return
+            }
+            let standard = String(source[standardStart.upperBound..<chromeStart.lowerBound])
+            let header = String(source[headerStart.upperBound..<headerEnd.lowerBound])
+            expect(standard.contains("outcomeHeader\n                        .padding"),
+                   "the standard flood must overlay its outcome header above flexible content")
+            expect(standard.contains(".zIndex(1)"),
+                   "the standard outcome header must paint above the flood content")
+            expect(header.contains(".fixedSize(horizontal: false, vertical: true)"),
+                   "the FINAL, venue and result label must keep a measured vertical height")
+            expect(header.contains(".layoutPriority(1)"),
+                   "the outcome header must win before the flood's flexible spacer compresses it")
+        }
     }
 }
 

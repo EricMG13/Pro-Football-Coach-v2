@@ -121,6 +121,10 @@ public struct AftermathView: View, CoachWorldChromedSurface {
                     floodContent
                         .padding(AftermathMetric.inset)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    outcomeHeader
+                        .padding(AftermathMetric.inset)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .zIndex(1)
                 }
                 .frame(height: AftermathMetric.floodHeight)
                 .clipped()
@@ -197,16 +201,6 @@ public struct AftermathView: View, CoachWorldChromedSurface {
             if let statusMessage {
                 statusBanner(statusMessage)
             }
-            HStack(spacing: AftermathMetric.gap) {
-                styledText("FINAL", .columnHead)
-                    .foregroundStyle(ForgeFieldTokens.Fixed.gold.color)
-                styledText(model.venue.name.uppercased(), .columnHead)
-                    .foregroundStyle(club.palette.ink3.color)
-                    .lineLimit(1)
-                styledText(model.resultLabel.uppercased(), .columnHead)
-                    .foregroundStyle(ForgeFieldTokens.Fixed.gold.color)
-                    .lineLimit(1)
-            }
             VStack(alignment: .leading, spacing: AftermathMetric.tightGap) {
                 ForEach(Array(scoreSides.enumerated()), id: \.offset) { index, side in
                     scoreLine(side, isLead: isDraw || index == 0)
@@ -224,6 +218,21 @@ public struct AftermathView: View, CoachWorldChromedSurface {
                 continueControl
             }
         }
+    }
+
+    private var outcomeHeader: some View {
+        HStack(spacing: AftermathMetric.gap) {
+            styledText("FINAL", .columnHead)
+                .foregroundStyle(ForgeFieldTokens.Fixed.gold.color)
+            styledText(model.venue.name.uppercased(), .columnHead)
+                .foregroundStyle(club.palette.ink3.color)
+                .lineLimit(1)
+            styledText(model.resultLabel.uppercased(), .columnHead)
+                .foregroundStyle(ForgeFieldTokens.Fixed.gold.color)
+                .lineLimit(1)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .layoutPriority(1)
     }
 
     /// The result, read the way a result is read: the side that won first and largest. A draw has
@@ -440,6 +449,12 @@ public struct AftermathView: View, CoachWorldChromedSurface {
             styledText("What the plan did".uppercased(), .panel)
                 .foregroundStyle(club.palette.ink4.color)
                 .padding(.bottom, AftermathMetric.gap)
+            if !dynamicTypeSize.isAccessibilitySize &&
+                (!model.callIns.isEmpty || !model.injuries.isEmpty) {
+                styledText("Scroll for call-ins and injuries", .proseMin)
+                    .foregroundStyle(club.palette.ink3.color)
+                    .padding(.bottom, AftermathMetric.tightGap)
+            }
             ScrollView {
                 VStack(alignment: .leading, spacing: AftermathMetric.sectionGap) {
                     planGroup("What the game turned on", model.evidence)
@@ -473,6 +488,8 @@ public struct AftermathView: View, CoachWorldChromedSurface {
         ScrollView {
             VStack(alignment: .leading, spacing: AftermathMetric.sectionGap) {
                 chromeBarRegion
+                outcomeHeader
+                    .padding(.horizontal, AftermathMetric.inset)
                 floodContent
                     .padding(AftermathMetric.inset)
                     .frame(maxWidth: .infinity, alignment: .leading)

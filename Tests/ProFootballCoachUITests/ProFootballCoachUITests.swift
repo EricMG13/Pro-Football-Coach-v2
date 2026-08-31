@@ -19,6 +19,46 @@ final class ProFootballCoachUITests: XCTestCase {
         ].exists)
     }
 
+    func testAftermathProofAX5ReachesOutcomeAfterSwipe() {
+        let app = XCUIApplication()
+        app.launchEnvironment["PROOF_SCREEN"] = "aftermath"
+        app.launch()
+
+        let viewport = app.scrollViews.firstMatch
+        XCTAssertTrue(viewport.waitForExistence(timeout: 10))
+        let outcome = app.staticTexts["Carson Tech, 31"]
+        for _ in 0..<6 {
+            viewport.swipeUp()
+            if outcome.isHittable {
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "Aftermath AX5 post-scroll"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+                return
+            }
+        }
+
+        XCTAssertTrue(outcome.isHittable)
+    }
+
+    func testAftermathProofShowsOutcomeHeader() {
+        let app = XCUIApplication()
+        app.launchEnvironment["PROOF_SCREEN"] = "aftermath"
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["FINAL"].isHittable)
+        XCTAssertTrue(app.staticTexts["MEMORIAL FIELD"].isHittable)
+        XCTAssertTrue(app.staticTexts["CAR WIN"].isHittable)
+    }
+
+    func testAftermathProofSignalsHiddenPlanGroups() {
+        let app = XCUIApplication()
+        app.launchEnvironment["PROOF_SCREEN"] = "aftermath"
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["Scroll for call-ins and injuries"].exists)
+    }
+
     func testRedesignedJobBoardProofFlow() {
         let app = XCUIApplication()
         app.launchArguments = ["--redesigned-job-board"]
