@@ -1903,13 +1903,18 @@ func runDesignContractTests() {
         // Game Plan and Practice Plan are ACTION surfaces whose committing control is NOT an ember,
         // because the presentation contract forbids the very thing their drawn ember would have to
         // name -- row 11 omits "cost", row 12 omits any "separate remaining/unallocated-minutes
-        // field" -- and neither carries a callback for the drawn action. 04 6.1e: an action with no
-        // cost worth naming is not an ember. So the rule is stated as the two sets, with the reason
-        // attached to each, rather than derived from tone alone.
+        // field" -- and neither carries a callback for the drawn action. Opponent report / film
+        // room is MIXED and still carries none: `OpponentFilmReadModel` simply has no
+        // canContinue/continueReason pair (or any other cost-shaped field) the way
+        // `TeamHealthReadModel` and `InboxReadModel` do, so there is nothing for an ember's cost
+        // line to name. 04 6.1e: an action with no cost worth naming is not an ember. So the rule
+        // is stated as the two sets, with the reason attached to each, rather than derived from
+        // tone alone -- tone predicts none of these three cases by itself.
         test("a surface carries an ember exactly when its committing action has a recorded cost") {
             let noEmber: Set<CoachWorldScreenID> = [
                 .aftermath, .gameDetailBoxScore,   // READOUT: nothing here is irreversible
                 .gamePlan, .practicePlan,          // ACTION, but the contract forbids the cost
+                .opponentReportFilmRoom,           // MIXED, but the model records no cost at all
             ]
             for (screen, budget) in ForgeFieldBudget.weeklyCommand {
                 if noEmber.contains(screen) {
@@ -2590,6 +2595,152 @@ func runDesignContractTests() {
             expect(source.contains("isEnabled: model.canContinue"),
                    "the ember must be gated on the model's own canContinue, matching the "
                        + "contract's canContinue/continueReason pairing")
+        }
+    }
+
+    // Task 7 of docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md: Opponent report /
+    // film room, drawn to `ForgeFieldDevice`. Asserts `OpponentFilmView`'s own assertable static
+    // facts (its doc comment, "Assertable budget facts") against the budget Task 1 already
+    // stamped, matching the Coaching HQ, Inbox, Game plan, Practice plan and Team health suites'
+    // own pattern above.
+    suite("Opponent report / film room (06.1e, 06.1f, 06.2a, 06.3a) -- weekly-command Task 7") {
+        let budget = ForgeFieldBudget.weeklyCommand[.opponentReportFilmRoom]
+
+        test("the film room's data-point roles are distinct and the total sits at or under the "
+                + "stamped ceiling") {
+            guard let budget else {
+                expect(false,
+                       "ForgeFieldBudget.weeklyCommand holds no entry for .opponentReportFilmRoom")
+                return
+            }
+            guard let stamped = budget.dataPoints else {
+                expect(false, "the film room's budget stamps no dataPoints")
+                return
+            }
+            expect(OpponentFilmView.dataPointCount <= stamped,
+                   "OpponentFilmView.dataPointCount (\(OpponentFilmView.dataPointCount)) exceeds "
+                       + "the stamped ceiling of \(stamped)")
+            let roles = OpponentFilmView.floodDataPointRoles + OpponentFilmView.evidenceDataPointRoles
+            expectEqual(Set(roles).count, roles.count,
+                        "the film room's data-point roles must be distinct, not repeat one")
+        }
+
+        test("the film room's flooded strip sits inside its stamped stage band") {
+            guard let budget else {
+                expect(false,
+                       "ForgeFieldBudget.weeklyCommand holds no entry for .opponentReportFilmRoom")
+                return
+            }
+            guard let stamped = budget.stageFraction else {
+                expect(false, "the film room's budget stamps no stage fraction")
+                return
+            }
+            // The stamped band is itself the sheet's own rounding of 130/393 (0.3307...), so the
+            // drawn surface is checked with the same tolerance this family's other single-point
+            // stage tests use, not bit-exact equality.
+            let tolerance = 0.01
+            let stage = OpponentFilmView.stageFraction
+            expect(stage >= stamped.lowerBound - tolerance && stage <= stamped.upperBound + tolerance,
+                   "OpponentFilmView.stageFraction (\(stage)) must sit within \(tolerance) of the "
+                       + "stamped band \(stamped)")
+        }
+
+        test("the film room carries zero gold -- \"none of this standing is ours\"") {
+            guard let budget else {
+                expect(false,
+                       "ForgeFieldBudget.weeklyCommand holds no entry for .opponentReportFilmRoom")
+                return
+            }
+            expectEqual(budget.goldMax, ForgeFieldTokens.Register.goldMaxDossier,
+                        "the film room's stamped goldMax is the Dossier ceiling, even though it "
+                            + "spends none of it")
+            expectEqual(OpponentFilmView.goldElementCount, 0, "OpponentFilmView.goldElementCount")
+        }
+
+        test("the film room's ember spend matches its corrected, stamped budget -- ruling 1") {
+            guard let budget else {
+                expect(false,
+                       "ForgeFieldBudget.weeklyCommand holds no entry for .opponentReportFilmRoom")
+                return
+            }
+            expectEqual(budget.emberCount, 0,
+                        "the budget must be corrected from the sheet's 1 to 0 -- the model "
+                            + "records no cost an ember could name")
+            expectEqual(OpponentFilmView.emberElementCount, budget.emberCount,
+                        "the film room must carry exactly the stamped ember count")
+        }
+
+        test("the film room draws no ForgeFieldEmber -- the continue control is a quiet, plain "
+                + "control (ruling 1)") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/OpponentFilmView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "OpponentFilmView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(!source.contains("ForgeFieldEmber("),
+                   "OpponentFilmReadModel records no cost, so this surface's committing control "
+                       + "must not be a ForgeFieldEmber")
+            expect(source.contains(".disabled(!model.isCurrent)"),
+                   "the continue control must be gated on model.isCurrent, unchanged from the "
+                       + "surface it replaces")
+        }
+
+        test("the film room's ghost mark matches its stamped size, opacity and full desaturation") {
+            guard let budget else {
+                expect(false,
+                       "ForgeFieldBudget.weeklyCommand holds no entry for .opponentReportFilmRoom")
+                return
+            }
+            guard let ghost = budget.ghost else {
+                expect(false, "the film room's budget stamps no ghost")
+                return
+            }
+            expectEqual(OpponentFilmView.ghostSize, ghost.size, "ghost size")
+            expectEqual(OpponentFilmView.ghostOpacity, ghost.opacity, "ghost opacity")
+            expectEqual(OpponentFilmView.ghostDesaturated, ghost.desaturated,
+                        "the ghost must be desaturated to zero, past the standard's own .75 "
+                            + "default -- \"club colour on this screen would say the opponent "
+                            + "belongs to us\"")
+        }
+
+        test("the film room's own background count matches its stamped budget -- cold flood, "
+                + "ground 1") {
+            guard let budget else {
+                expect(false,
+                       "ForgeFieldBudget.weeklyCommand holds no entry for .opponentReportFilmRoom")
+                return
+            }
+            guard let stamped = budget.backgrounds else {
+                expect(false, "the film room's budget stamps no backgrounds count")
+                return
+            }
+            expectEqual(OpponentFilmView.backgroundCount, stamped,
+                        "the film room must draw exactly the stamped background count")
+        }
+
+        test("the film room's flood is never club colour -- it composes only the fixed "
+                + "signal-cold token, never a ClubPalette member") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/OpponentFilmView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "OpponentFilmView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(source.contains("ForgeFieldTokens.Fixed.signalCold"),
+                   "the flood must be built from the fixed signal-cold token")
+            expect(!source.contains("club.palette.clubDeep") && !source.contains("club.palette.club"),
+                   "the flood must never fall back to a per-club colour -- that would say the "
+                       + "opponent belongs to the coach's own club")
+        }
+
+        test("the film room draws exactly the two retained tendencies and the three retained "
+                + "source figures -- contract row 10's own ceiling") {
+            expectEqual(OpponentFilmView.evidenceDataPointRoles.count, 5,
+                        "contract row 10: two tendencies (pass rate, turnover rate) plus three "
+                            + "source figures (confidence, source games, retained fixtures), and "
+                            + "nothing else -- no down-and-distance splits, no player film, no "
+                            + "hidden league totals")
         }
     }
 }

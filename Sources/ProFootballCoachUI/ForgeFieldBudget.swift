@@ -139,7 +139,15 @@ extension ForgeFieldBudget {
             dataPoints: 34,
             pointsAboveSeam: nil,
             goldMax: ForgeFieldTokens.Register.goldMaxDossier,
-            emberCount: ForgeFieldTokens.Register.emberPerSurface,
+            // ZERO, not the sheet's 1. The sheet draws an ember here -- "Install the counter" --
+            // but `OpponentFilmReadModel` carries no canContinue/continueReason pair the way
+            // `TeamHealthReadModel` and `InboxReadModel` do: nothing on this model can name a
+            // price for leaving. Under 04 6.1e an action with no cost worth naming is not an
+            // ember, so the committing control is a quiet, plain control (gated only on
+            // `isCurrent`, unchanged from the Press Box surface it replaces) rather than an
+            // ember. The contract outranks the drawing on facts and actions, the same ruling
+            // `.gamePlan` and `.practicePlan` already record above for the identical reason.
+            emberCount: 0,
             // Cold slate, not club colour -- "club colour on this screen would say the opponent
             // belongs to us" -- so its ghost pushes past the standard's .75 default to fully
             // desaturated. Opacity .13 is the standard's own default value, so it references the
