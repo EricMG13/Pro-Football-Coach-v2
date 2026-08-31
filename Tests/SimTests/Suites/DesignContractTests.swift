@@ -694,7 +694,12 @@ func runDesignContractTests() {
             // 9 until 2026-08-23. The icon rail's `Image(systemName: entry.symbol)` was the
             // ninth; removing the rail removed the site, and the pin shrinks with it. The jump-to
             // control that replaced the rail's registry entry draws a literal, so it adds none.
-            let knownNonLiteralSites = 8
+            // 8 until 2026-08-31. Coaching HQ's Forge Field rewrite (`04` section 6.6a: "Forge
+            // Field ships no icon set") replaced the Press Box composition's two non-literal sites
+            // -- the choice row's `selected ? "checkmark.circle.fill" : "circle"` and
+            // `noDecision`'s `preparationNeeded ? "clipboard" : "checkmark.circle"` -- with a
+            // surface that draws no SF Symbol at all, so the pin shrinks to 6.
+            let knownNonLiteralSites = 6
             var found = 0
             var byFile: [String] = []
             for file in swiftFilesImportingUIFramework() {
@@ -1842,6 +1847,206 @@ func runDesignContractTests() {
             expect(!invokesScreenNavigation(passedOnward),
                    "threading the closure to a call site, or naming the chrome's own closure, is "
                        + "not invoking it -- that is precisely the gap this scan exists to catch")
+        }
+    }
+    suite("Weekly-command register budgets (06.1e, 06.3a)") {
+        test("the table covers exactly the weekly-command family, by construction") {
+            let budgeted = Set(ForgeFieldBudget.weeklyCommand.keys)
+            let family = Set(CoachWorldSurfaceFamily.weeklyCommand.surfaces)
+            expectEqual(budgeted, family,
+                        "ForgeFieldBudget.weeklyCommand must hold exactly the screens "
+                            + "CoachWorldSurfaceFamily.weeklyCommand.surfaces enumerates -- a "
+                            + "tenth surface added to the family, or a budgeted screen that "
+                            + "leaves it, must fail here")
+        }
+
+        test("the coverage check would catch a planted regression, either direction") {
+            var extraScreen = ForgeFieldBudget.weeklyCommand
+            extraScreen[.roster] = extraScreen[.coachingHQ]
+            expect(Set(extraScreen.keys) != Set(CoachWorldSurfaceFamily.weeklyCommand.surfaces),
+                   "a table with a stray screen outside the family must not read as exact "
+                       + "coverage")
+
+            var missingScreen = ForgeFieldBudget.weeklyCommand
+            missingScreen.removeValue(forKey: .inbox)
+            expect(Set(missingScreen.keys) != Set(CoachWorldSurfaceFamily.weeklyCommand.surfaces),
+                   "a table missing one of the family's screens -- the same shape a tenth "
+                       + "surface added to the family and not yet budgeted would leave -- must "
+                       + "not read as exact coverage")
+        }
+
+        test("every Desk-register surface carries zero gold") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand
+            where budget.register.lean == .desk {
+                expectEqual(budget.goldMax, 0,
+                            "\(screen.canonicalName) is a Desk surface -- the sheet states "
+                                + "\"zero gold on a Desk surface\" as a rule, not a coincidence")
+            }
+        }
+
+        test("every Desk-register surface's stage sits at or under the desk stage ceiling") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand
+            where budget.register.lean == .desk {
+                guard let stage = budget.stageFraction else {
+                    expect(false, "\(screen.canonicalName) is Desk but stamps no stage fraction")
+                    continue
+                }
+                expect(stage.upperBound <= ForgeFieldTokens.Register.deskStageMax,
+                       "\(screen.canonicalName) stamps \(stage.upperBound), above "
+                           + "ForgeFieldTokens.Register.deskStageMax "
+                           + "(\(ForgeFieldTokens.Register.deskStageMax))")
+            }
+        }
+
+        test("the two READOUT surfaces carry zero ember; every other surface carries exactly "
+                + "one") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand {
+                if budget.register.tone == .readout {
+                    expectEqual(budget.emberCount, 0,
+                                "\(screen.canonicalName) is READOUT -- an ember here would claim "
+                                    + "the result is a decision you made")
+                } else {
+                    expectEqual(budget.emberCount, ForgeFieldTokens.Register.emberPerSurface,
+                                "\(screen.canonicalName) is not READOUT and must carry the "
+                                    + "standard one ember per surface")
+                }
+            }
+        }
+
+        test("each Broadcast-band surface's stage sits inside the broadcast band; each Dossier "
+                + "one inside the dossier band; Match day at 100% is the explicit exception") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand
+            where budget.register.lean == .broadcast && screen != .matchDay {
+                guard let stage = budget.stageFraction else {
+                    expect(false, "\(screen.canonicalName) is Broadcast but stamps no stage")
+                    continue
+                }
+                expectIn(stage.lowerBound, ForgeFieldTokens.Register.broadcastStage,
+                         "\(screen.canonicalName) (Broadcast) lower bound")
+                expectIn(stage.upperBound, ForgeFieldTokens.Register.broadcastStage,
+                         "\(screen.canonicalName) (Broadcast) upper bound")
+            }
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand
+            where budget.register.lean == .dossier {
+                guard let stage = budget.stageFraction else {
+                    expect(false, "\(screen.canonicalName) is Dossier but stamps no stage")
+                    continue
+                }
+                expectIn(stage.lowerBound, ForgeFieldTokens.Register.dossierStage,
+                         "\(screen.canonicalName) (Dossier) lower bound")
+                expectIn(stage.upperBound, ForgeFieldTokens.Register.dossierStage,
+                         "\(screen.canonicalName) (Dossier) upper bound")
+            }
+
+            // Match day is deliberately excluded above and asserted here instead: at 100% stage
+            // there is no chrome bar and nothing to divide, so the broadcast band does not
+            // govern it. Explicit, not a silent skip.
+            guard let matchDayStage = ForgeFieldBudget.weeklyCommand[.matchDay]?.stageFraction
+            else {
+                expect(false, "Match day must stamp a stage fraction")
+                return
+            }
+            expectEqual(matchDayStage, 1.0...1.0, "Match day is Broadcast at 100%")
+            expect(!ForgeFieldTokens.Register.broadcastStage.contains(matchDayStage.lowerBound),
+                   "Match day's 100% must sit outside the broadcast band -- otherwise it would "
+                       + "not be an exception worth calling out")
+        }
+
+        test("no surface exceeds the gold ceiling for its register") {
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand {
+                let ceiling: Int
+                switch budget.register.lean {
+                case .broadcast: ceiling = ForgeFieldTokens.Register.goldMaxBroadcast
+                case .dossier: ceiling = ForgeFieldTokens.Register.goldMaxDossier
+                case .desk: ceiling = 0
+                }
+                expect(budget.goldMax <= ceiling,
+                       "\(screen.canonicalName) stamps goldMax \(budget.goldMax), above its "
+                           + "register's ceiling of \(ceiling)")
+            }
+        }
+    }
+
+    // Task 2 of docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md: Coaching HQ, drawn
+    // to `ForgeFieldDevice`. Asserts `CoachingHQView`'s own assertable static facts (its doc
+    // comment, "Assertable budget facts") against the budget Task 1 already stamped rather than
+    // restating the numbers here -- a change to either side is a diff a reviewer can see.
+    suite("Coaching HQ (06.1e, 06.1f, 06.2a, 06.3a) -- weekly-command Task 2") {
+        let budget = ForgeFieldBudget.weeklyCommand[.coachingHQ]
+
+        test("Coaching HQ's flood field draws at or under its stamped point ceiling, in nine "
+                + "distinct facts") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            guard let stamped = budget.pointsAboveSeam else {
+                expect(false, "Coaching HQ's budget stamps no pointsAboveSeam")
+                return
+            }
+            let points = CoachingHQView.floodFieldDataPoints
+            expect(points.count <= stamped,
+                   "CoachingHQView.floodFieldDataPoints holds \(points.count) facts, above the "
+                       + "stamped ceiling of \(stamped)")
+            expectEqual(Set(points).count, points.count,
+                        "floodFieldDataPoints must enumerate distinct facts, not repeat one")
+        }
+
+        test("Coaching HQ's stage fraction sits inside its stamped band") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            guard let stamped = budget.stageFraction else {
+                expect(false, "Coaching HQ's budget stamps no stage fraction")
+                return
+            }
+            // The stamped band is itself the sheet's own rounding of an irrational pixel ratio
+            // (242 / 393), so the drawn surface is checked against it with the same tolerance a
+            // reader transcribing the sheet by eye would have used, not bit-exact equality.
+            let tolerance = 0.01
+            let stage = CoachingHQView.stageFraction
+            expect(stage >= stamped.lowerBound - tolerance && stage <= stamped.upperBound + tolerance,
+                   "CoachingHQView.stageFraction (\(stage)) must sit within \(tolerance) of the "
+                       + "stamped band \(stamped)")
+        }
+
+        test("Coaching HQ's gold and ember spends match their stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            expect(CoachingHQView.goldElementCount <= budget.goldMax,
+                   "CoachingHQView.goldElementCount (\(CoachingHQView.goldElementCount)) exceeds "
+                       + "the stamped goldMax (\(budget.goldMax))")
+            expectEqual(CoachingHQView.emberElementCount, budget.emberCount,
+                        "Coaching HQ must carry exactly the stamped ember count")
+        }
+
+        test("Coaching HQ's ghost mark matches its stamped size and opacity") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            guard let ghost = budget.ghost else {
+                expect(false, "Coaching HQ's budget stamps no ghost")
+                return
+            }
+            expectEqual(CoachingHQView.ghostSize, ghost.size, "ghost size")
+            expectEqual(CoachingHQView.ghostOpacity, ghost.opacity, "ghost opacity")
+        }
+
+        test("Coaching HQ's own background count matches its stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            guard let stamped = budget.backgrounds else {
+                expect(false, "Coaching HQ's budget stamps no backgrounds count")
+                return
+            }
+            expectEqual(CoachingHQView.backgroundCount, stamped,
+                        "Coaching HQ must draw exactly the stamped background count")
         }
     }
 }

@@ -4,6 +4,23 @@ The honest picture: what exists, what is verified, what is not.
 
 **Read this first, before believing any other document about the state of the build.**
 
+> **2026-08-31 — Phase 2A's gate, and how it was assembled.** Every one of the 159 suites has run at
+> `821073e`, with zero failures, but not in one pass — and the honest record of that matters more than
+> a tidy number.
+>
+> A full `swift run SimTests` passed at `a7ce32d`: **1194 tests, 932,705 checks, 159 suites, 0
+> failures**. The navigation fix `41f96a5` landed after that run started, so it tested a stale tree. A
+> re-run at HEAD reached **130 of 159 suites with 0 failures** before a background-task timeout killed
+> it. Rather than start a third three-and-a-half-hour run, the 29 suites it had not reached were run
+> directly at HEAD: `--design-contracts` (111 tests, 1630 checks) covers 24 of them, and
+> `--commitment-coverage` (4/26), `--save-document` (25/77, which is `Save document migration` plus
+> `Save coordinator`), `--season-rollover` (15/10,838) and `--staff-pruning` (1/9) cover the other
+> five. All green.
+>
+> **What this is and is not.** It is complete suite coverage at the shipped commit. It is not a single
+> uninterrupted full-suite pass at HEAD, and it should not be described as one.
+
+
 > **2026-08-30 — Forge Field Phase 2A is on screen, and it is the shell only.** The chrome bar now
 > renders on device: the five families (This week, Squad, Recruiting, Front office, Ridgeline), the
 > club as a 3 pt spine rather than a coloured band, and no sibling strip — which removes the
