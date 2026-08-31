@@ -5,6 +5,17 @@ final class ProFootballCoachUITests: XCTestCase {
         XCTAssertTrue(true)
     }
 
+    func testAftermathProofRendersRecordedOutcome() {
+        let app = XCUIApplication()
+        app.launchEnvironment["PROOF_SCREEN"] = "aftermath"
+        app.launch()
+
+        XCTAssertTrue(app.staticTexts["FINAL"].waitForExistence(timeout: 10))
+        XCTAssertFalse(app.staticTexts[
+            "Aftermath unavailable. No retained career evidence is available for this surface."
+        ].exists)
+    }
+
     func testRedesignedJobBoardProofFlow() {
         let app = XCUIApplication()
         app.launchArguments = ["--redesigned-job-board"]

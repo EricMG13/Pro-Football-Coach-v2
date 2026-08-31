@@ -24,6 +24,37 @@ private struct DebugCoachingHQRoot: View {
     @State private var recruitingBoard = CoachWorldSampleData.recruitingBoard
     @State private var recruitingProspectID: String?
     private let matchDay = CoachWorldSampleData.matchDay
+    private let aftermath = AftermathReadModel(
+        recordedOutcomeID: "sample-aftermath",
+        provenance: .sample,
+        world: CoachWorldSampleData.world,
+        venue: CoachWorldSampleData.venue,
+        home: .init(team: CoachWorldSampleData.homeTeam, score: 31),
+        away: .init(team: CoachWorldSampleData.awayTeam, score: 17),
+        resultLabel: "CAR win",
+        headline: "Carson Tech took the third quarter and held the result.",
+        evidence: ["Two third-down stops ended Southern State drives."],
+        callIns: ["Morgan Hale called simulated pressure after halftime."],
+        injuries: ["No injuries were recorded."],
+        grades: [
+            .init(
+                stableID: "sample-aftermath-qb",
+                player: .init(stableID: "sample-qb", name: "D. Moreno", role: "QB"),
+                team: CoachWorldSampleData.homeTeam,
+                position: "QB",
+                rating: 88,
+                evidence: "Protected the ball on third down."
+            ),
+            .init(
+                stableID: "sample-aftermath-cb",
+                player: .init(stableID: "sample-cb", name: "A. Brooks", role: "CB"),
+                team: CoachWorldSampleData.homeTeam,
+                position: "CB",
+                rating: 81,
+                evidence: "Closed the final two deep throws."
+            ),
+        ]
+    )
     private let roster = CoachWorldSampleData.roster
     private let leagueMap = CoachWorldLeagueMapSampleData.leagueMap
     @State private var statusMessage: String?
@@ -34,6 +65,7 @@ private struct DebugCoachingHQRoot: View {
             ("--player-profile", "player", .playerProfile),
             ("--roster", "roster", .roster),
             ("--match-day", "match", .matchDay),
+            ("--aftermath", "aftermath", .aftermath),
             ("--recruiting-board", "recruiting", .recruitingBoard),
             ("--league-map", "map", .leagueMap),
             // The shared management chrome and the eight composition patterns, on one surface.
@@ -63,6 +95,17 @@ private struct DebugCoachingHQRoot: View {
                     onControl: useMatchControl,
                     onInterruption: answerMatchInterruption,
                     onExit: { currentScreen = .coachingHQ }
+                )
+            } else if currentScreen == .aftermath {
+                AftermathView(
+                    model: aftermath,
+                    statusMessage: statusMessage,
+                    onContinue: { currentScreen = .coachingHQ },
+                    onOpenBoxScore: { statusMessage = "Box score is not part of this proof." }
+                )
+                .floodlitChrome(
+                    CoachWorldSampleData.chrome(for: .aftermath, world: .pitch, context: "Final"),
+                    onNavigate: { statusMessage = "Navigated \($0.rawValue)" }
                 )
             } else if currentScreen == .playerProfile, let profile = roster.players.first?.profile {
                 PlayerProfileView(
