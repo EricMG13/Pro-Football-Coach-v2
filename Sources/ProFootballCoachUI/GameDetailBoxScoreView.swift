@@ -1,238 +1,287 @@
 import SwiftUI
 
-/// Detailed game/box-score family backed by the immutable post-game evidence projection.
+/// Game detail / box score, drawn to the Forge Field sheet.
+///
+/// **Register: Dossier, READOUT, with a VERTICAL seam.** The one surface in the weekly-command
+/// family whose seam runs down rather than across: the staged half is the result, on the left, and
+/// the studied half is the evidence for it, on the right. The sheet stamps the stage at 32 percent
+/// measured across the seam axis -- 271 of 852 -- so the staged column is 271 pt wide and the
+/// hairline falls at its trailing edge.
+///
+/// **Zero embers, and no committing control of any kind.** The presentation contract's row 47 gives
+/// this surface `onClose` and `onNavigateChrome` and nothing else -- there is no `onContinue` here,
+/// unlike Aftermath. Under `04` 6.1e an action with no cost worth naming is not an ember, and here
+/// there is no action at all. `ForgeFieldBudget.weeklyCommand[.gameDetailBoxScore]` records
+/// `emberCount: 0` and a test enforces it.
+///
+/// **Zero gold, against a ceiling of two.** The sheet is explicit: *"gold 0 of 2 -- a record is not
+/// a standing."* `goldMax` in the budget is the Dossier ceiling, not a target. Nothing on this
+/// screen is earned standing: a final score is a fact, and facts are ink.
+///
+/// **32 pt dense rows are legal here, and only here in this family.** The sheet: *"The one surface
+/// in the family where 32px rows are legal, and it earns them the only way allowed: every row is
+/// inert. Nothing on this screen opens anything, so the dense tier costs nothing."* That is a
+/// standing condition, not a one-off permission -- **if any row on this surface ever becomes
+/// tappable, every row on it goes to 44** (`04` 6.3a).
+///
+/// **One background, ground 1.** No flood and no ghost mark: the sheet stamps `backgrounds 1 of 2`
+/// and `ghost mark: none -- never behind tabular figures`, and this screen is almost entirely
+/// tabular figures. `ForgeFieldPanel` fills `ground2`, so this one-background composition
+/// intentionally omits panels.
+///
+/// **What it must not draw**, from contract row 47: no recommendation, countdown, receipt, undo,
+/// quarter scoring, opposed team totals, play-by-play, reconstructed stat line, or any evidence
+/// beyond the retained aftermath projection. `AftermathReadModel` records a final score and no
+/// per-quarter breakdown, so the quarter columns the reference sheets once drew are absent by
+/// construction rather than by omission.
 public struct GameDetailBoxScoreView: View, CoachWorldChromedSurface {
-    /// The shared management chrome (`04` section 6.1c). Nil renders on the bare stage, which is
-    /// what this surface did before conversion.
+    /// The shared Forge Field chrome (`04` 6.1f). Nil renders on the bare stage.
     public var chrome: FloodlitChromeReadModel?
     public var onNavigateChrome: ((CoachWorldIntentID) -> Void)?
 
     public let model: AftermathReadModel
     public let onClose: () -> Void
+
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.forgeFieldClub) private var club
 
     public init(model: AftermathReadModel, onClose: @escaping () -> Void) {
         self.model = model
         self.onClose = onClose
     }
 
-    private var palette: CoachWorldTokens.Palette {
-        CoachWorldTokens.dark
-    }
-
     public var body: some View {
-        CoachWorldFloodlitStage(
-            palette: palette,
-            register: .broadcast,
-            chrome: chrome,
-            onNavigate: onNavigateChrome
-        ) {
-            scrollContent
+        ForgeFieldDevice(club: club) {
+            Group {
+                if dynamicTypeSize.isAccessibilitySize {
+                    accessibleComposition
+                } else {
+                    standardComposition
+                }
+            }
+            .frame(
+                width: ForgeFieldTokens.Space.viewport.width,
+                height: ForgeFieldTokens.Space.viewport.height
+            )
+            .background(club.palette.ground1.color)
         }
         .accessibilitySortPriority(100)
     }
 
-    private var scrollContent: some View {
+    // MARK: Standard composition -- vertical seam, staged left, studied right
+
+    private var standardComposition: some View {
+        VStack(alignment: .leading, spacing: .zero) {
+            chromeBarRegion
+                .frame(width: ForgeFieldChromeBar.width, height: ForgeFieldChromeBar.height)
+                .padding(.leading, ForgeFieldTokens.Space.margin)
+                .padding(.top, ForgeFieldTokens.Space.chromeTop)
+            HStack(alignment: .top, spacing: .zero) {
+                stagedColumn
+                    .frame(width: BoxScoreMetric.stagedWidth, alignment: .leading)
+                ForgeFieldSeam(.hard, axis: .vertical)
+                    .padding(.horizontal, BoxScoreMetric.seamGutter)
+                studiedColumn
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .padding(.horizontal, ForgeFieldTokens.Space.margin)
+            .padding(.top, ForgeFieldTokens.Space.gutter)
+            Spacer(minLength: .zero)
+        }
+    }
+
+    /// AX5 drops the seam and stacks the two halves in reading order, staged before studied.
+    /// `04` section 7: the composition reflows to one column preserving order and dropping nothing.
+    private var accessibleComposition: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.md) {
-                if dynamicTypeSize.isAccessibilitySize {
-                    scoreLines
-                    evidencePanel
-                    whoDidIt
-                } else {
-                    HStack(alignment: .top, spacing: CoachWorldTokens.Gap.lg) {
-                        VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.lg) {
-                            scoreLines
-                            evidencePanel
-                        }
-                        whoDidIt
-                            .frame(width: BoxScoreMetric.columnWidth)
-                    }
-                }
+            VStack(alignment: .leading, spacing: BoxScoreMetric.gap) {
+                chromeBarRegion
+                stagedColumn
+                ForgeFieldSeam(.hard, axis: .horizontal)
+                studiedColumn
             }
-            .padding(.vertical, CoachWorldTokens.Pad.panel.v)
-        }
-        .safeAreaInset(edge: .bottom) { relatedStrip }
-    }
-
-    /// The two score lines, in the reference's geometry: the team at 132, the total as a figure.
-    ///
-    /// The reference sets four quarter columns between them. `AftermathReadModel` records a final
-    /// score and nothing per quarter, so the columns are absent. Four cells reading the final score
-    /// divided four ways would be a scoring summary the game never played.
-    private var scoreLines: some View {
-        VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.xxs) {
-            FloodlitLabel3(
-                "Final \u{00B7} \(model.venue.name) \u{00B7} \(model.resultLabel)",
-                palette: palette
-            )
-            scoreLine(model.away)
-            scoreLine(model.home)
+            .padding(.horizontal, ForgeFieldTokens.Space.margin)
         }
     }
 
-    private func scoreLine(_ side: MatchDayReadModel.TeamScore) -> some View {
-        let won = side.score > opposing(side).score
-        return HStack(spacing: CoachWorldTokens.Gap.md) {
-            Text(side.team.name.uppercased())
-                .coachWorldDisplay(CoachWorldTokens.DisplaySize.row, weight: .bold)
-                .foregroundStyle(
-                    won ? palette.contentPrimary.color : palette.contentSecondary.color
-                )
-                .lineLimit(1)
-                .frame(width: BoxScoreMetric.teamColumn, alignment: .leading)
-            if let subline = side.subline {
-                Text(subline)
-                    .coachWorldFigure(CoachWorldTokens.DisplaySize.pill)
-                    .foregroundStyle(palette.contentQuiet.color)
-                    .lineLimit(1)
-            }
-            Spacer(minLength: CoachWorldTokens.Gap.xs)
-            Text("\(side.score)")
-                .coachWorldFigure(CoachWorldTokens.DisplaySize.screen, weight: .semibold)
-                .foregroundStyle(
-                    won ? palette.contentPrimary.color : palette.contentSecondary.color
-                )
-        }
-        .padding(.horizontal, CoachWorldTokens.Pad.row.h)
-        .frame(minHeight: BoxScoreMetric.scoreRowHeight)
-        .background(CoachWorldCutCorner.row.fill(palette.work.color.opacity(BoxScoreMetric.rowFill)))
-        .overlay {
-            CoachWorldCutCorner.row.stroke(
-                Color.white.opacity(CoachWorldTokens.Glass.line),
-                lineWidth: CoachWorldTokens.Shape.hairline
-            )
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(side.team.name), \(side.score)")
-    }
-
-    private func opposing(_ side: MatchDayReadModel.TeamScore) -> MatchDayReadModel.TeamScore {
-        side.team.stableID == model.home.team.stableID ? model.away : model.home
-    }
-
-    /// The reference's "Who did it": position, name, and the line that says what they did.
-    ///
-    /// The reference's stat line is a figure string -- 18/26, 241 yards. This build records a grade
-    /// and the evidence sentence behind it, so the evidence is what the column carries. It is the
-    /// same claim the reference makes, stated in the terms the simulation actually holds.
     @ViewBuilder
-    private var whoDidIt: some View {
-        if !model.grades.isEmpty {
-            VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.xxs) {
-                FloodlitLabel3("Who did it", palette: palette)
-                ForEach(model.grades) { grade in
-                    FloodlitRow(palette: palette) {
-                        HStack(spacing: CoachWorldTokens.Gap.md) {
-                            Text(grade.position.uppercased())
-                                .coachWorldDisplay(CoachWorldTokens.DisplaySize.pill, weight: .bold)
-                                .tracking(
-                                    CoachWorldTokens.DisplaySize.tracking(
-                                        BoxScoreMetric.positionTracking,
-                                        at: CoachWorldTokens.DisplaySize.pill
-                                    )
-                                )
-                                .foregroundStyle(palette.stateInfo.color)
-                                .lineLimit(1)
-                                .frame(width: BoxScoreMetric.positionColumn, alignment: .leading)
-                            VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.hair) {
-                                Text(grade.player.name.uppercased())
-                                    .coachWorldDisplay(CoachWorldTokens.DisplaySize.row, weight: .bold)
-                                    .lineLimit(1)
-                                Text(grade.evidence)
-                                    .font(CoachWorldTokens.TypeRole.caption)
-                                    .foregroundStyle(palette.contentSecondary.color)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer(minLength: CoachWorldTokens.Gap.xs)
-                            Text("\(grade.rating)")
-                                .coachWorldFigure(CoachWorldTokens.DisplaySize.row, weight: .semibold)
-                                .foregroundStyle(
-                                    CoachWorldTokens.Heat.color(for: grade.rating, palette: palette)
-                                )
-                        }
-                    }
-                    .accessibilityLabel(
-                        "\(grade.position) \(grade.player.name), graded \(grade.rating). "
-                            + grade.evidence
+    private var chromeBarRegion: some View {
+        if let chrome {
+            ForgeFieldChromeBar(model: chrome, onNavigate: onNavigateChrome ?? { _ in })
+        }
+    }
+
+    // MARK: Staged half -- the result
+
+    private var stagedColumn: some View {
+        VStack(alignment: .leading, spacing: BoxScoreMetric.gap) {
+            styledText(model.resultLabel.uppercased(), .columnHead)
+                .foregroundStyle(club.palette.ink4.color)
+
+            ForEach(scoreSides, id: \.team.stableID) { side in
+                scoreLine(side)
+            }
+
+            styledText(model.headline, .prose)
+                .foregroundStyle(club.palette.ink3.color)
+                .fixedSize(horizontal: false, vertical: true)
+
+            styledText(model.venue.name.uppercased(), .columnHead)
+                .foregroundStyle(club.palette.ink4.color)
+
+            Button(action: onClose) {
+                styledText("\u{2190} Aftermath".uppercased(), .chrome)
+                    .foregroundStyle(club.palette.ink3.color)
+                    .frame(
+                        minWidth: ForgeFieldTokens.Space.hitMin,
+                        minHeight: ForgeFieldTokens.Space.hitMin,
+                        alignment: .leading
                     )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    /// A score line is inert: a name, and the figure. No opposed totals -- contract row 47 forbids
+    /// them -- so each side states only its own.
+    private func scoreLine(_ side: MatchDayReadModel.TeamScore) -> some View {
+        ForgeFieldRow(.dense) {
+            HStack(alignment: .firstTextBaseline, spacing: BoxScoreMetric.gap) {
+                styledText(side.team.name.uppercased(), .chrome)
+                    .foregroundStyle(club.palette.ink1.color)
+                    .lineLimit(BoxScoreMetric.lineLimit(for: dynamicTypeSize))
+                    .minimumScaleFactor(BoxScoreMetric.nameScaleFloor)
+                Spacer(minLength: BoxScoreMetric.gap)
+                styledText("\(side.score)", .heading)
+                    .foregroundStyle(club.palette.ink1.color)
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    private var scoreSides: [MatchDayReadModel.TeamScore] { [model.home, model.away] }
+
+    // MARK: Studied half -- the evidence
+
+    private var studiedColumn: some View {
+        VStack(alignment: .leading, spacing: BoxScoreMetric.gap) {
+            gradesPanel
+            evidencePanel
+        }
+    }
+
+    private var gradesPanel: some View {
+        VStack(alignment: .leading, spacing: .zero) {
+            styledText("WHO DID IT", .panel)
+                .foregroundStyle(club.palette.ink4.color)
+                .frame(height: ForgeFieldTokens.Space.panelHead, alignment: .leading)
+            ForEach(model.grades) { grade in
+                gradeRow(grade)
+            }
+        }
+    }
+
+    /// Inert, which is what earns the dense tier. Nothing here opens anything.
+    private func gradeRow(_ grade: AftermathReadModel.Grade) -> some View {
+        ForgeFieldRow(.dense) {
+            HStack(alignment: .firstTextBaseline, spacing: BoxScoreMetric.gap) {
+                styledText(grade.position.uppercased(), .columnHead)
+                    .foregroundStyle(club.palette.ink4.color)
+                    .frame(width: BoxScoreMetric.positionColumn, alignment: .leading)
+                VStack(alignment: .leading, spacing: .zero) {
+                    styledText(grade.player.name.uppercased(), .row)
+                        .foregroundStyle(club.palette.ink2.color)
+                        .lineLimit(BoxScoreMetric.lineLimit(for: dynamicTypeSize))
+                    styledText(grade.evidence, .prose)
+                        .foregroundStyle(club.palette.ink4.color)
+                        .lineLimit(BoxScoreMetric.lineLimit(for: dynamicTypeSize))
+                }
+                Spacer(minLength: BoxScoreMetric.gap)
+                styledText("\(grade.rating)", .figure)
+                    .foregroundStyle(club.palette.ink1.color)
+                    .monospacedDigit()
+            }
+        }
+    }
+
+    private var evidencePanel: some View {
+        VStack(alignment: .leading, spacing: BoxScoreMetric.gap) {
+            styledText("WHAT THE GAME RECORDED", .panel)
+                .foregroundStyle(club.palette.ink4.color)
+                .frame(height: ForgeFieldTokens.Space.panelHead, alignment: .leading)
+            evidenceGroup("EVIDENCE", model.evidence, empty: "No evidence recorded.")
+            evidenceGroup("CALL-INS", model.callIns, empty: "No call-ins recorded.")
+            evidenceGroup("INJURIES", model.injuries, empty: "No injuries recorded.")
+        }
+    }
+
+    /// `04` 4.4: an absent group states its absence rather than disappearing, and Forge Field's
+    /// voice rule agrees -- ignorance is stated, not hidden.
+    private func evidenceGroup(_ title: String, _ rows: [String], empty: String) -> some View {
+        VStack(alignment: .leading, spacing: .zero) {
+            styledText(title, .columnHead)
+                .foregroundStyle(club.palette.ink4.color)
+            ForEach(Array((rows.isEmpty ? [empty] : rows).enumerated()), id: \.offset) { _, row in
+                ForgeFieldRow(.dense) {
+                    styledText(row, .prose)
+                        .foregroundStyle(rows.isEmpty ? club.palette.ink4.color : club.palette.ink2.color)
+                        .lineLimit(BoxScoreMetric.lineLimit(for: dynamicTypeSize))
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
     }
 
-    /// The reference puts opposed team totals here. This build records the game as evidence
-    /// sentences rather than as a totals table, so the sentences are what the column holds; an
-    /// opposed bar needs two figures, and there are none to oppose.
-    private var evidencePanel: some View {
-        FloodlitCard(palette: palette, depth: .deep) {
-            VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.smPlus) {
-                evidenceGroup(
-                    "How the game went",
-                    model.evidence,
-                    empty: "No detailed game evidence recorded."
-                )
-                evidenceGroup(
-                    "Called in",
-                    model.callIns,
-                    empty: "No controlled call-ins recorded."
-                )
-                evidenceGroup(
-                    "Injuries",
-                    model.injuries,
-                    empty: "No injury evidence recorded."
-                )
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
+    // MARK: Shared text helper
 
-    private func evidenceGroup(_ title: String, _ rows: [String], empty: String) -> some View {
-        VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.hair) {
-            FloodlitLabel3(title, palette: palette)
-            ForEach(Array((rows.isEmpty ? [empty] : rows).enumerated()), id: \.offset) { _, row in
-                Text(row)
-                    .font(CoachWorldTokens.TypeRole.caption)
-                    .foregroundStyle(
-                        rows.isEmpty ? palette.contentQuiet.color : palette.contentSecondary.color
-                    )
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-        }
-    }
-
-    /// The reference's related strip: what the game meant, then the ways out of it.
-    private var relatedStrip: some View {
-        HStack(spacing: CoachWorldTokens.Gap.mdPlus) {
-            Text(model.headline)
-                .font(CoachWorldTokens.TypeRole.callout)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: CoachWorldTokens.Gap.xs)
-            Button("Back to the aftermath", action: onClose)
-                .buttonStyle(CoachWorldActionButtonStyle(role: .secondary, palette: palette))
-        }
-        .padding(.vertical, CoachWorldTokens.Pad.alert.v)
-        .padding(.horizontal, CoachWorldTokens.Pad.alert.h)
-        .frame(maxWidth: .infinity)
-        .background(
-            CoachWorldCutCorner.row.fill(CoachWorldTokens.Floodlit.glassFlatDeep.color)
-        )
-        .overlay {
-            CoachWorldCutCorner.row.stroke(
-                Color.white.opacity(CoachWorldTokens.Glass.line),
-                lineWidth: CoachWorldTokens.Shape.hairline
-            )
-        }
-        .padding(.top, CoachWorldTokens.Gap.xs)
+    private func styledText(_ string: String, _ step: ForgeFieldType.Step) -> Text {
+        Text(string)
+            .font(ForgeFieldType.font(step))
+            .tracking(CoachWorldTokens.DisplaySize.tracking(step.tracking, at: step.points))
     }
 }
 
+// MARK: - Geometry
+
 private enum BoxScoreMetric {
-    /// The handoff's 283pt "who did it" column.
-    static let columnWidth: CGFloat = 283
-    static let teamColumn: CGFloat = 132
-    static let positionColumn: CGFloat = 34
-    static let scoreRowHeight: CGFloat = 34
-    static let positionTracking: CGFloat = 0.08
-    static let rowFill = 0.5
+    /// The sheet stamps the stage at 32 percent across the seam axis: 271 of 852. That is the
+    /// staged column's width, and the vertical seam falls at its trailing edge.
+    static let stagedWidth: CGFloat = 271
+
+    static let seamGutter = ForgeFieldTokens.Space.gutter
+    static let gap = ForgeFieldTokens.Space.ladder[1]          // 8
+    static let positionColumn: CGFloat = 44
+
+    /// Deviation, adaptation rule: a generated player or club name that will not fit scales only
+    /// this far. Below it the name stops being readable, which is the same defect as truncating,
+    /// so the row wraps at accessibility sizes instead -- see `lineLimit(for:)`.
+    static let nameScaleFloor = 0.8
+
+    /// `lineLimit(1)` clips at AX5, which is the fault class Coaching HQ, Game plan and Practice
+    /// plan each hit. Lifting the limit at accessibility sizes lets the row grow instead.
+    static func lineLimit(for dynamicTypeSize: DynamicTypeSize) -> Int? {
+        dynamicTypeSize.isAccessibilitySize ? nil : 1
+    }
+}
+
+// MARK: - Assertable budget facts
+
+extension GameDetailBoxScoreView {
+    /// The retained `AftermathReadModel` fact roles this surface can draw. Repeated rows remain
+    /// bounded by the model; this list makes the distinct presentation roles reviewable against
+    /// the sheet's 72-point ceiling without inventing a second scoring model in the view.
+    public static let dataPointRoles: [String] = [
+        "resultLabel", "headline", "venue", "homeTeam", "homeScore", "awayTeam", "awayScore",
+        "gradePosition", "gradePlayer", "gradeRating", "gradeEvidence", "evidence", "callIns",
+        "injuries",
+    ]
+
+    public static let stagedColumnWidth = BoxScoreMetric.stagedWidth
+    public static let stageFraction = Double(
+        BoxScoreMetric.stagedWidth / ForgeFieldTokens.Space.viewport.width
+    )
+    public static let goldElementCount = 0
+    public static let emberElementCount = 0
+    public static let hasGhostMark = false
+    public static let backgroundCount = 1
 }

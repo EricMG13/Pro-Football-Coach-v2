@@ -145,6 +145,38 @@ final class ProFootballCoachUITests: XCTestCase {
         XCTAssertTrue(injuries.isHittable)
     }
 
+    func testGameDetailProofAX5ReachesRetainedEvidenceAfterSwipe() {
+        let app = XCUIApplication()
+        app.launchEnvironment["PROOF_SCREEN"] = "game-detail"
+        app.launch()
+
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(window.frame.width, window.frame.height)
+        XCTAssertEqual(window.frame.width, 844, accuracy: 1)
+        XCTAssertEqual(window.frame.height, 390, accuracy: 1)
+
+        let viewport = app.scrollViews.firstMatch
+        XCTAssertTrue(viewport.waitForExistence(timeout: 10))
+        let evidenceHeading = app.staticTexts["WHAT THE GAME RECORDED"]
+        for _ in 0..<8 where !evidenceHeading.isHittable {
+            viewport.swipeUp()
+        }
+        XCTAssertTrue(evidenceHeading.isHittable)
+
+        let finalEvidence = app.staticTexts["No injuries recorded."]
+        for _ in 0..<8 where !finalEvidence.isHittable {
+            viewport.swipeUp()
+        }
+        XCTAssertTrue(finalEvidence.isHittable)
+        XCTAssertTrue(app.buttons["← AFTERMATH"].exists)
+
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "Game detail AX5 landscape post-scroll"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     func testRedesignedJobBoardProofFlow() {
         let app = XCUIApplication()
         app.launchArguments = ["--redesigned-job-board"]

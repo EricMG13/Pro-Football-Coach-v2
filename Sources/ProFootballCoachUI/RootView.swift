@@ -98,6 +98,7 @@ private struct DebugCoachingHQRoot: View {
             ("--roster", "roster", .roster),
             ("--match-day", "match", .matchDay),
             ("--aftermath", "aftermath", .aftermath),
+            ("--game-detail", "game-detail", .gameDetailBoxScore),
             ("--aftermath-minimum", "aftermath-minimum", .aftermath),
             ("--aftermath-overflow", "aftermath-overflow", .aftermath),
             ("--recruiting-board", "recruiting", .recruitingBoard),
@@ -129,6 +130,19 @@ private struct DebugCoachingHQRoot: View {
                     onControl: useMatchControl,
                     onInterruption: answerMatchInterruption,
                     onExit: { currentScreen = .coachingHQ }
+                )
+            } else if currentScreen == .gameDetailBoxScore {
+                GameDetailBoxScoreView(
+                    model: aftermath,
+                    onClose: { currentScreen = .aftermath }
+                )
+                .floodlitChrome(
+                    CoachWorldSampleData.chrome(
+                        for: .gameDetailBoxScore,
+                        world: .pitch,
+                        context: "Final"
+                    ),
+                    onNavigate: { statusMessage = "Navigated \($0.rawValue)" }
                 )
             } else if currentScreen == .aftermath {
                 AftermathView(

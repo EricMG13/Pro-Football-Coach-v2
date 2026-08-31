@@ -2956,6 +2956,142 @@ func runDesignContractTests() {
                    "the standard plan column must receive the studied panel's finite height")
         }
     }
+
+    // Task 9 of docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md: Game detail / box
+    // score, drawn to `ForgeFieldDevice`. Assert the surface's own static facts against the
+    // stamped Dossier/READOUT budget and keep contract row 47's callback and omission boundary.
+    suite("Game detail / box score (06.1e, 06.1f, 06.2a, 06.3a) -- weekly-command Task 9") {
+        let budget = ForgeFieldBudget.weeklyCommand[.gameDetailBoxScore]
+
+        test("Game detail's fact roles are distinct and stay under the stamped 72-point ceiling") {
+            guard let budget, let stamped = budget.dataPoints else {
+                expect(false, "Game detail's budget must stamp a data-point ceiling")
+                return
+            }
+            let roles = GameDetailBoxScoreView.dataPointRoles
+            expect(roles.count <= stamped,
+                   "GameDetailBoxScoreView.dataPointRoles holds \(roles.count) roles, above the "
+                       + "stamped ceiling of \(stamped)")
+            expectEqual(Set(roles).count, roles.count,
+                        "Game detail's data-point roles must be distinct")
+        }
+
+        test("Game detail's staged column is 271 of the 852-point seam axis") {
+            guard let budget, let stamped = budget.stageFraction else {
+                expect(false, "Game detail's budget must stamp a stage fraction")
+                return
+            }
+            expectEqual(GameDetailBoxScoreView.stagedColumnWidth, 271,
+                        "the sheet fixes the staged column at 271 points")
+            let stage = GameDetailBoxScoreView.stageFraction
+            expect(stage >= stamped.lowerBound - 0.01 && stage <= stamped.upperBound + 0.01,
+                   "GameDetailBoxScoreView.stageFraction (\(stage)) must match \(stamped)")
+        }
+
+        test("Game detail spends no gold or ember, and draws no ghost") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no Game detail entry")
+                return
+            }
+            expectEqual(budget.goldMax, ForgeFieldTokens.Register.goldMaxDossier,
+                        "the stamped two is the Dossier ceiling, not a target")
+            expectEqual(GameDetailBoxScoreView.goldElementCount, 0,
+                        "a record is not a standing")
+            expectEqual(GameDetailBoxScoreView.emberElementCount, budget.emberCount,
+                        "Game detail has no irreversible action")
+            expect(budget.ghost == nil && !GameDetailBoxScoreView.hasGhostMark,
+                   "tabular figures must have no ghost behind them")
+        }
+
+        test("Game detail draws exactly one surface background, ground 1") {
+            guard let budget, let stamped = budget.backgrounds else {
+                expect(false, "Game detail's budget must stamp a background count")
+                return
+            }
+            expectEqual(GameDetailBoxScoreView.backgroundCount, stamped,
+                        "Game detail must draw exactly the stamped background count")
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/GameDetailBoxScoreView.swift")
+            let source = (try? String(contentsOf: path, encoding: .utf8)).map(strippingLineComments) ?? ""
+            expect(source.contains(".background(club.palette.ground1.color)"),
+                   "Game detail's sole surface background must be ground 1")
+            expect(!source.contains("ForgeFieldPanel("),
+                   "ForgeFieldPanel would add ground 2 beyond the one-background stamp")
+        }
+
+        test("every table and evidence row uses the inert 32-point tier") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/GameDetailBoxScoreView.swift")
+            let source = (try? String(contentsOf: path, encoding: .utf8)).map(strippingLineComments) ?? ""
+            expect(source.contains("ForgeFieldRow(.dense"),
+                   "Game detail earns the dense tier because every row is inert")
+            expect(!source.contains("ForgeFieldRow(.touch"),
+                   "if one row becomes tappable, every row must move to the touch tier")
+        }
+
+        test("close stays reachable as a quiet 44-point control, separate from rows and embers") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/GameDetailBoxScoreView.swift")
+            let source = (try? String(contentsOf: path, encoding: .utf8)).map(strippingLineComments) ?? ""
+            expect(source.contains("Button(action: onClose)"),
+                   "contract row 47's authoritative close callback must remain reachable")
+            expect(source.contains("minHeight: ForgeFieldTokens.Space.hitMin"),
+                   "the close control must clear the 44-point touch floor")
+            expect(!source.contains("ForgeFieldEmber("),
+                   "close is navigation, not an irreversible commit")
+        }
+
+        test("standard keeps the vertical seam and AX5 reflows to one scrollable column") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/GameDetailBoxScoreView.swift")
+            let source = (try? String(contentsOf: path, encoding: .utf8)) ?? ""
+            guard let standardStart = source.range(of: "private var standardComposition"),
+                  let accessibleStart = source.range(of: "private var accessibleComposition"),
+                  let chromeStart = source.range(of: "private var chromeBarRegion") else {
+                expect(false, "Game detail must declare separate standard and AX5 compositions")
+                return
+            }
+            let standard = String(source[standardStart.upperBound..<accessibleStart.lowerBound])
+            let accessible = String(source[accessibleStart.upperBound..<chromeStart.lowerBound])
+            expect(standard.contains(".padding(.leading, ForgeFieldTokens.Space.margin)")
+                       && standard.contains(".padding(.top, ForgeFieldTokens.Space.chromeTop)"),
+                   "the standard chrome must sit at its authored 10,8 origin")
+            expect(standard.contains("ForgeFieldSeam(.hard, axis: .vertical)"),
+                   "the standard Dossier composition must keep its vertical hard seam")
+            if let staged = accessible.range(of: "stagedColumn")?.lowerBound,
+               let studied = accessible.range(of: "studiedColumn")?.lowerBound {
+                expect(accessible.contains("ScrollView") && staged < studied,
+                       "AX5 must scroll one column in staged-then-studied reading order")
+            } else {
+                expect(false, "AX5 must retain both staged and studied columns")
+            }
+            expect(accessible.contains("ForgeFieldSeam(.hard, axis: .horizontal)"),
+                   "the reflowed column keeps the section boundary without a vertical split")
+        }
+
+        test("the asserted facts are exactly retained AftermathReadModel truth") {
+            expectEqual(
+                Set(GameDetailBoxScoreView.dataPointRoles),
+                Set([
+                    "resultLabel", "headline", "venue", "homeTeam", "homeScore", "awayTeam",
+                    "awayScore", "gradePosition", "gradePlayer", "gradeRating", "gradeEvidence",
+                    "evidence", "callIns", "injuries",
+                ]),
+                "contract row 47 permits only result, venue, retained evidence and bounded grades"
+            )
+        }
+
+        test("the DEBUG proof route renders the real GameDetail surface from sample provenance") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/RootView.swift")
+            let source = (try? String(contentsOf: path, encoding: .utf8)) ?? ""
+            expect(source.contains("(\"--game-detail\", \"game-detail\", .gameDetailBoxScore)"),
+                   "the simulator proof needs a direct GameDetail launch argument")
+            expect(source.contains("currentScreen == .gameDetailBoxScore")
+                       && source.contains("GameDetailBoxScoreView("),
+                   "the proof route must render the production GameDetail surface")
+        }
+    }
 }
 
 /// Whether a view stores the screen-navigation closure `04` 6.1f(i)'s route bar is for.
