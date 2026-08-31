@@ -2451,6 +2451,147 @@ func runDesignContractTests() {
                        + "the selected plan and close")
         }
     }
+
+    // Task 6 of docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md: Team health, drawn
+    // to `ForgeFieldDevice`. Asserts `TeamHealthView`'s own assertable static facts (its doc
+    // comment, "Assertable budget facts") against the budget Task 1 already stamped, matching the
+    // Coaching HQ, Inbox, Game plan and Practice plan suites' own pattern above.
+    suite("Team health (06.1e, 06.1f, 06.2a, 06.3a) -- weekly-command Task 6") {
+        let budget = ForgeFieldBudget.weeklyCommand[.teamHealth]
+
+        test("Team health's data-point roles are distinct and the total sits at or under the "
+                + "stamped ceiling") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .teamHealth")
+                return
+            }
+            guard let stamped = budget.dataPoints else {
+                expect(false, "Team health's budget stamps no dataPoints")
+                return
+            }
+            expect(TeamHealthView.dataPointCount <= stamped,
+                   "TeamHealthView.dataPointCount (\(TeamHealthView.dataPointCount)) exceeds the "
+                       + "stamped ceiling of \(stamped)")
+            let roles = TeamHealthView.floodDataPointRoles + TeamHealthView.rowDataPointRoles
+            expectEqual(Set(roles).count, roles.count,
+                        "Team health's data-point roles must be distinct, not repeat one")
+        }
+
+        test("Team health's flooded strip sits inside its stamped stage band") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .teamHealth")
+                return
+            }
+            guard let stamped = budget.stageFraction else {
+                expect(false, "Team health's budget stamps no stage fraction")
+                return
+            }
+            // The stamped band is itself the sheet's own rounding of 62/393 (0.1577...), so the
+            // drawn surface is checked with the same tolerance `CoachingHQView`/`PracticePlanView`'s
+            // identical tests use, not bit-exact equality.
+            let tolerance = 0.01
+            let stage = TeamHealthView.stageFraction
+            expect(stage >= stamped.lowerBound - tolerance && stage <= stamped.upperBound + tolerance,
+                   "TeamHealthView.stageFraction (\(stage)) must sit within \(tolerance) of the "
+                       + "stamped band \(stamped)")
+        }
+
+        test("Team health carries zero gold -- a review failure, not a guideline, on a Desk "
+                + "surface") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .teamHealth")
+                return
+            }
+            expectEqual(budget.goldMax, 0, "Team health's stamped goldMax")
+            expectEqual(TeamHealthView.goldElementCount, 0, "TeamHealthView.goldElementCount")
+        }
+
+        test("Team health's ember spend matches its stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .teamHealth")
+                return
+            }
+            expectEqual(TeamHealthView.emberElementCount, budget.emberCount,
+                        "Team health must carry exactly the stamped ember count")
+        }
+
+        test("Team health draws no ghost mark, matching its stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .teamHealth")
+                return
+            }
+            expect(budget.ghost == nil, "Team health's stamped budget must carry no ghost")
+            expect(TeamHealthView.hasGhostMark == false, "TeamHealthView must draw no ghost mark")
+        }
+
+        test("Team health's own background count matches its stamped budget -- flood, ground 1") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .teamHealth")
+                return
+            }
+            guard let stamped = budget.backgrounds else {
+                expect(false, "Team health's budget stamps no backgrounds count")
+                return
+            }
+            expectEqual(TeamHealthView.backgroundCount, stamped,
+                        "Team health must draw exactly the stamped background count")
+        }
+
+        test("Team health's readiness rows are the dense tier -- ruling 3: every row here is "
+                + "inert, so 32 pt is legal") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/TeamHealthView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "TeamHealthView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(source.contains("ForgeFieldRow(.dense"),
+                   "Team health's readiness rows carry no per-player callback, so they must use "
+                       + "the 32 pt dense tier")
+            expect(!source.contains("ForgeFieldRow(.touch"),
+                   "no row on Team health is tappable, so none may claim the 44 pt touch tier")
+        }
+
+        test("Team health's ember sits in the flooded strip, beside the four figures, never "
+                + "inside a table row -- Rule A-2") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/TeamHealthView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "TeamHealthView.swift is unreadable at \(path.path)")
+                return
+            }
+            guard let floodStart = source.range(of: "private var floodContent"),
+                  let rowStart = source.range(of: "private func playerRow"),
+                  let rowEnd = source.range(of: "private func conditionBar")
+            else {
+                expect(false,
+                       "TeamHealthView.swift must declare floodContent, playerRow and "
+                           + "conditionBar, in that order, for this scan to locate each body")
+                return
+            }
+            let floodBody = String(source[floodStart.upperBound..<rowStart.lowerBound])
+            expect(floodBody.contains("ember"),
+                   "the flooded strip must compose the ember beside the four figures")
+            let rowBody = String(source[rowStart.lowerBound..<rowEnd.lowerBound])
+            expect(!rowBody.contains("ForgeFieldEmber("),
+                   "the ember must never be composed inside a table row (Rule A-2)")
+        }
+
+        test("Team health's cost line states continueReason verbatim when disabled, never an "
+                + "invented reason") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/TeamHealthView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "TeamHealthView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(source.contains("model.continueReason ?? "),
+                   "the ember's cost must fall back from continueReason, never replace it")
+            expect(source.contains("isEnabled: model.canContinue"),
+                   "the ember must be gated on the model's own canContinue, matching the "
+                       + "contract's canContinue/continueReason pairing")
+        }
+    }
 }
 
 /// Whether a view stores the screen-navigation closure `04` 6.1f(i)'s route bar is for.
