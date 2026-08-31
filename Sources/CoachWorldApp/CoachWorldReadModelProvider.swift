@@ -88,7 +88,11 @@ public enum CoachWorldReadModelProvider {
             // `expiringInboundEvents` step is inactive for exactly this reason.
             correspondence: [],
             squadHealth: squadHealth(in: state),
-            stakeholders: stakeholders(in: state)
+            stakeholders: stakeholders(in: state),
+            opponentRecordLabel: opponentID.map { recordLabel($0, in: state) },
+            opponentRankLabel: opponentID.flatMap { rankLabel($0, in: state) },
+            isHomeGame: nextGame.map { $0.homeID == organisationID },
+            currentStreak: currentStreak(organisationID, in: state)
         )
     }
 
@@ -448,7 +452,10 @@ public enum CoachWorldReadModelProvider {
             abbreviation: abbreviation(name),
             mark: CoachWorldTeamLogoCatalog.mark(forStableID: id.uuidString),
             primaryColorHex: colours?.primary.hex,
-            secondaryColorHex: colours?.secondary.hex
+            secondaryColorHex: colours?.secondary.hex,
+            // Both root types already store this as its own field -- never a guess split off
+            // `name` (`Programme.nickname`, `ProTeam.nickname`).
+            nickname: state.programmes[id]?.nickname ?? state.proTeams[id]?.nickname
         )
     }
 
@@ -502,6 +509,33 @@ public enum CoachWorldReadModelProvider {
             if let index = order.firstIndex(of: organisationID) { return "#\(index + 1)" }
         }
         return nil
+    }
+
+    /// The organisation's current run of results, most-recent-first, walked from the same
+    /// `ScheduledGame` rows `recordLabel(_:in:)` already reads. `"Won 4"` or `"Lost 2"`; nil before
+    /// any game this season has finished.
+    ///
+    /// Deliberately the plain streak, not "longest active streak in the league": the league-wide
+    /// superlative needs the identical walk repeated for every team in the tier, which this pass
+    /// does not spend. `04` section 4.4 makes under-claiming the honest failure mode -- a plain,
+    /// honestly computed streak, not an invented league ranking.
+    static func currentStreak(_ organisationID: UUID, in state: GameState) -> String? {
+        // Most recent first. A tie neither extends nor is claimed as a streak of either kind, so
+        // it is dropped from the walk rather than mislabelled a loss.
+        let outcomes: [Bool] = state.competition.currentSchedule.games
+            .filter { $0.season == state.calendar.season
+                && ($0.homeID == organisationID || $0.awayID == organisationID) }
+            .sorted { $0.week > $1.week }
+            .compactMap { game in
+                guard let result = game.result else { return nil }
+                let isHome = game.homeID == organisationID
+                let ours = isHome ? result.homeScore : result.awayScore
+                let theirs = isHome ? result.awayScore : result.homeScore
+                return ours == theirs ? nil : ours > theirs
+            }
+        guard let mostRecent = outcomes.first else { return nil }
+        let length = outcomes.prefix { $0 == mostRecent }.count
+        return "\(mostRecent ? "Won" : "Lost") \(length)"
     }
 
     static func seasonLabel(_ calendar: CalendarState) -> String {

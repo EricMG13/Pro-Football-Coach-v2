@@ -694,7 +694,12 @@ func runDesignContractTests() {
             // 9 until 2026-08-23. The icon rail's `Image(systemName: entry.symbol)` was the
             // ninth; removing the rail removed the site, and the pin shrinks with it. The jump-to
             // control that replaced the rail's registry entry draws a literal, so it adds none.
-            let knownNonLiteralSites = 8
+            // 8 until 2026-08-31. Coaching HQ's Forge Field rewrite (`04` section 6.6a: "Forge
+            // Field ships no icon set") replaced the Press Box composition's two non-literal sites
+            // -- the choice row's `selected ? "checkmark.circle.fill" : "circle"` and
+            // `noDecision`'s `preparationNeeded ? "clipboard" : "checkmark.circle"` -- with a
+            // surface that draws no SF Symbol at all, so the pin shrinks to 6.
+            let knownNonLiteralSites = 6
             var found = 0
             var byFile: [String] = []
             for file in swiftFilesImportingUIFramework() {
@@ -1828,6 +1833,89 @@ func runDesignContractTests() {
                        "\(screen.canonicalName) stamps goldMax \(budget.goldMax), above its "
                            + "register's ceiling of \(ceiling)")
             }
+        }
+    }
+
+    // Task 2 of docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md: Coaching HQ, drawn
+    // to `ForgeFieldDevice`. Asserts `CoachingHQView`'s own assertable static facts (its doc
+    // comment, "Assertable budget facts") against the budget Task 1 already stamped rather than
+    // restating the numbers here -- a change to either side is a diff a reviewer can see.
+    suite("Coaching HQ (06.1e, 06.1f, 06.2a, 06.3a) -- weekly-command Task 2") {
+        let budget = ForgeFieldBudget.weeklyCommand[.coachingHQ]
+
+        test("Coaching HQ's flood field draws at or under its stamped point ceiling, in nine "
+                + "distinct facts") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            guard let stamped = budget.pointsAboveSeam else {
+                expect(false, "Coaching HQ's budget stamps no pointsAboveSeam")
+                return
+            }
+            let points = CoachingHQView.floodFieldDataPoints
+            expect(points.count <= stamped,
+                   "CoachingHQView.floodFieldDataPoints holds \(points.count) facts, above the "
+                       + "stamped ceiling of \(stamped)")
+            expectEqual(Set(points).count, points.count,
+                        "floodFieldDataPoints must enumerate distinct facts, not repeat one")
+        }
+
+        test("Coaching HQ's stage fraction sits inside its stamped band") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            guard let stamped = budget.stageFraction else {
+                expect(false, "Coaching HQ's budget stamps no stage fraction")
+                return
+            }
+            // The stamped band is itself the sheet's own rounding of an irrational pixel ratio
+            // (242 / 393), so the drawn surface is checked against it with the same tolerance a
+            // reader transcribing the sheet by eye would have used, not bit-exact equality.
+            let tolerance = 0.01
+            let stage = CoachingHQView.stageFraction
+            expect(stage >= stamped.lowerBound - tolerance && stage <= stamped.upperBound + tolerance,
+                   "CoachingHQView.stageFraction (\(stage)) must sit within \(tolerance) of the "
+                       + "stamped band \(stamped)")
+        }
+
+        test("Coaching HQ's gold and ember spends match their stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            expect(CoachingHQView.goldElementCount <= budget.goldMax,
+                   "CoachingHQView.goldElementCount (\(CoachingHQView.goldElementCount)) exceeds "
+                       + "the stamped goldMax (\(budget.goldMax))")
+            expectEqual(CoachingHQView.emberElementCount, budget.emberCount,
+                        "Coaching HQ must carry exactly the stamped ember count")
+        }
+
+        test("Coaching HQ's ghost mark matches its stamped size and opacity") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            guard let ghost = budget.ghost else {
+                expect(false, "Coaching HQ's budget stamps no ghost")
+                return
+            }
+            expectEqual(CoachingHQView.ghostSize, ghost.size, "ghost size")
+            expectEqual(CoachingHQView.ghostOpacity, ghost.opacity, "ghost opacity")
+        }
+
+        test("Coaching HQ's own background count matches its stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .coachingHQ")
+                return
+            }
+            guard let stamped = budget.backgrounds else {
+                expect(false, "Coaching HQ's budget stamps no backgrounds count")
+                return
+            }
+            expectEqual(CoachingHQView.backgroundCount, stamped,
+                        "Coaching HQ must draw exactly the stamped background count")
         }
     }
 }

@@ -36,6 +36,12 @@ public struct CoachWorldTeamReference: Sendable, Equatable {
     public let uniformAsset: CoachWorldAssetReference?
     public let primaryColorHex: String?
     public let secondaryColorHex: String?
+    /// The mascot half of the generated name -- `Programme.nickname` / `ProTeam.nickname`, both
+    /// already structured fields, never a guess split off `name`. Forge Field's Coaching HQ fixture
+    /// card reads this as the short form of a name too long to hold at fixture size (`04` 6.2a(i)'s
+    /// floors bind before a name shrinks further): `docs/plans/2026-08-30-forge-field-phase-2b-...`
+    /// Task 2. Nil only for a reference the generator never attached one to.
+    public let nickname: String?
 
     public init(
         stableID: String,
@@ -45,7 +51,8 @@ public struct CoachWorldTeamReference: Sendable, Equatable {
         secondaryMarkAsset: CoachWorldAssetReference? = nil,
         uniformAsset: CoachWorldAssetReference? = nil,
         primaryColorHex: String? = nil,
-        secondaryColorHex: String? = nil
+        secondaryColorHex: String? = nil,
+        nickname: String? = nil
     ) {
         self.stableID = stableID
         self.name = name
@@ -55,6 +62,7 @@ public struct CoachWorldTeamReference: Sendable, Equatable {
         self.uniformAsset = uniformAsset
         self.primaryColorHex = primaryColorHex
         self.secondaryColorHex = secondaryColorHex
+        self.nickname = nickname
     }
 }
 
@@ -308,6 +316,28 @@ public struct CoachingHQReadModel: Sendable, Equatable {
     /// Stakeholder standing, from `careerArc.stakeholderSupport`. Empty before a career exists.
     public let stakeholders: [StakeholderRow]
 
+    // MARK: Forge Field backing (Phase 2B Task 2, 2026-08-31)
+    //
+    // The four fields below back the Coaching HQ Forge Field surface's fixture card. Every one is
+    // computed from state the engine already exposes -- `recordLabel(_:in:)` and `rankLabel(_:in:)`
+    // are generic over the organisation, so the opponent's half needs no engine change; `venue`
+    // above already carries the same optionality `isHomeGame` mirrors; `currentStreak` walks the
+    // same `ScheduledGame` rows `recordLabel` already reads. Defaulted to `nil` so no existing
+    // call site (the debug proof fixture in `RootView.swift`, every test fixture) has to change.
+
+    /// The opponent's record, alongside `recordLabel` for ours. Nil exactly when `opponent` is nil.
+    public let opponentRecordLabel: String?
+    /// The opponent's rank, mirroring `rankLabel`'s own honesty: nil rather than an invented
+    /// placing when the opponent carries none (04 section 4.4).
+    public let opponentRankLabel: String?
+    /// Whether the coach's own team hosts the next fixture. Nil exactly when no game is scheduled
+    /// this week.
+    public let isHomeGame: Bool?
+    /// The coach's own current run of results this season, most-recent-first ("Won 4", "Lost 2").
+    /// Nil before any game has finished. Never a league-wide superlative -- see
+    /// `CoachWorldReadModelProvider.currentStreak(_:in:)`'s own comment for why.
+    public let currentStreak: String?
+
     public init(
         snapshotID: String,
         provenance: CoachWorldDataProvenance,
@@ -326,7 +356,11 @@ public struct CoachingHQReadModel: Sendable, Equatable {
         staffRecommendation: StaffRecommendation?,
         correspondence: [Correspondence],
         squadHealth: [SquadHealthRow] = [],
-        stakeholders: [StakeholderRow] = []
+        stakeholders: [StakeholderRow] = [],
+        opponentRecordLabel: String? = nil,
+        opponentRankLabel: String? = nil,
+        isHomeGame: Bool? = nil,
+        currentStreak: String? = nil
     ) {
         self.snapshotID = snapshotID
         self.provenance = provenance
@@ -346,6 +380,10 @@ public struct CoachingHQReadModel: Sendable, Equatable {
         self.correspondence = correspondence
         self.squadHealth = squadHealth
         self.stakeholders = stakeholders
+        self.opponentRecordLabel = opponentRecordLabel
+        self.opponentRankLabel = opponentRankLabel
+        self.isHomeGame = isHomeGame
+        self.currentStreak = currentStreak
     }
 }
 
