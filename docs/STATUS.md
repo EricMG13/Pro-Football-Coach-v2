@@ -2,6 +2,38 @@
 
 The honest picture: what exists, what is verified, what is not.
 
+> **2026-08-31 — the career family can be navigated again, and what that cost is not yet fully
+> measured.** Phase 2A retired the Press Box identity band. `41f96a5` restored the *back control* it
+> took (ledger E21); this restores the *sibling row* it also took (E32). Both were the same defect
+> shape — a closure stored on the view, threaded to every call site, and wired to no rendered
+> control — and neither was visible to any test until one was written for the class.
+>
+> **What exists.** `04` section 6.1f(i), written before the code: a family the Forge Field chrome bar
+> does not carry draws its own route bar, section 6.1c's Pill pattern, contents from
+> `FloodlitChromeReadModel.siblings`. `FloodlitFamilyRouteBar.swift` renders it;
+> `CareerHubView` and `LegacyHistoryView` each mount it, covering seven career surfaces that could
+> previously be entered and not left sideways. Aliases get no pill, which `routeDisposition` already
+> required and nothing enforced.
+>
+> **What is verified.** Build green. `--design-contracts`: **127 tests, 1702 checks, 0 failures** at
+> `7e92463`. The new suite failed red first and named all seven stranded screens, which is the only
+> evidence that the scan is a scan.
+>
+> **What is not verified, stated plainly.** No single uninterrupted `swift run SimTests` stands behind
+> this work — the same situation the 2026-08-30 entry below records, and for the same reason. Suite
+> coverage is the union of a 130-suite run on an earlier tree plus `--design-contracts`,
+> `--season-rollover` (15/10,838), `--save-document` (25/77), `--commitment-coverage` (4/26) and
+> `--staff-pruning` (1/9) re-run individually. **Nothing on this branch after `7e92463` has been
+> verified by the session that wrote this**: `0f6947e` (Inbox) and `291d191` (Game plan and Practice
+> plan embers) landed from a concurrent session afterwards and are covered by their own author's
+> gate, not by this one.
+>
+> **What is owed.** Ledger E34: the route bar stacks one pill per line at AX5, up to eight on a career
+> surface. It sits inside the scroll view, so it is reachable rather than permanent cost — but E18's
+> open decision about the chrome bar at AX5 should measure both navigation rows together rather than
+> treating the chrome bar as the only one.
+
+
 **Read this first, before believing any other document about the state of the build.**
 
 > **2026-08-31 — Phase 2A's gate, and how it was assembled.** Every one of the 159 suites has run at
