@@ -1712,6 +1712,158 @@ func runDesignContractTests() {
                    "a concatenation assembled at the call site must be flagged the same way")
         }
     }
+
+    // 04 6.1f(i), added 2026-08-30. The same shape of gap the exit test above closed, one field
+    // over: `onClose` was stored-but-never-rendered, and so was `onNavigate` -- the closure that
+    // moves between a family's own surfaces. Both were threaded through every call site, and
+    // neither reached a control, because the retired Press Box identity band drew the back control
+    // *and* the sibling row and the Forge Field bar replaced neither.
+    //
+    // Scoped by the defect, not by the family: a view that stores a screen-navigation closure and
+    // never invokes it is the class, and it is enumerated from the source rather than from a list
+    // of the families known to have had it. `CareerHubView` and `LegacyHistoryView` are what it
+    // catches today; whichever view acquires the closure next is caught the day it does.
+    suite("Forge Field route bar (06.1f(i))") {
+        // Read against `renderedText` -- the fixpoint union `landedFamilies()` resolves -- for the
+        // reason the AX5 clauses read against it: seven of the eleven declaring files are ~28-line
+        // wrappers that pass the closure straight through, and scanning a wrapper's own text would
+        // report the wrapper as the offender while the view that actually renders sits unchecked.
+        test("a view that stores a screen-navigation closure wires it to a rendered control") {
+            var stranded: [String] = []
+            for family in landedFamilies().landed where declaresScreenNavigation(family.renderedText) {
+                guard !invokesScreenNavigation(family.renderedText) else { continue }
+                stranded.append("\(family.screen.canonicalName) (\(family.path))")
+            }
+            expect(stranded.isEmpty,
+                   "\(stranded.count) screen(s) store an onNavigate closure that no rendered "
+                       + "control ever calls: \(stranded.sorted().joined(separator: "; ")). "
+                       + "04 6.1f(i): a family the chrome bar does not carry draws its own route "
+                       + "bar.")
+        }
+
+        // The bar's contents are canon, not the view's taste, and canon says where they come from:
+        // "`FloodlitChromeReadModel.siblings` -- the list the retired band drew ... Never a second
+        // hand-written list." Before 6.1f(i) that field was written by the chrome provider and read
+        // by nothing at all, which is exactly how a second list gets written instead.
+        test("the route bar reads the chrome's own sibling list, not a second one") {
+            // What this can and cannot prove, stated rather than implied: a text scan cannot see
+            // that no second list exists, only that the one canon names has a reader. Before
+            // 6.1f(i) `FloodlitChromeReadModel.siblings` was written by the chrome provider on
+            // every render and read by nothing at all, which is exactly the state in which a
+            // second list gets written instead of it.
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let declaring = "/FloodlitChrome.swift"
+            let readers = ui.filter {
+                !$0.path.hasSuffix(declaring) && $0.text.contains("siblings")
+            }
+            expect(!readers.isEmpty,
+                   "FloodlitChromeReadModel.siblings has no reader outside the file that declares "
+                       + "it, so either the route bar is gone or it derives its contents from a "
+                       + "second list (04 6.1f(i))")
+        }
+
+        // 04 6.1f(i)'s AX5 row: "one pill per line, section 7's one readable path. It never scrolls
+        // sideways and never clips." A headless suite has no laid-out frame to measure, so this is
+        // the source-visible form 04 section 7.1 already licenses elsewhere in this file.
+        test("the route bar reflows to one pill per line rather than scrolling sideways") {
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            // Comments stripped: every clause below is about what the view *does*, and this
+            // file's doc comments quote several of these patterns in prose to explain why they
+            // are there -- including the `family.surfaces` fallback the last clause forbids.
+            let barSource = ui.first { $0.path.hasSuffix("/FloodlitFamilyRouteBar.swift") }?.text ?? ""
+            let bar = strippingLineComments(barSource)
+            expect(!barSource.isEmpty, "FloodlitFamilyRouteBar.swift is missing (04 6.1f(i))")
+            expect(bar.contains("dynamicTypeSize.isAccessibilitySize"),
+                   "the route bar must branch on accessibility size -- 04 section 7 is a floor, "
+                       + "not a preference")
+            expect(!bar.contains("ScrollView(.horizontal"),
+                   "04 6.1f(i) forbids a sideways-scrolling route bar; it reflows to one pill "
+                       + "per line")
+            expect(bar.contains("ViewThatFits"),
+                   "below an accessibility size 04 6.1f(i) has the row measured, not compared "
+                       + "against a second invented Dynamic Type threshold -- seven career pills "
+                       + "overrun the 761 pt column at XXXL and FloodlitPill is single-line with "
+                       + "no scale floor, so an unmeasured row truncates")
+            expect(bar.contains("navigationName"),
+                   "a pill reads the registry's short form (04 6.1f(i)); the long forms are what "
+                       + "navigationName exists to keep off the end of this row")
+            // The regression this pins is one this session wrote and caught: a fallback to
+            // `family.surfaces` when the chrome is nil. `chrome(for:in:)` returns nil whenever
+            // `store.coachingHQ` is nil -- the between-appointments coach, which is the state the
+            // career hub exists for -- and the unfiltered registry there is nine career surfaces
+            // of which seven are unavailable. Availability reaches this module only through the
+            // chrome, so the fallback cannot be filtered and must not exist.
+            expect(!bar.contains("family.surfaces"),
+                   "the route bar must not fall back to the unfiltered registry when the chrome "
+                       + "is nil: availability reaches this module only through the chrome, so "
+                       + "such a fallback offers pills for surfaces the coach cannot reach "
+                       + "(04 6.1f(i): the list comes from FloodlitChromeReadModel.siblings)")
+            expect(bar.contains("canonicalName"),
+                   "the pill must read the registry's full name to VoiceOver, not the shortened "
+                       + "visible title (04 6.1f(i), and Sibling.accessibleTitle's own rule)")
+            expect(bar.contains("canonicalDestination"),
+                   "the lit pill is resolved through canonicalDestination, so an alias route "
+                       + "lights the pill it resolves to (04 6.1f(i))")
+        }
+
+        test("the wiring check would catch a planted regression") {
+            // Self-test, this file's own header rule. This is CareerHubView.swift's own shape
+            // before 6.1f(i): the closure stored, threaded to every call site, and read by nothing
+            // the body renders.
+            let stranded = """
+            public struct PlantedView: View {
+                public let onNavigate: (CoachWorldScreenID) -> Void
+                public var body: some View { Text("no control reads onNavigate") }
+            }
+            """
+            expect(declaresScreenNavigation(stranded),
+                   "a view declaring the closure must be seen to declare it")
+            expect(!invokesScreenNavigation(stranded),
+                   "a view that stores onNavigate but never calls it must not read as wired")
+
+            let fixed = """
+            public struct PlantedView: View {
+                public let onNavigate: (CoachWorldScreenID) -> Void
+                public var body: some View {
+                    Button("Stakeholders") { onNavigate(.stakeholders) }
+                }
+            }
+            """
+            expect(invokesScreenNavigation(fixed),
+                   "a view that calls onNavigate from a real Button must read as wired")
+
+            // The near-miss that would make the scan tautological: passing the closure onward by
+            // name, and handing the *chrome's* separate closure to the stage, are both `onNavigate`
+            // in the source and neither is this closure being invoked.
+            let passedOnward = """
+            CareerHubView(model: model, onClose: onClose, onNavigate: onNavigate)
+                .floodlitChrome(chrome, onNavigate: onNavigateChrome)
+            """
+            expect(!invokesScreenNavigation(passedOnward),
+                   "threading the closure to a call site, or naming the chrome's own closure, is "
+                       + "not invoking it -- that is precisely the gap this scan exists to catch")
+        }
+    }
+}
+
+/// Whether a view stores the screen-navigation closure `04` 6.1f(i)'s route bar is for.
+///
+/// The type is the discriminator, deliberately: `onNavigateChrome` carries a `CoachWorldIntentID`
+/// and is the chrome bar's own closure, which the Forge Field bar already renders. This is the
+/// other one -- the family's own siblings.
+func declaresScreenNavigation(_ text: String) -> Bool {
+    text.contains("onNavigate: (CoachWorldScreenID) -> Void")
+}
+
+/// Whether that closure is called, rather than only stored and passed onward.
+///
+/// A text-shape check, like every other scan in this file: it cannot see whether the call sits on a
+/// branch the body actually renders, only that the closure is called at all. `onNavigate:` (a
+/// labelled argument, which is how every wrapper threads it, and how the *chrome's* unrelated
+/// closure reaches the stage) does not match, because the colon is not an opening parenthesis;
+/// neither does `onNavigateChrome(`, because the character after `onNavigate` is not `(`.
+func invokesScreenNavigation(_ text: String) -> Bool {
+    text.contains("onNavigate(")
 }
 
 /// Whether a `ForgeFieldEmber(` call site's `cost:` argument is neither a string literal nor a

@@ -13,9 +13,12 @@ public struct CareerHubView: View, CoachWorldChromedSurface {
     public let statusMessage: String?
     public let onClose: () -> Void
     public let focus: CoachWorldScreenID
-    /// Route switching between the four career entries. The shared chrome's sibling row now
-    /// offers this, so the surface draws no menu of its own -- the closure stays wired because the
-    /// call sites pass it and a bare-stage caller still needs somewhere to send the intent.
+    /// Route switching between the career family's own surfaces. Drawn by `routeBar` below, per
+    /// `04` 6.1f(i): the Forge Field chrome bar carries five families and career is not one of
+    /// them, so this surface draws its family's siblings itself. The comment here used to claim
+    /// "the shared chrome's sibling row now offers this" -- true of the retired Press Box identity
+    /// band, not of the bar that replaced it -- and under it this closure was stored, threaded to
+    /// every call site, and never called.
     public let onNavigate: (CoachWorldScreenID) -> Void
     public let onAcceptOpportunity: (String) -> Void
     public let onResign: () -> Void
@@ -91,6 +94,7 @@ public struct CareerHubView: View, CoachWorldChromedSurface {
     private var scrollContent: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.md) {
+                routeBar
                 if let statusMessage {
                     Text(statusMessage)
                         .font(CoachWorldTokens.TypeRole.callout)
@@ -116,6 +120,19 @@ public struct CareerHubView: View, CoachWorldChromedSurface {
             .padding(.vertical, CoachWorldTokens.Pad.panel.v)
         }
         .safeAreaInset(edge: .bottom) { footer }
+    }
+
+    /// The career family's own siblings, `04` 6.1f(i). First in the content column, above the
+    /// surface's own composition.
+    private var routeBar: some View {
+        FloodlitFamilyRouteBar(
+            chrome: chrome, focus: focus, palette: palette, onNavigate: onNavigate
+        )
+        // `04` section 7.1 clause 2 orders VoiceOver world context, dominant object, evidence,
+        // actions, then navigation. `accessibilitySortPriority` sorts *higher first* and every
+        // sibling here is at the default 0, so navigation-last is a negative priority. A positive
+        // one would have read the route bar before the coach's own name.
+        .accessibilitySortPriority(-50)
     }
 
     /// The coach, at the size the reference sets: the role as a label, the name as display type,

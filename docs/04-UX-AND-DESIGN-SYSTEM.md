@@ -888,6 +888,53 @@ Club colour is legal in the bar as a 3 pt spine. It is **not** legal as the bar'
 sits on ground 1 like every other chrome surface, per section 6.1e.
 
 
+### 6.1f(i) The route bar of an off-bar family (2026-08-30 amendment)
+
+Section 6.1f leaves `career` off the bar's five and says its surfaces "stay reachable". That
+sentence was true of *entering* one and false of *moving between* them. The **only** thing that ever
+drew a family's siblings was the Press Box identity band's second row (section 6.1d), and section
+6.1f retired the band without replacing that row: the Forge Field bar's contents are fixed and
+"never vary", so a family it does not carry has no sibling control anywhere. Career's own surfaces —
+Opportunities, Stakeholders, Promotion decision, and the four legacy-history surfaces — were
+therefore mutually unreachable, each one an island entered from the bar's five and left only by its
+own exit.
+
+**A family the chrome bar does not carry draws its own route bar, at the top of its own content
+column.** It is section 6.1c's **Pill** pattern and nothing else — the shape `PlayerProfileView`
+already ships for its four dossier routes — so this adds no ninth composition pattern and asks
+nothing new of Forge Field. It is a placement decision, not a drawing decision, which is the only
+kind of decision this section is entitled to make on the drawings' behalf.
+
+| Question | Answer |
+|---|---|
+| Which families draw one | exactly those absent from section 6.1f's five, and only where the family has more than one available surface — one pill is not a choice |
+| What it holds | the family's **canonical, available** surfaces, in registry order |
+| Where it comes from | `FloodlitChromeReadModel.siblings` — the list the retired band drew, so the two cannot disagree. Never a second hand-written list, and **never a fallback**: a surface rendering with no chrome draws no family bar either, and availability reaches the view layer only through the chrome. The unfiltered registry would offer the between-appointments coach seven career surfaces they cannot reach |
+| Which pill is lit | the surface in view, resolved through `canonicalDestination`, so an alias route lights the pill it resolves to |
+| Where it sits | first in the content column, above the surface's own composition |
+| What a pill reads | `navigationName` — the registry's short form, written because "the long forms overflow a 16 pt row and push the rest of the family off the end of it". This is that row |
+| Size | Pill 10.5 (section 6.1c) at the full 44 pt target. Section 6.1c's one carve-out — 9.5 pt links with an expanded hit area — was a concession to the band's 16 pt row and **does not carry over**: a route bar in the content column has the room |
+| Reflow | one pill per line whenever the row does not fit, section 7's one readable path. **It never scrolls sideways and never clips.** An accessibility size always stacks; below that the row is *measured* rather than compared against a second invented Dynamic Type threshold, because seven career pills overrun the 761 pt column at XXXL and the Pill is single-line with no scale floor |
+| VoiceOver | the pill reads the registry's full `canonicalName`, not the shortened visible title — the same rule `Sibling.accessibleTitle` already states. It is sorted **last**, per section 7.1 clause 2's world context → dominant object → evidence → actions → navigation order |
+
+**Settings sits in this row, and that is the registry's answer rather than this section's.**
+`ScreenRegistry.swift` puts `settingsAccessibility` in the `career` family and
+`CoachWorldAppRootView.availableScreens(in:)` always makes it available, so it is the row's first
+pill. The Press Box band drew it in exactly the same place for exactly the same reason. Moving it
+is a change to which family it belongs to, not to this row — carving it out here would be the
+hand-listed exception this document's coverage-boundary rule exists to refuse.
+
+**Aliases are not pills.** `CoachWorldScreenID.routeDisposition` already settles it — aliases "remain
+valid decode inputs but never appear as separate sibling tasks" — so `jobSecurity` and
+`coachingCarousel`, both aliases of `careerHub`, and `jobBoard` and `offer` likewise, get no pill of
+their own. Drawing one each would be four controls reaching one destination.
+
+**This does not answer section 6.1f's open question.** Where `career` is reached *from* — inside
+Ridgeline or beside it — is still for the drawings to say, and this section is deliberately written
+so that either answer leaves it standing: a family reached through Ridgeline still needs a way to
+move between its own surfaces once inside.
+
+
 ### 6.2 Typography
 
 Use the system family in production and a system stack in references. The hierarchy relies on scale,

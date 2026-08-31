@@ -11,6 +11,10 @@ public struct LegacyHistoryView: View, CoachWorldChromedSurface {
     public let focus: CoachWorldScreenID
     public let statusMessage: String?
     public let onClose: () -> Void
+    /// Route switching between the four legacy-history surfaces this view renders. Drawn by
+    /// `routeBar` below, per `04` 6.1f(i) -- they share the career family, which the Forge Field
+    /// chrome bar does not carry, so nothing else offers the move. Stored and never called before
+    /// that section, for the same reason `CareerHubView`'s was.
     public let onNavigate: (CoachWorldScreenID) -> Void
 
 
@@ -39,12 +43,30 @@ public struct LegacyHistoryView: View, CoachWorldChromedSurface {
                 }
                 ScrollView {
                     VStack(alignment: .leading, spacing: CoachWorldTokens.Space.md) {
+                        routeBar
                         section
                     }
                     .padding(CoachWorldTokens.Space.md)
                 }
             }
         }
+    }
+
+    /// The career family's own siblings, `04` 6.1f(i): first in the content column, below
+    /// `topBar`, which is this view's chrome rather than its content -- it carries the club mark
+    /// and the exit, and the route bar is navigation *between* surfaces, not out of one.
+    ///
+    /// Inside the scroll view, deliberately. At an accessibility size the bar is one pill per
+    /// line, and seven of them outside the scroll view would consume a landscape frame's whole
+    /// height and push the surface's own composition off the bottom with no way to reach it.
+    private var routeBar: some View {
+        FloodlitFamilyRouteBar(
+            chrome: chrome, focus: focus, palette: palette, onNavigate: onNavigate
+        )
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // `04` section 7.1 clause 2 orders VoiceOver navigation last, and
+        // `accessibilitySortPriority` sorts higher first, so navigation-last is negative.
+        .accessibilitySortPriority(-50)
     }
 
     private var topBar: some View {
