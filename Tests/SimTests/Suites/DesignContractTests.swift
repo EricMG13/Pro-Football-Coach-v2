@@ -2178,6 +2178,133 @@ func runDesignContractTests() {
                    "Inbox's one ember must be costed from the model and wired to onContinue")
         }
     }
+
+    // Task 4 of docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md: Game plan, drawn to
+    // `ForgeFieldDevice`. Asserts `GamePlanView`'s own assertable static facts (its doc comment,
+    // "Assertable budget facts") against the budget Task 1 already stamped, matching the Coaching
+    // HQ and Inbox suites' own pattern above.
+    suite("Game plan (06.1e, 06.1f, 06.2a, 06.3a) -- weekly-command Task 4") {
+        let budget = ForgeFieldBudget.weeklyCommand[.gamePlan]
+
+        test("Game plan's data-point roles are distinct and the total sits at or under the "
+                + "stamped ceiling") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .gamePlan")
+                return
+            }
+            guard let stamped = budget.dataPoints else {
+                expect(false, "Game plan's budget stamps no dataPoints")
+                return
+            }
+            expect(GamePlanView.dataPointCount <= stamped,
+                   "GamePlanView.dataPointCount (\(GamePlanView.dataPointCount)) exceeds the "
+                       + "stamped ceiling of \(stamped)")
+            let roles = GamePlanView.headerDataPointRoles + GamePlanView.currentPlanDataPointRoles
+                + GamePlanView.optionDataPointRoles
+            expectEqual(Set(roles).count, roles.count,
+                        "Game plan's data-point roles must be distinct, not repeat one")
+        }
+
+        test("Game plan draws no flood -- its stage fraction is zero, matching its stamped Desk "
+                + "band") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .gamePlan")
+                return
+            }
+            guard let stamped = budget.stageFraction else {
+                expect(false, "Game plan's budget stamps no stage fraction")
+                return
+            }
+            expectEqual(GamePlanView.stageFraction, 0.0, "GamePlanView.stageFraction")
+            expectEqual(stamped, 0.0...0.0, "Game plan's stamped stage fraction")
+        }
+
+        test("Game plan carries zero gold -- a review failure, not a guideline, on a Desk "
+                + "surface") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .gamePlan")
+                return
+            }
+            expectEqual(budget.goldMax, 0, "Game plan's stamped goldMax")
+            expectEqual(GamePlanView.goldElementCount, 0, "GamePlanView.goldElementCount")
+        }
+
+        test("Game plan carries zero embers, matching the contract's omission of any recorded "
+                + "cost (row 11)") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .gamePlan")
+                return
+            }
+            expectEqual(budget.emberCount, 0, "Game plan's stamped emberCount")
+            expectEqual(GamePlanView.emberElementCount, 0, "GamePlanView.emberElementCount")
+        }
+
+        test("Game plan draws no ghost mark, matching its stamped budget") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .gamePlan")
+                return
+            }
+            expect(budget.ghost == nil, "Game plan's stamped budget must carry no ghost")
+            expect(GamePlanView.hasGhostMark == false, "GamePlanView must draw no ghost mark")
+        }
+
+        test("Game plan's own background count matches its stamped budget -- ground 1 only") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .gamePlan")
+                return
+            }
+            guard let stamped = budget.backgrounds else {
+                expect(false, "Game plan's budget stamps no backgrounds count")
+                return
+            }
+            expectEqual(GamePlanView.backgroundCount, stamped,
+                        "Game plan must draw exactly the stamped background count")
+        }
+
+        test("Game plan's option rows are the comfortable tier, never dense -- Rule A-1: an "
+                + "ACTION surface may not exceed 44 pt on any control") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/GamePlanView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "GamePlanView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(!source.contains("ForgeFieldRow(.dense"),
+                   "Game plan's option rows commit a plan on tap -- they must never use the 32 pt "
+                       + "dense tier reserved for a fully inert row")
+            expect(source.contains("ForgeFieldRow(.touch"),
+                   "Game plan must draw its option rows through ForgeFieldRow(.touch")
+        }
+
+        test("Game plan draws no ForgeFieldEmber -- the committing control is a plain choice "
+                + "(ruling, dispatch 2026-08-30/31)") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/GamePlanView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "GamePlanView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(!source.contains("ForgeFieldEmber("),
+                   "row 11 omits any recorded cost, so this surface's committing control must not "
+                       + "be a ForgeFieldEmber")
+        }
+
+        test("Game plan's committing control selects locally and its own action commits and "
+                + "closes") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/GamePlanView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "GamePlanView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(source.contains("Choose the install")
+                       && !source.contains("onSelect(option.plan)")
+                       && source.contains("onSelect(selectedOption.plan)")
+                       && source.contains("onClose()"),
+                   "option rows must select locally and commitControl's own action must commit "
+                       + "the selected plan and close")
+        }
+    }
 }
 
 /// Whether a view stores the screen-navigation closure `04` 6.1f(i)'s route bar is for.
