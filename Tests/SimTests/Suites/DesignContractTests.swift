@@ -2916,6 +2916,31 @@ func runDesignContractTests() {
                    "the FINAL, venue and result label must keep a measured vertical height")
             expect(header.contains(".layoutPriority(1)"),
                    "the outcome header must win before the flood's flexible spacer compresses it")
+            expect(header.contains(".accessibilityElement(children: .ignore)"),
+                   "the outcome header must be one ordered accessibility element")
+            expect(header.contains(".accessibilitySortPriority(2)"),
+                   "the outcome header must precede flood content in accessibility order")
+        }
+
+        test("Aftermath standard plan owns its authored-height scroll cue") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/AftermathView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8),
+                  let planStart = source.range(of: "private var planSection"),
+                  let planEnd = source.range(of: "private func planGroup")
+            else {
+                expect(false, "Aftermath must retain a measurable plan scroll region")
+                return
+            }
+            let plan = String(source[planStart.upperBound..<planEnd.lowerBound])
+            expect(plan.contains("if dynamicTypeSize.isAccessibilitySize {\n                planScrollContent"),
+                   "AX5 must leave the plan in the outer accessible scroll without a nested scroll")
+            expect(plan.contains("styledText(\"Scroll for call-ins and injuries\", .proseMin)"),
+                   "the standard authored-height plan must disclose its internal scroll")
+            expect(plan.contains("ScrollView {\n                    planScrollContent"),
+                   "the standard plan must retain its internal scroll view")
+            expect(source.contains(".frame(width: AftermathMetric.panelWidth)\n                    .frame(maxHeight: .infinity, alignment: .topLeading)"),
+                   "the standard plan column must receive the studied panel's finite height")
         }
     }
 }

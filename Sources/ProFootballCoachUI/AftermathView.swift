@@ -118,16 +118,23 @@ public struct AftermathView: View, CoachWorldChromedSurface {
                 ZStack(alignment: .topTrailing) {
                     club.palette.clubDeep.color
                     ghostMark
-                    floodContent
-                        .padding(AftermathMetric.inset)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     outcomeHeader
                         .padding(AftermathMetric.inset)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .zIndex(1)
+                    floodContent
+                        .padding(AftermathMetric.inset)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        .accessibilitySortPriority(1)
                 }
                 .frame(height: AftermathMetric.floodHeight)
                 .clipped()
+                .accessibilityRepresentation {
+                    VStack(alignment: .leading, spacing: AftermathMetric.gap) {
+                        outcomeHeader
+                        floodContent
+                    }
+                }
                 ForgeFieldSeam(.hard, axis: .horizontal)
                 studiedContent
                     .padding(AftermathMetric.inset)
@@ -233,6 +240,9 @@ public struct AftermathView: View, CoachWorldChromedSurface {
         }
         .fixedSize(horizontal: false, vertical: true)
         .layoutPriority(1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("FINAL. \(model.venue.name.uppercased()). \(model.resultLabel.uppercased()).")
+        .accessibilitySortPriority(2)
     }
 
     /// The result, read the way a result is read: the side that won first and largest. A draw has
@@ -318,6 +328,7 @@ public struct AftermathView: View, CoachWorldChromedSurface {
                     .padding(.horizontal, AftermathMetric.columnGap)
                 planSection
                     .frame(width: AftermathMetric.panelWidth)
+                    .frame(maxHeight: .infinity, alignment: .topLeading)
             }
         }
     }
@@ -449,21 +460,26 @@ public struct AftermathView: View, CoachWorldChromedSurface {
             styledText("What the plan did".uppercased(), .panel)
                 .foregroundStyle(club.palette.ink4.color)
                 .padding(.bottom, AftermathMetric.gap)
-            if !dynamicTypeSize.isAccessibilitySize &&
-                (!model.callIns.isEmpty || !model.injuries.isEmpty) {
+            if dynamicTypeSize.isAccessibilitySize {
+                planScrollContent
+            } else {
                 styledText("Scroll for call-ins and injuries", .proseMin)
                     .foregroundStyle(club.palette.ink3.color)
                     .padding(.bottom, AftermathMetric.tightGap)
-            }
-            ScrollView {
-                VStack(alignment: .leading, spacing: AftermathMetric.sectionGap) {
-                    planGroup("What the game turned on", model.evidence)
-                    planGroup("Called in", model.callIns.isEmpty ? ["Nothing was called in."] : model.callIns)
-                    planGroup("Injuries", model.injuries.isEmpty ? ["Nobody came off hurt."] : model.injuries)
+                ScrollView {
+                    planScrollContent
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var planScrollContent: some View {
+        VStack(alignment: .leading, spacing: AftermathMetric.sectionGap) {
+            planGroup("What the game turned on", model.evidence)
+            planGroup("Called in", model.callIns.isEmpty ? ["Nothing was called in."] : model.callIns)
+            planGroup("Injuries", model.injuries.isEmpty ? ["Nobody came off hurt."] : model.injuries)
+        }
     }
 
     @ViewBuilder

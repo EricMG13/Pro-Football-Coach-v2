@@ -33,9 +33,9 @@ private struct DebugCoachingHQRoot: View {
         away: .init(team: CoachWorldSampleData.awayTeam, score: 17),
         resultLabel: "CAR win",
         headline: "Carson Tech took the third quarter and held the result.",
-        evidence: ["Two third-down stops ended Southern State drives."],
-        callIns: ["Morgan Hale called simulated pressure after halftime."],
-        injuries: ["No injuries were recorded."],
+        evidence: [],
+        callIns: ["Ready."],
+        injuries: [],
         grades: [
             .init(
                 stableID: "sample-aftermath-qb",
@@ -55,6 +55,38 @@ private struct DebugCoachingHQRoot: View {
             ),
         ]
     )
+    private let aftermathMinimum = AftermathReadModel(
+        recordedOutcomeID: "sample-aftermath-minimum",
+        provenance: .sample,
+        world: CoachWorldSampleData.world,
+        venue: CoachWorldSampleData.venue,
+        home: .init(team: CoachWorldSampleData.homeTeam, score: 31),
+        away: .init(team: CoachWorldSampleData.awayTeam, score: 17),
+        resultLabel: "CAR win",
+        headline: "Carson Tech took the third quarter and held the result.",
+        // One short retained line per group proves the smallest nonempty retained plan still
+        // discloses and reaches its internally scrollable final group.
+        evidence: ["Stopped."],
+        callIns: ["Ready."],
+        injuries: ["Cleared."],
+        grades: []
+    )
+    private let aftermathOverflow = AftermathReadModel(
+        recordedOutcomeID: "sample-aftermath-overflow",
+        provenance: .sample,
+        world: CoachWorldSampleData.world,
+        venue: CoachWorldSampleData.venue,
+        home: .init(team: CoachWorldSampleData.homeTeam, score: 31),
+        away: .init(team: CoachWorldSampleData.awayTeam, score: 17),
+        resultLabel: "CAR win",
+        headline: "Carson Tech took the third quarter and held the result.",
+        evidence: ["Stopped."],
+        // The model retains at most 16 call-ins. Populate that exact ceiling with distinct,
+        // deterministic proof lines so the overflow regression exercises a real hidden group.
+        callIns: (1...16).map { "Overflow proof call-in \($0)." },
+        injuries: ["Cleared."],
+        grades: []
+    )
     private let roster = CoachWorldSampleData.roster
     private let leagueMap = CoachWorldLeagueMapSampleData.leagueMap
     @State private var statusMessage: String?
@@ -66,6 +98,8 @@ private struct DebugCoachingHQRoot: View {
             ("--roster", "roster", .roster),
             ("--match-day", "match", .matchDay),
             ("--aftermath", "aftermath", .aftermath),
+            ("--aftermath-minimum", "aftermath-minimum", .aftermath),
+            ("--aftermath-overflow", "aftermath-overflow", .aftermath),
             ("--recruiting-board", "recruiting", .recruitingBoard),
             ("--league-map", "map", .leagueMap),
             // The shared management chrome and the eight composition patterns, on one surface.
@@ -98,7 +132,11 @@ private struct DebugCoachingHQRoot: View {
                 )
             } else if currentScreen == .aftermath {
                 AftermathView(
-                    model: aftermath,
+                    model: ProcessInfo.processInfo.environment["PROOF_SCREEN"] == "aftermath-minimum"
+                        ? aftermathMinimum
+                        : ProcessInfo.processInfo.environment["PROOF_SCREEN"] == "aftermath-overflow"
+                            ? aftermathOverflow
+                            : aftermath,
                     statusMessage: statusMessage,
                     onContinue: { currentScreen = .coachingHQ },
                     onOpenBoxScore: { statusMessage = "Box score is not part of this proof." }
