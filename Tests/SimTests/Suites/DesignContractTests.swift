@@ -1898,18 +1898,36 @@ func runDesignContractTests() {
             }
         }
 
-        test("the two READOUT surfaces carry zero ember; every other surface carries exactly "
-                + "one") {
+        // An ember exists where a surface has a committing action whose price the read model
+        // actually records. READOUT was a good proxy for "no ember" and is not the whole rule:
+        // Game Plan and Practice Plan are ACTION surfaces whose committing control is NOT an ember,
+        // because the presentation contract forbids the very thing their drawn ember would have to
+        // name -- row 11 omits "cost", row 12 omits any "separate remaining/unallocated-minutes
+        // field" -- and neither carries a callback for the drawn action. 04 6.1e: an action with no
+        // cost worth naming is not an ember. So the rule is stated as the two sets, with the reason
+        // attached to each, rather than derived from tone alone.
+        test("a surface carries an ember exactly when its committing action has a recorded cost") {
+            let noEmber: Set<CoachWorldScreenID> = [
+                .aftermath, .gameDetailBoxScore,   // READOUT: nothing here is irreversible
+                .gamePlan, .practicePlan,          // ACTION, but the contract forbids the cost
+            ]
             for (screen, budget) in ForgeFieldBudget.weeklyCommand {
-                if budget.register.tone == .readout {
+                if noEmber.contains(screen) {
                     expectEqual(budget.emberCount, 0,
-                                "\(screen.canonicalName) is READOUT -- an ember here would claim "
-                                    + "the result is a decision you made")
+                                "\(screen.canonicalName) must carry no ember: either the result is "
+                                    + "not a decision you made, or the contract forbids naming the "
+                                    + "cost its drawn ember would need")
                 } else {
                     expectEqual(budget.emberCount, ForgeFieldTokens.Register.emberPerSurface,
-                                "\(screen.canonicalName) is not READOUT and must carry the "
-                                    + "standard one ember per surface")
+                                "\(screen.canonicalName) commits something with a recorded cost, "
+                                    + "so it carries exactly one ember")
                 }
+            }
+            // The set is not a licence to grow: every READOUT surface must still be in it, checked
+            // by construction so a new READOUT cannot quietly acquire an ember.
+            for (screen, budget) in ForgeFieldBudget.weeklyCommand where budget.register.tone == .readout {
+                expect(noEmber.contains(screen),
+                       "\(screen.canonicalName) is READOUT and must be in the no-ember set")
             }
         }
 

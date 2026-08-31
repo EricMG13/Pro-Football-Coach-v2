@@ -155,7 +155,16 @@ extension ForgeFieldBudget {
             dataPoints: 44,
             pointsAboveSeam: nil,
             goldMax: 0,
-            emberCount: ForgeFieldTokens.Register.emberPerSurface,
+            // ZERO, not the sheet's 1. The sheet draws an ember here -- "Lock the plan" on
+            // Game plan, "Spend the 60" on Practice plan -- and the presentation contract
+            // forbids what both would have to name. Row 11 omits "cost"; row 12 omits any
+            // "separate remaining/unallocated-minutes field". Neither surface carries a
+            // callback for the drawn action either: both hold only `onSelect`, `onClose`
+            // and `onNavigateChrome`. Under 04 6.1e an action with no cost worth naming is
+            // not an ember, so the committing control is a plain choice at the comfortable
+            // tier (Rule A-1, 44 pt) rather than an ember. The contract outranks the
+            // drawing on facts and actions.
+            emberCount: 0,
             ghost: nil,
             backgrounds: 1
         ),
@@ -165,7 +174,16 @@ extension ForgeFieldBudget {
             dataPoints: 52,
             pointsAboveSeam: nil,
             goldMax: 0,
-            emberCount: ForgeFieldTokens.Register.emberPerSurface,
+            // ZERO, not the sheet's 1. The sheet draws an ember here -- "Lock the plan" on
+            // Game plan, "Spend the 60" on Practice plan -- and the presentation contract
+            // forbids what both would have to name. Row 11 omits "cost"; row 12 omits any
+            // "separate remaining/unallocated-minutes field". Neither surface carries a
+            // callback for the drawn action either: both hold only `onSelect`, `onClose`
+            // and `onNavigateChrome`. Under 04 6.1e an action with no cost worth naming is
+            // not an ember, so the committing control is a plain choice at the comfortable
+            // tier (Rule A-1, 44 pt) rather than an ember. The contract outranks the
+            // drawing on facts and actions.
+            emberCount: 0,
             ghost: nil,
             backgrounds: 2
         ),
