@@ -99,6 +99,7 @@ private struct DebugCoachingHQRoot: View {
             ("--match-day", "match", .matchDay),
             ("--aftermath", "aftermath", .aftermath),
             ("--game-detail", "game-detail", .gameDetailBoxScore),
+            ("--game-detail-overflow", "game-detail-overflow", .gameDetailBoxScore),
             ("--aftermath-minimum", "aftermath-minimum", .aftermath),
             ("--aftermath-overflow", "aftermath-overflow", .aftermath),
             ("--recruiting-board", "recruiting", .recruitingBoard),
@@ -133,7 +134,10 @@ private struct DebugCoachingHQRoot: View {
                 )
             } else if currentScreen == .gameDetailBoxScore {
                 GameDetailBoxScoreView(
-                    model: aftermath,
+                    model: ProcessInfo.processInfo.environment["PROOF_SCREEN"]
+                            == "game-detail-overflow"
+                        ? aftermathOverflow
+                        : aftermath,
                     onClose: { currentScreen = .aftermath }
                 )
                 .floodlitChrome(

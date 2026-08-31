@@ -2963,17 +2963,33 @@ func runDesignContractTests() {
     suite("Game detail / box score (06.1e, 06.1f, 06.2a, 06.3a) -- weekly-command Task 9") {
         let budget = ForgeFieldBudget.weeklyCommand[.gameDetailBoxScore]
 
-        test("Game detail's fact roles are distinct and stay under the stamped 72-point ceiling") {
+        test("Game detail counts visible reference rows under the stamped 72-point ceiling") {
             guard let budget, let stamped = budget.dataPoints else {
                 expect(false, "Game detail's budget must stamp a data-point ceiling")
                 return
             }
-            let roles = GameDetailBoxScoreView.dataPointRoles
-            expect(roles.count <= stamped,
-                   "GameDetailBoxScoreView.dataPointRoles holds \(roles.count) roles, above the "
-                       + "stamped ceiling of \(stamped)")
+            let roles = GameDetailBoxScoreView.stagedDataPointRoles
+                + GameDetailBoxScoreView.gradeRowDataPointRoles
+                + GameDetailBoxScoreView.evidenceRowDataPointRoles
             expectEqual(Set(roles).count, roles.count,
                         "Game detail's data-point roles must be distinct")
+            expect(GameDetailBoxScoreView.referenceStudiedRowCount > 0,
+                   "Game detail's standard studied geometry must fit at least one reference row")
+            let largerRowTemplate = max(
+                GameDetailBoxScoreView.gradeRowDataPointRoles.count,
+                GameDetailBoxScoreView.evidenceRowDataPointRoles.count
+            )
+            expectEqual(
+                GameDetailBoxScoreView.dataPointCount,
+                GameDetailBoxScoreView.stagedDataPointRoles.count
+                    + largerRowTemplate * GameDetailBoxScoreView.referenceStudiedRowCount,
+                "the budget must conservatively price every visible studied row as the larger "
+                    + "retained row template"
+            )
+            expect(GameDetailBoxScoreView.dataPointCount <= stamped,
+                   "GameDetailBoxScoreView.dataPointCount "
+                       + "(\(GameDetailBoxScoreView.dataPointCount)) exceeds the stamped ceiling "
+                       + "of \(stamped)")
         }
 
         test("Game detail's staged column is 271 of the 852-point seam axis") {
@@ -3058,6 +3074,12 @@ func runDesignContractTests() {
                    "the standard chrome must sit at its authored 10,8 origin")
             expect(standard.contains("ForgeFieldSeam(.hard, axis: .vertical)"),
                    "the standard Dossier composition must keep its vertical hard seam")
+            expect(standard.contains("ScrollView {\n                    studiedColumn")
+                       && standard.contains(".frame(height: BoxScoreMetric.standardStudiedHeight)"),
+                   "only the standard studied column must scroll inside a finite geometry-derived "
+                       + "height")
+            expect(!standard.contains("ScrollView {\n                    stagedColumn"),
+                   "the standard staged result and close route must never enter the studied scroll")
             if let staged = accessible.range(of: "stagedColumn")?.lowerBound,
                let studied = accessible.range(of: "studiedColumn")?.lowerBound {
                 expect(accessible.contains("ScrollView") && staged < studied,
@@ -3071,13 +3093,22 @@ func runDesignContractTests() {
 
         test("the asserted facts are exactly retained AftermathReadModel truth") {
             expectEqual(
-                Set(GameDetailBoxScoreView.dataPointRoles),
+                Set(GameDetailBoxScoreView.stagedDataPointRoles),
                 Set([
-                    "resultLabel", "headline", "venue", "homeTeam", "homeScore", "awayTeam",
-                    "awayScore", "gradePosition", "gradePlayer", "gradeRating", "gradeEvidence",
-                    "evidence", "callIns", "injuries",
+                    "staged.resultLabel", "staged.headline", "staged.venue", "staged.homeTeam",
+                    "staged.homeScore", "staged.awayTeam", "staged.awayScore",
                 ]),
-                "contract row 47 permits only result, venue, retained evidence and bounded grades"
+                "the result column counts each retained staged fact once"
+            )
+            expectEqual(
+                Set(GameDetailBoxScoreView.gradeRowDataPointRoles),
+                Set(["grade.position", "grade.player", "grade.rating", "grade.evidence"]),
+                "each visible grade row counts its four retained facts"
+            )
+            expectEqual(
+                Set(GameDetailBoxScoreView.evidenceRowDataPointRoles),
+                Set(["evidence.text"]),
+                "each visible evidence/call-in/injury row counts one retained text fact"
             )
         }
 
@@ -3090,6 +3121,12 @@ func runDesignContractTests() {
             expect(source.contains("currentScreen == .gameDetailBoxScore")
                        && source.contains("GameDetailBoxScoreView("),
                    "the proof route must render the production GameDetail surface")
+            expect(source.contains(
+                "(\"--game-detail-overflow\", \"game-detail-overflow\", .gameDetailBoxScore)"
+            ), "the standard overflow proof needs a direct GameDetail launch argument")
+            expect(source.contains("== \"game-detail-overflow\"")
+                       && source.contains("? aftermathOverflow"),
+                   "the GameDetail overflow proof must reuse the bounded sample aftermath fixture")
         }
     }
 }

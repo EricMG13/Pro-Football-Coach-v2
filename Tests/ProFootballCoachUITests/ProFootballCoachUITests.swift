@@ -177,6 +177,34 @@ final class ProFootballCoachUITests: XCTestCase {
         add(screenshot)
     }
 
+    func testGameDetailOverflowProofAtStandardTypeReachesFinalEvidence() {
+        let app = XCUIApplication()
+        app.launchEnvironment["PROOF_SCREEN"] = "game-detail-overflow"
+        app.launch()
+
+        let window = app.windows.firstMatch
+        XCTAssertTrue(window.waitForExistence(timeout: 10))
+        XCTAssertGreaterThan(window.frame.width, window.frame.height)
+        XCTAssertEqual(window.frame.width, 844, accuracy: 1)
+        XCTAssertEqual(window.frame.height, 390, accuracy: 1)
+
+        let studiedScroller = app.scrollViews["GameDetailStudiedScroller"]
+        XCTAssertTrue(studiedScroller.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["← AFTERMATH"].isHittable)
+
+        let finalEvidence = app.staticTexts["Cleared."]
+        XCTAssertFalse(finalEvidence.isHittable)
+        for _ in 0..<12 where !finalEvidence.isHittable {
+            studiedScroller.swipeUp()
+        }
+        XCTAssertTrue(finalEvidence.isHittable)
+
+        let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        screenshot.name = "Game detail standard overflow post-scroll"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
     func testRedesignedJobBoardProofFlow() {
         let app = XCUIApplication()
         app.launchArguments = ["--redesigned-job-board"]

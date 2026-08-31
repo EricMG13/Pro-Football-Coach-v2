@@ -81,8 +81,12 @@ public struct GameDetailBoxScoreView: View, CoachWorldChromedSurface {
                     .frame(width: BoxScoreMetric.stagedWidth, alignment: .leading)
                 ForgeFieldSeam(.hard, axis: .vertical)
                     .padding(.horizontal, BoxScoreMetric.seamGutter)
-                studiedColumn
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                ScrollView {
+                    studiedColumn
+                }
+                .frame(height: BoxScoreMetric.standardStudiedHeight)
+                .accessibilityIdentifier("GameDetailStudiedScroller")
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, ForgeFieldTokens.Space.margin)
             .padding(.top, ForgeFieldTokens.Space.gutter)
@@ -251,6 +255,17 @@ private enum BoxScoreMetric {
     static let seamGutter = ForgeFieldTokens.Space.gutter
     static let gap = ForgeFieldTokens.Space.ladder[1]          // 8
     static let positionColumn: CGFloat = 44
+    static let standardBodyOriginY =
+        ForgeFieldTokens.Space.chromeTop + ForgeFieldChromeBar.height
+            + ForgeFieldTokens.Space.gutter
+    static let standardStudiedHeight =
+        ForgeFieldTokens.Space.viewport.height - standardBodyOriginY
+            - ForgeFieldTokens.Space.margin
+
+    /// Density-budget reference only: the standard studied scroll renders every retained row, but
+    /// this is how many full dense row templates its finite viewport can expose before scrolling.
+    static let referenceStudiedRowCount =
+        max(0, Int(standardStudiedHeight / ForgeFieldTokens.Space.rowDense))
 
     /// Deviation, adaptation rule: a generated player or club name that will not fit scales only
     /// this far. Below it the name stops being readable, which is the same defect as truncating,
@@ -267,14 +282,28 @@ private enum BoxScoreMetric {
 // MARK: - Assertable budget facts
 
 extension GameDetailBoxScoreView {
-    /// The retained `AftermathReadModel` fact roles this surface can draw. Repeated rows remain
-    /// bounded by the model; this list makes the distinct presentation roles reviewable against
-    /// the sheet's 72-point ceiling without inventing a second scoring model in the view.
-    public static let dataPointRoles: [String] = [
-        "resultLabel", "headline", "venue", "homeTeam", "homeScore", "awayTeam", "awayScore",
-        "gradePosition", "gradePlayer", "gradeRating", "gradeEvidence", "evidence", "callIns",
-        "injuries",
+    /// Retained facts drawn once in the staged result column.
+    public static let stagedDataPointRoles: [String] = [
+        "staged.resultLabel", "staged.headline", "staged.venue", "staged.homeTeam",
+        "staged.homeScore", "staged.awayTeam", "staged.awayScore",
     ]
+
+    /// Retained facts drawn once per visible grade row.
+    public static let gradeRowDataPointRoles: [String] = [
+        "grade.position", "grade.player", "grade.rating", "grade.evidence",
+    ]
+
+    /// One retained text fact per visible evidence, call-in, or injury row.
+    public static let evidenceRowDataPointRoles: [String] = ["evidence.text"]
+
+    /// The reference count measures the standard studied viewport, never caps the model. Scrolling
+    /// reveals further instances of the same row templates without inventing a second budget rule.
+    public static let referenceStudiedRowCount = BoxScoreMetric.referenceStudiedRowCount
+
+    /// Conservatively price every visible studied row as the larger (grade) row template.
+    public static let dataPointCount = stagedDataPointRoles.count
+        + max(gradeRowDataPointRoles.count, evidenceRowDataPointRoles.count)
+            * referenceStudiedRowCount
 
     public static let stagedColumnWidth = BoxScoreMetric.stagedWidth
     public static let stageFraction = Double(
