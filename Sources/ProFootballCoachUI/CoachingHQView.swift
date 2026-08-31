@@ -240,6 +240,7 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
                 }
             }
             .padding(.top, HQMetric.inset)
+            .frame(maxHeight: HQMetric.fixtureStackMaxHeight, alignment: .top)
         } else {
             VStack(spacing: HQMetric.gap) {
                 styledText(displayName(for: model.team).uppercased(), .fixture)
@@ -697,6 +698,14 @@ private enum HQMetric {
     static let sectionGap = ForgeFieldTokens.Space.ladder[3]  // 16
 
     static let emberOrigin = CGPoint(x: 327, y: 224)
+    /// The height the fixture stack may use before it reaches the ember's band.
+    ///
+    /// The sheet stamps the ember at `327, 224` on a card that also carries a standing badge above
+    /// it. `currentStreak` is nil in week one -- and omitted entirely where the league data cannot
+    /// earn it -- so without this the stack shortens and the records rise into the ember, which is
+    /// what shipped in `934945a`. Reserving the band keeps the stamped ember position honest
+    /// whether or not the badge is drawn.
+    static let fixtureStackMaxHeight = emberOrigin.y - floodOrigin.y
     static let emberSize = CGSize(width: 198, height: ForgeFieldTokens.Space.rowTouch)
 
     /// The ghost mark -- `ForgeFieldBudget.weeklyCommand[.coachingHQ]`'s `ghost`.
