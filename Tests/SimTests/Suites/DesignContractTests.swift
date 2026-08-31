@@ -2743,6 +2743,157 @@ func runDesignContractTests() {
                             + "hidden league totals")
         }
     }
+
+    // Task 8 of docs/plans/2026-08-30-forge-field-phase-2b-weekly-command.md: Aftermath, drawn to
+    // `ForgeFieldDevice`. Asserts `AftermathView`'s own assertable static facts (its doc comment,
+    // "Assertable budget facts") against the budget Task 1 already stamped, matching the Coaching
+    // HQ, Inbox, Game plan, Practice plan, Team health and film room suites' own pattern above.
+    suite("Aftermath (06.1e, 06.1f, 06.2a, 06.3a) -- weekly-command Task 8") {
+        let budget = ForgeFieldBudget.weeklyCommand[.aftermath]
+
+        test("Aftermath's flood draws at or under its stamped point ceiling, in distinct facts") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .aftermath")
+                return
+            }
+            guard let stamped = budget.pointsAboveSeam else {
+                expect(false, "Aftermath's budget stamps no pointsAboveSeam")
+                return
+            }
+            let points = AftermathView.floodFieldDataPoints
+            expect(points.count <= stamped,
+                   "AftermathView.floodFieldDataPoints holds \(points.count) facts, above the "
+                       + "stamped ceiling of \(stamped)")
+            expectEqual(Set(points).count, points.count,
+                        "floodFieldDataPoints must enumerate distinct facts, not repeat one")
+        }
+
+        test("Aftermath's stage fraction sits inside its stamped band") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .aftermath")
+                return
+            }
+            guard let stamped = budget.stageFraction else {
+                expect(false, "Aftermath's budget stamps no stage fraction")
+                return
+            }
+            // The stamped band is itself the sheet's own rounding of 218/393 (0.5548...), so the
+            // drawn surface is checked with the same tolerance this family's other single-point
+            // stage tests use, not bit-exact equality.
+            let tolerance = 0.01
+            let stage = AftermathView.stageFraction
+            expect(stage >= stamped.lowerBound - tolerance && stage <= stamped.upperBound + tolerance,
+                   "AftermathView.stageFraction (\(stage)) must sit within \(tolerance) of the "
+                       + "stamped band \(stamped)")
+        }
+
+        test("Aftermath spends every one of its three gold, all above the seam") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .aftermath")
+                return
+            }
+            expectEqual(budget.goldMax, ForgeFieldTokens.Register.goldMaxBroadcast,
+                        "Aftermath's stamped goldMax is the Broadcast ceiling")
+            expectEqual(AftermathView.goldElementCount, budget.goldMax,
+                        "Aftermath spends all three of its gold ceiling -- FINAL, the record, "
+                            + "the milestone")
+        }
+
+        test("Aftermath's grades panel spends no gold -- the ceiling is already spent above the "
+                + "seam") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/AftermathView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "AftermathView.swift is unreadable at \(path.path)")
+                return
+            }
+            guard let gradesStart = source.range(of: "private var gradesSection"),
+                  let gradesEnd = source.range(of: "private func gradeRow")
+            else {
+                expect(false, "AftermathView.swift must declare gradesSection and gradeRow")
+                return
+            }
+            let gradesBody = String(source[gradesStart.upperBound..<gradesEnd.lowerBound])
+            expect(!gradesBody.contains("Fixed.gold"),
+                   "the grades panel must spend no gold -- three is the ceiling and the flood "
+                       + "field has already used it")
+        }
+
+        test("Aftermath carries zero embers, deliberately -- nothing here is irreversible") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .aftermath")
+                return
+            }
+            expectEqual(budget.emberCount, 0, "Aftermath's stamped emberCount")
+            expectEqual(AftermathView.emberElementCount, 0, "AftermathView.emberElementCount")
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/AftermathView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "AftermathView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(!source.contains("ForgeFieldEmber("),
+                   "leaving costs one quiet control, never an ember that would claim the result "
+                       + "is a decision the coach made")
+        }
+
+        test("Aftermath's ghost mark matches its stamped size and opacity") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .aftermath")
+                return
+            }
+            guard let ghost = budget.ghost else {
+                expect(false, "Aftermath's budget stamps no ghost")
+                return
+            }
+            expectEqual(AftermathView.ghostSize, ghost.size, "ghost size")
+            expectEqual(AftermathView.ghostOpacity, ghost.opacity, "ghost opacity")
+        }
+
+        test("Aftermath's own background count matches its stamped budget -- flood, ground 1") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .aftermath")
+                return
+            }
+            guard let stamped = budget.backgrounds else {
+                expect(false, "Aftermath's budget stamps no backgrounds count")
+                return
+            }
+            expectEqual(AftermathView.backgroundCount, stamped,
+                        "Aftermath must draw exactly the stamped background count")
+        }
+
+        test("Aftermath's grade rows are the dense tier -- ruling 3: every row here is inert, "
+                + "so 32 pt is legal") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/AftermathView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "AftermathView.swift is unreadable at \(path.path)")
+                return
+            }
+            expect(source.contains("ForgeFieldRow(.dense"),
+                   "Aftermath's grade rows carry no per-player callback, so they must use the "
+                       + "32 pt dense tier")
+            expect(!source.contains("ForgeFieldRow(.touch"),
+                   "no row on Aftermath is tappable, so none may claim the 44 pt touch tier")
+        }
+
+        test("Aftermath draws no ForgeFieldPanel -- the studied zone spends only ground 1, "
+                + "matching its stamped two backgrounds") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/AftermathView.swift")
+            guard let source = try? String(contentsOf: path, encoding: .utf8) else {
+                expect(false, "AftermathView.swift is unreadable at \(path.path)")
+                return
+            }
+            // Comment-stripped: this file's own doc comments name ForgeFieldPanel in prose to
+            // explain why it is unused, which is not itself a call site.
+            let code = strippingLineComments(source)
+            expect(!code.contains("ForgeFieldPanel("),
+                   "ForgeFieldPanel always fills ground2, which would spend an unstamped third "
+                       + "background on this surface")
+        }
+    }
 }
 
 /// Whether a view stores the screen-navigation closure `04` 6.1f(i)'s route bar is for.
