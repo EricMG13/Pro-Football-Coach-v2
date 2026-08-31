@@ -11,6 +11,9 @@ final class ProFootballCoachUITests: XCTestCase {
         app.launch()
 
         XCTAssertTrue(app.staticTexts["FINAL"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Carson Tech, 31"].exists)
+        XCTAssertTrue(app.staticTexts["Southern State, 17"].exists)
+        XCTAssertTrue(app.staticTexts["CAR WIN"].exists)
         XCTAssertFalse(app.staticTexts[
             "Aftermath unavailable. No retained career evidence is available for this surface."
         ].exists)
