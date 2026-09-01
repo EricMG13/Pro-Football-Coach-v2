@@ -256,8 +256,7 @@ The honest picture: what exists, what is verified, what is not.
 > `--match-reducer` **19 tests / 104 checks**, `--engine` **63 / 32,502**, and `--snap-anchors`
 > **34 / 2,887**. `./scripts/verify.sh --lane calibration` also passed unchanged — calibration
 > **25 / 181**, M3 recruiting calibration **20 / 412**, terminal summary **2 passed, 0 failed**.
-> Files changed: `Tests/SimTests/Suites/MatchReducerTests.swift`, `docs/STATUS.md`,
-> `.superpowers/sdd/task-904-report.md`.
+> Files changed: `Tests/SimTests/Suites/MatchReducerTests.swift`, `docs/STATUS.md`.
 
 > **2026-08-24 — Loop 901 widened the determinism pin to the non-empty mandatory-decision queue.**
 > `ArchitectureTests` now starts a controlled college career, constructs two recruiting decisions
@@ -268,8 +267,7 @@ The honest picture: what exists, what is verified, what is not.
 > is `9_411_499_220_108_685_895`. Two separate `./scripts/verify.sh --lane determinism` release
 > invocations both passed identically: architecture **30 tests / 248 checks**, competition **37
 > tests / 8,331 checks**, and terminal lane summary **2 passed, 0 failed**. Files changed:
-> `Tests/SimTests/Suites/ArchitectureTests.swift`, `docs/STATUS.md`,
-> `.superpowers/sdd/task-901-report.md`.
+> `Tests/SimTests/Suites/ArchitectureTests.swift`, `docs/STATUS.md`.
 > **2026-08-24 — the clean app lane now asserts its privacy manifest and bundle boundary.**
 > `PrivacyInfo.xcprivacy` declares only the observed app-container file-metadata access
 > (`NSPrivacyAccessedAPICategoryFileTimestamp` / `C617.1`), no collection and no tracking. The app

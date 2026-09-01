@@ -27,3 +27,7 @@ FM Screenshots/
 # Python bytecode from the Tools scripts; committed once by accident.
 __pycache__/
 *.pyc
+
+# Agent/tool output; regenerate locally and never commit.
+.superpowers/
+.impeccable/
