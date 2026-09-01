@@ -192,7 +192,7 @@ extension ForgeFieldBudget {
             // tier (Rule A-1, 44 pt) rather than an ember. The contract outranks the
             // drawing on facts and actions.
             emberCount: 0,
-            ghost: nil,
+            ghost: Ghost(size: 230, opacity: 0.10, desaturated: false),
             backgrounds: 2
         ),
         .teamHealth: ForgeFieldBudget(
@@ -202,7 +202,7 @@ extension ForgeFieldBudget {
             pointsAboveSeam: nil,
             goldMax: 0,
             emberCount: ForgeFieldTokens.Register.emberPerSurface,
-            ghost: nil,
+            ghost: Ghost(size: 230, opacity: 0.10, desaturated: false),
             backgrounds: 2
         ),
         .matchDay: ForgeFieldBudget(

@@ -76,7 +76,14 @@ public struct AftermathView: View, CoachWorldChromedSurface {
     public let onOpenBoxScore: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.forgeFieldClub) private var club
+
+    private var team: CoachWorldTeamReference {
+        chrome?.club ?? model.grades.first?.team ?? model.home.team
+    }
+
+    private var club: ForgeFieldTokens.Club {
+        .resolved(for: team)
+    }
 
     public init(
         model: AftermathReadModel,
@@ -91,7 +98,7 @@ public struct AftermathView: View, CoachWorldChromedSurface {
     }
 
     public var body: some View {
-        ForgeFieldDevice(club: AftermathMetric.club) {
+        ForgeFieldDevice(club: club) {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     accessibleComposition
@@ -195,13 +202,15 @@ public struct AftermathView: View, CoachWorldChromedSurface {
     /// bleeds. Not desaturated further (unlike the film room's cold ghost): this result belongs to
     /// the coach's own club, so the standard .75 default stands.
     private var ghostMark: some View {
-        RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
-            .fill(club.palette.hairline.color)
-            .frame(width: AftermathMetric.ghostSize, height: AftermathMetric.ghostSize)
+        CoachWorldTeamLogo(
+            team: team,
+            dimension: AftermathMetric.ghostSize,
+            surface: club.palette.clubDeep,
+            isDecorative: true
+        )
+            .saturation(AftermathMetric.ghostSaturation)
             .opacity(AftermathMetric.ghostOpacity)
-            .offset(x: AftermathMetric.ghostSize / 2, y: -AftermathMetric.ghostSize / 2)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+            .offset(x: AftermathMetric.ghostOffsetX, y: AftermathMetric.ghostOffsetY)
     }
 
     private var floodContent: some View {
@@ -258,7 +267,8 @@ public struct AftermathView: View, CoachWorldChromedSurface {
     /// `fs-fixture` (62 pt) is canon's own named use for "final score" (`04` 6.2a's token table).
     /// The lead side takes it; the trailing side reads smaller, never larger than the lead.
     private func scoreLine(_ side: MatchDayReadModel.TeamScore, isLead: Bool) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: AftermathMetric.gap) {
+        HStack(alignment: .center, spacing: AftermathMetric.gap) {
+            resultMark(side.team)
             styledText(side.team.name.uppercased(), isLead ? .heading : .row)
                 .foregroundStyle(isLead ? club.palette.ink1.color : club.palette.ink3.color)
                 .lineLimit(scoreLineLimit)
@@ -268,6 +278,22 @@ public struct AftermathView: View, CoachWorldChromedSurface {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(side.team.name), \(side.score)")
+    }
+
+    private func resultMark(_ team: CoachWorldTeamReference) -> some View {
+        ForgeFieldChip {
+            CoachWorldTeamLogo(
+                team: team,
+                dimension: AftermathMetric.scoreMarkImageSize,
+                surface: club.palette.clubDeep,
+                isDecorative: true
+            )
+            .frame(
+                width: AftermathMetric.scoreMarkPlateSize,
+                height: AftermathMetric.scoreMarkPlateSize
+            )
+            .background(club.palette.ground0.color.opacity(ForgeFieldTokens.Material.glass))
+        }
     }
 
     /// Deviation-proofing, applied from the start (the same class of fault
@@ -538,10 +564,6 @@ public struct AftermathView: View, CoachWorldChromedSurface {
 /// everything else is this file's own choice from `ForgeFieldTokens.Space.ladder`, matching
 /// `HQMetric`'s own convention (`CoachingHQView.swift`).
 private enum AftermathMetric {
-    /// `04` 6.1e's four authored clubs are not yet resolved per-team (ledger row E6); `.calumet` is
-    /// the same interim default every other Forge Field surface renders every team in today.
-    static let club = ForgeFieldTokens.Club.calumet
-
     static let columnWidth = ForgeFieldChromeBar.width
     static let chromeOrigin = ForgeFieldChromeBar.origin
     static let chromeSize = CGSize(width: columnWidth, height: ForgeFieldChromeBar.height)
@@ -568,6 +590,11 @@ private enum AftermathMetric {
     /// `ForgeFieldBudget.weeklyCommand[.aftermath]`'s `ghost`.
     static let ghostSize: CGFloat = 250
     static let ghostOpacity: Double = 0.11
+    static let ghostSaturation: Double = 0.75
+    static let ghostOffsetX: CGFloat = 48
+    static let ghostOffsetY: CGFloat = -52
+    static let scoreMarkPlateSize: CGFloat = 48
+    static let scoreMarkImageSize: CGFloat = 34
 
     /// A defensive scale floor for a long generated team name at the lead score line's large
     /// (`fs-heading`, 26 pt) size, matching `CoachingHQView.nameScaleFloor`'s identical role and

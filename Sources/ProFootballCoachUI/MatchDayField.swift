@@ -482,6 +482,7 @@ struct EndZonePaint: View {
 /// no opinion about competition structure.
 struct FieldMarkContent: Equatable {
     let kind: MatchGameKind
+    let team: CoachWorldTeamReference?
     /// The centred glyph: a team's short name in the regular season, `EC` / `XLIV` / `PLAYOFF`
     /// otherwise.
     let glyph: String
@@ -503,9 +504,22 @@ struct FieldMark: View {
             case .championship: championship
             }
         }
+        .opacity(competitionOpacity)
         .compositingGroup()
         .blur(radius: Mark.paintBlur)
         .accessibilityHidden(true)
+    }
+
+    private var competitionOpacity: Double {
+        switch content.kind {
+        case .regular: 1
+        case .conference, .playoff:
+            ForgeFieldTokens.Register.ghostOpacity / Mark.glyphAlpha
+        case .bowl:
+            ForgeFieldTokens.Register.ghostOpacity / Mark.bowlPeakAlpha
+        case .championship:
+            ForgeFieldTokens.Register.ghostOpacity / Mark.championshipPeakAlpha
+        }
     }
 
     private var regular: some View {
@@ -513,10 +527,20 @@ struct FieldMark: View {
             Circle()
                 .stroke(line(Mark.ringAlpha), lineWidth: Mark.ringWidth)
                 .frame(width: Mark.regularDiameter, height: Mark.regularDiameter)
-            Circle()
-                .stroke(line(Mark.innerRingAlpha), lineWidth: CoachWorldTokens.Shape.hairline)
-                .frame(width: Mark.regularInner, height: Mark.regularInner)
-            glyph(CoachWorldTokens.DisplaySize.row, alpha: Mark.glyphAlpha)
+            Group {
+                if let team = content.team, team.mark != nil {
+                    CoachWorldTeamLogo(
+                        team: team,
+                        size: .field,
+                        surface: CoachWorldTokens.Floodlit.turf
+                    )
+                    .saturation(Mark.logoSaturation)
+                    .brightness(Mark.logoBrightness)
+                } else {
+                    glyph(CoachWorldTokens.DisplaySize.row, alpha: 1)
+                }
+            }
+            .opacity(ForgeFieldTokens.Register.ghostOpacity)
         }
     }
 
@@ -884,12 +908,13 @@ private enum EndZone {
 private enum Mark {
     static let paintBlur: CGFloat = 0.2
     static let ringWidth: CGFloat = 3
-    static let ringAlpha = 0.30
+    static let ringAlpha = 0.28
     static let innerRingAlpha = 0.15
     static let glyphAlpha = 0.42
     static let captionAlpha = 0.34
     static let regularDiameter: CGFloat = 106
-    static let regularInner: CGFloat = 94
+    static let logoSaturation = 0.6
+    static let logoBrightness = 0.2
     static let conferenceDiamond: CGFloat = 74
     static let conferenceInner: CGFloat = 52
     static let conferenceStroke: CGFloat = 3
@@ -901,6 +926,8 @@ private enum Mark {
     static let championshipDiameter: CGFloat = 128
     static let championshipInner: CGFloat = 112
     static let starSize: CGFloat = 22
+    static let bowlPeakAlpha = 0.45
+    static let championshipPeakAlpha = 0.50
 }
 
 private enum Token {

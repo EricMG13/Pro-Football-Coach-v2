@@ -2207,7 +2207,9 @@ public enum CoachWorldSampleData {
         )
     }()
 
-    public static let matchDay: MatchDayReadModel = {
+    private static func makeMatchDay(
+        staffInterruption: MatchDayReadModel.StaffInterruption?
+    ) -> MatchDayReadModel {
         let homeFormation: [(number: String, position: String, x: Double, y: Double)] = [
             ("12", "QB", 51, 0.50), ("24", "RB", 46, 0.50),
             // Receiver shorthands, not two identical "WR"s: MATCH-DAY.md section 4's offensive
@@ -2314,37 +2316,43 @@ public enum CoachWorldSampleData {
             foregroundActorIDs: ["sample-home-0", "sample-home-4", "sample-away-10"],
             playback: playback,
             causalCommentary: "The safety stepped down after the tight end motion.",
-            staffInterruption: .init(
-                stableID: "sample-call-in",
-                staff: coordinator,
-                message: "Their weak-side safety is triggering before the snap.",
-                evidence: ["Safety alignment moved inside the hash after tight end motion."],
-                actions: [
-                    .init(
-                        path: .accept,
-                        intentID: .init(rawValue: "sample-take-over"),
-                        title: "Accept adjustment",
-                        cost: "Applies after this play",
-                        consequence: "The recorded moment remains unchanged"
-                    ),
-                    .init(
-                        path: .dismiss,
-                        intentID: .init(rawValue: "sample-delegate"),
-                        title: "Dismiss call-in",
-                        cost: "No tactical change",
-                        consequence: "Staff keeps the current future call"
-                    ),
-                    .init(
-                        path: .inspectEvidence,
-                        intentID: .init(rawValue: "sample-inspect-evidence"),
-                        title: "Inspect evidence",
-                        cost: "No commitment",
-                        consequence: "Opens the safety-trigger evidence"
-                    ),
-                ]
-            ),
+            staffInterruption: staffInterruption,
             controls: controls
         )
-    }()
+    }
+
+    public static let matchDay = makeMatchDay(
+        staffInterruption: try! MatchDayReadModel.StaffInterruption(
+            stableID: "sample-call-in",
+            staff: coordinator,
+            message: "Their weak-side safety is triggering before the snap.",
+            evidence: ["Safety alignment moved inside the hash after tight end motion."],
+            actions: [
+                .init(
+                    path: .accept,
+                    intentID: .init(rawValue: "sample-take-over"),
+                    title: "Accept adjustment",
+                    cost: "Applies after this play",
+                    consequence: "The recorded moment remains unchanged"
+                ),
+                .init(
+                    path: .dismiss,
+                    intentID: .init(rawValue: "sample-delegate"),
+                    title: "Dismiss call-in",
+                    cost: "No tactical change",
+                    consequence: "Staff keeps the current future call"
+                ),
+                .init(
+                    path: .inspectEvidence,
+                    intentID: .init(rawValue: "sample-inspect-evidence"),
+                    title: "Inspect evidence",
+                    cost: "No commitment",
+                    consequence: "Opens the safety-trigger evidence"
+                ),
+            ]
+        )
+    )
+
+    static let matchDayBaseState = makeMatchDay(staffInterruption: nil)
 }
 #endif

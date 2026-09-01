@@ -12,14 +12,45 @@ enum CoachWorldTeamLogoSize: CGFloat {
     case compact = 20
     case medium = 32
     case large = 44
+    case field = 76
 }
 
 struct CoachWorldTeamLogo: View {
     let team: CoachWorldTeamReference
-    let size: CoachWorldTeamLogoSize
+    private let dimension: CGFloat
     let surface: CoachWorldTokens.ColorValue
-    var palette: CoachWorldTokens.Palette = CoachWorldTokens.dark
-    var isDecorative = true
+    var palette: CoachWorldTokens.Palette
+    var isDecorative: Bool
+
+    init(
+        team: CoachWorldTeamReference,
+        size: CoachWorldTeamLogoSize,
+        surface: CoachWorldTokens.ColorValue,
+        palette: CoachWorldTokens.Palette = CoachWorldTokens.dark,
+        isDecorative: Bool = true
+    ) {
+        self.init(
+            team: team,
+            dimension: size.rawValue,
+            surface: surface,
+            palette: palette,
+            isDecorative: isDecorative
+        )
+    }
+
+    init(
+        team: CoachWorldTeamReference,
+        dimension: CGFloat,
+        surface: CoachWorldTokens.ColorValue,
+        palette: CoachWorldTokens.Palette = CoachWorldTokens.dark,
+        isDecorative: Bool = true
+    ) {
+        self.team = team
+        self.dimension = dimension
+        self.surface = surface
+        self.palette = palette
+        self.isDecorative = isDecorative
+    }
 
     var body: some View {
         Group {
@@ -29,7 +60,7 @@ struct CoachWorldTeamLogo: View {
                 fallback
             }
         }
-        .frame(width: size.rawValue, height: size.rawValue)
+        .frame(width: dimension, height: dimension)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(team.name)
         .accessibilityHidden(isDecorative)

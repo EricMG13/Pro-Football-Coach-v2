@@ -106,8 +106,8 @@ The nine, transcribed from the sheet's stamped spec columns:
 | Inbox | Desk, no flood, 3 pt club spine, MIXED | 0%, desk max 25 | 58 of 80 | **0** | 1 | none | 1 of 2 |
 | Opponent report · film room | Dossier, MIXED | 33%, band 30–40 | 34 | 0 of 2 | 1 | 230 px, .13, **desaturated to 0** | 2 of 2 |
 | Game plan | Desk, no flood, 3 pt spine, ACTION | 0%, desk max 25 | 44 of 80 | **0** | 1 | none | 1 of 2 |
-| Practice plan | Desk, one flooded strip, ACTION | 19%, desk max 25 | 52 of 80 | **0** | 1 | none | 2 of 2 |
-| Team health | Desk, one flooded strip, MIXED | 16%, desk max 25 | 66 of 80 | **0** | 1 | none | 2 of 2 |
+| Practice plan | Desk, one flooded strip, ACTION | 19%, desk max 25 | 52 of 80 | **0** | 1 | 230 px, .10, top-right | 2 of 2 |
+| Team health | Desk, one flooded strip, MIXED | 16%, desk max 25 | 66 of 80 | **0** | 1 | 230 px, .10, top-right | 2 of 2 |
 | Match day | Broadcast at 100% | 100%, no chrome bar, no seam | 14 figures on the apron | 3 of 3 | 1 | none | — |
 | Aftermath | Broadcast, READOUT | 56%, band 55–65 | 11 of 14 above seam | 3 of 3 | **0** | 250 px, .11, top-right | 2 of 2 |
 | Game detail · box score | Dossier, vertical seam, READOUT | 32% across the seam axis | 72 | 0 of 2 | **0** | none | 1 of 2 |

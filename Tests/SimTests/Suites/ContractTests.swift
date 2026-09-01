@@ -676,7 +676,7 @@ func runContractTests() {
                        && root.contains("OpponentReportFilmRoomView("),
                    "film route must be reachable from the shipped root")
             let hq = filmFiles.first { $0.path.hasSuffix("/CoachingHQView.swift") }?.text ?? ""
-            expect(hq.contains("if model.opponent != nil") && hq.contains("filmButton.frame"),
+            expect(hq.contains("model.opponent != nil") && hq.contains("filmButton.frame"),
                    "film must remain reachable when no mandatory decision is present")
         }
 

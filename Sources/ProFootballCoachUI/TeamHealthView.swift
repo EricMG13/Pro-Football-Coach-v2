@@ -13,8 +13,8 @@ import SwiftUI
 /// **Register, from the sheet's stamped spec column
 /// (`ForgeFieldBudget.weeklyCommand[.teamHealth]`):** Desk, one flooded strip, MIXED -- the
 /// committing control separated from the readiness table. Stage 16% (62 of 393). Data points 66 of
-/// 80. Gold 0. Ember 1. Ghost none. Backgrounds 2 of 2 -- flood, ground 1. Largest numeral 15 (desk
-/// ceiling 34).
+/// 80. Gold 0. Ember 1. Ghost 230 pt, .10, top-right. Backgrounds 2 of 2 -- flood, ground 1.
+/// Largest numeral 15 (desk ceiling 34).
 ///
 /// **The sheet's ember, "Clear Sarr to play", is refused (dispatch, 2026-08-30/31).** No such
 /// callback exists: the presentation contract's row 13 callback list is `onClose`, `onContinue`,
@@ -82,7 +82,10 @@ public struct TeamHealthView: View, CoachWorldChromedSurface {
     public let onContinue: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.forgeFieldClub) private var club
+
+    private var club: ForgeFieldTokens.Club {
+        .resolved(for: chrome?.club ?? model.team)
+    }
 
     public init(
         model: TeamHealthReadModel,
@@ -97,7 +100,7 @@ public struct TeamHealthView: View, CoachWorldChromedSurface {
     }
 
     public var body: some View {
-        ForgeFieldDevice(club: HealthMetric.club) {
+        ForgeFieldDevice(club: club) {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     accessibleComposition
@@ -121,11 +124,8 @@ public struct TeamHealthView: View, CoachWorldChromedSurface {
                 .position(HealthMetric.center(HealthMetric.chromeOrigin, HealthMetric.chromeSize))
 
             VStack(alignment: .leading, spacing: .zero) {
-                floodContent
-                    .padding(.horizontal, HealthMetric.inset)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+                floodStage
                     .frame(height: HealthMetric.floodHeight)
-                    .background(club.palette.clubDeep.color)
                     .clipped()
                 ForgeFieldSeam(.hard, axis: .horizontal)
                 studiedContent
@@ -182,6 +182,24 @@ public struct TeamHealthView: View, CoachWorldChromedSurface {
             ForEach(dials) { fact in dial(fact) }
             Spacer(minLength: HealthMetric.gap)
             ember
+        }
+    }
+
+    private var floodStage: some View {
+        ZStack(alignment: .topTrailing) {
+            club.palette.clubDeep.color
+            CoachWorldTeamLogo(
+                team: model.team,
+                dimension: HealthMetric.ghostSize,
+                surface: club.palette.clubDeep,
+                isDecorative: true
+            )
+            .saturation(HealthMetric.ghostSaturation)
+            .opacity(HealthMetric.ghostOpacity)
+            .offset(x: HealthMetric.ghostOffsetX, y: HealthMetric.ghostOffsetY)
+            floodContent
+                .padding(.horizontal, HealthMetric.inset)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
         }
     }
 
@@ -387,13 +405,9 @@ public struct TeamHealthView: View, CoachWorldChromedSurface {
         ScrollView {
             VStack(alignment: .leading, spacing: HealthMetric.sectionGap) {
                 chromeBarRegion
-                VStack(alignment: .leading, spacing: HealthMetric.gap) {
-                    ForEach(dials) { fact in dial(fact) }
-                    ember
-                }
-                .padding(HealthMetric.inset)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(club.palette.clubDeep.color)
+                floodStage
+                    .frame(minHeight: HealthMetric.floodHeight)
+                    .clipped()
                 ForgeFieldSeam(.hard, axis: .horizontal)
                 VStack(alignment: .leading, spacing: HealthMetric.gap) {
                     styledText("Readiness".uppercased(), .panel)
@@ -436,10 +450,6 @@ public struct TeamHealthView: View, CoachWorldChromedSurface {
 /// this file's own choice from `ForgeFieldTokens.Space.ladder`, matching `PracticeMetric`'s own
 /// convention (`PracticePlanView.swift`).
 private enum HealthMetric {
-    /// `04` 6.1e's four authored clubs are not yet resolved per-team (ledger row E6); `.calumet` is
-    /// the same interim default every other Forge Field surface renders every team in today.
-    static let club = ForgeFieldTokens.Club.calumet
-
     static let columnWidth = ForgeFieldChromeBar.width
     static let chromeOrigin = ForgeFieldChromeBar.origin
     static let chromeSize = CGSize(width: columnWidth, height: ForgeFieldChromeBar.height)
@@ -461,6 +471,11 @@ private enum HealthMetric {
     /// The sheet's stamped stage figure, "16% (62 of 393)" -- transcribed verbatim, not derived
     /// from the ladder, per this file's own header comment.
     static let floodHeight: CGFloat = 62
+    static let ghostSize: CGFloat = 230
+    static let ghostOpacity: Double = 0.10
+    static let ghostSaturation: Double = 0.75
+    static let ghostOffsetX: CGFloat = 34
+    static let ghostOffsetY: CGFloat = -72
 
     static let positionColumn: CGFloat = 40
     static let statusColumn: CGFloat = 100
@@ -519,6 +534,7 @@ extension TeamHealthView {
     public static let stageFraction: Double =
         Double(HealthMetric.floodHeight / ForgeFieldTokens.Space.viewport.height)
 
-    /// No ghost mark.
-    public static let hasGhostMark = false
+    public static let ghostSize = HealthMetric.ghostSize
+    public static let ghostOpacity = HealthMetric.ghostOpacity
+    public static let hasGhostMark = true
 }

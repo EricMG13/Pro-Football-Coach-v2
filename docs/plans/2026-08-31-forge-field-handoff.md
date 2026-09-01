@@ -48,7 +48,7 @@ Device frame, four primitives, the ember, the chrome bar. All 159 suites green a
 assembled across three invocations — `docs/STATUS.md` records exactly how, and it is **not** a single
 uninterrupted full-suite pass.
 
-### Phase 2B — the nine weekly-command surfaces. **Seven of nine drawn.**
+### Phase 2B — the nine weekly-command surfaces. **Nine of nine drawn.**
 
 | # | Surface | Commit | Rendered and looked at? |
 |---|---|---|---|
@@ -59,24 +59,21 @@ uninterrupted full-suite pass.
 | 5 | Practice plan | `84facc9` | **Yes** |
 | 6 | Team health | `72f8262` | **Yes** |
 | 7 | Opponent report / film room | `69dadc2` | **Yes** |
-| 8 | Aftermath | `7820d41` | **NO — see below** |
-| 9 | Game detail / box score | — | Not started |
-| 10 | Match day | — | Not started |
+| 8 | Aftermath | `7820d41`, `fcd0de2`…`00648cc` | **Yes — standard and AX5** |
+| 9 | Game detail / box score | `d4bbe49`, `b4b8fa4` | **Yes — standard overflow and AX5** |
+| 10 | Match day | Working tree | **Yes — standard and AX5** |
 
 ---
 
 ## 4. Do these first, in this order
 
-1. **Render Aftermath and look at it.** `7820d41` passed `--design-contracts` (181 tests, 1794
-   checks) but the implementing agent hit an API spend limit immediately before its device pass.
-   **Every deviation found across the seven rendered surfaces was invisible to tests and showed up
-   only on screen.** Treat this surface as unverified until you have looked at it at standard size
-   and at AX5.
-2. **Draw Game detail / box score.** See §6 for its one unusual property.
-3. **Draw Match day.** See §6 — it is a re-skin, not a re-architecture, and it touches the match
-   engine's territory.
-4. **Phase 2B exit:** full `swift run SimTests` once, an adversarial review of the phase diff, and
-   ledger Part E updated. **Ask the owner before any push or merge.**
+1. **Phase 2B exit complete:** the uninterrupted full `swift run SimTests` passed on 2026-09-01 —
+   **1,282 tests / 933,191 checks**.
+2. **Owner-reference follow-up complete:** the later adversarial pass fixed runtime club palettes,
+   authentic mark/ghost placement, family routing, tied-game streaks, Match Day's 22-player
+   playback composition, and the Coaching HQ fixture/ember overlap. See ledger E44.
+3. **Ledger Part E current through E44.** No push or merge was performed; owner approval is still
+   required.
 
 ---
 
@@ -148,9 +145,34 @@ Contract omissions: no opposed team totals, quarter scoring, or play-by-play.
 Gold 3 of 3 (clock, pylons, drive head). Ember 1 (`Take the calls`). **Four glass plates on the apron
 — the only place glass is legal in the product, and the only `backdrop-filter`.**
 
-**The sheet says its status is "unchanged from the shipped surface".** This is a re-skin. Read
-`docs/03-MATCH-ENGINE.md` first and **change nothing that resolves a play.** The 2D field, its
-animation and the recorded-outcome contract are out of scope.
+The owner-supplied `Design system review and refinement (1).zip` is authoritative and supersedes
+the earlier "unchanged from the shipped surface" note. Its Match Day reference is a full-bleed
+844 × 390 field: score bug at top-left, play caller at top-right, lower third at bottom-left, match
+controls at bottom-right, four live-field glass plates, and one 76 × 76 club mark at midfield with
+opacity `.13`. There is no stacked broadcast shell, chrome bar, or seam.
+
+Read `docs/03-MATCH-ENGINE.md` first and **change nothing that resolves a play.** Engine state, the
+read model, playback interpolation and the recorded-outcome contract remain out of scope. The view
+may make presentation-only corrections required by the reference, including retaining every
+untracked model actor while recorded tracks replace their matching positions.
+
+### Ghost-mark census from the authoritative package
+
+Add club-mark ghosts only where the package draws or budgets one:
+
+- Weekly command: Coaching HQ (244 at `.10`, top-right), Opponent report (230 at `.13`, cold and
+  fully desaturated), Practice plan (230 at `.10`, top-right), Team health (230 at `.10`,
+  top-right), Match Day (76 at `.13`, midfield), and Aftermath (250 at `.11`, top-right).
+- League/career/entry: Team profile (260 at `.13`, top-right), Awards (260 at `.13`, bottom-right),
+  Promotion (260 at `.13`, top-right), Title/Continue recovery panel (260 at `.13`, bottom-right),
+  and three Coach Identity programme-card bands (230 at `.13`, top-right of each band).
+- Personnel: Player profile (260 at `.13`, bottom-left).
+- Recruiting: Signing day (300 at `.13`, bleeding the right edge).
+
+Do **not** generalise this into a watermark system. The package explicitly budgets no ghost for Map,
+Roster, Depth chart, Development, Staff room, Cap, Board, Prospect, Shortlist, Visits, Class,
+Offseason, Inbox, Game plan, or Game detail. In particular, never place a ghost behind tabular
+figures, and never force one into a field narrower than the 230-point floor.
 
 ---
 
@@ -192,7 +214,7 @@ All were found by **rendering**, never by a test:
 swift build
 swift run SimTests --design-contracts     # ~181 tests, fast
 swift run SimTests --core-contracts       # ~365 tests, a few minutes
-swift run SimTests                        # FULL: 1194 tests, roughly 3.5 hours. Phase exit only.
+swift run SimTests                        # FULL: 1282 tests as of 2026-09-01. Phase exit only.
 ```
 
 Render loop:

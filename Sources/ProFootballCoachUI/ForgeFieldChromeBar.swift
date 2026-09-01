@@ -21,17 +21,11 @@ import SwiftUI
 /// row symmetrically above and below without stretching the bar itself -- nothing here clips that
 /// overflow (no `.clipShape`/`.clipped()` on the bar), which is what lets it register.
 ///
-/// **Club palette.** Every other Forge Field primitive (`ForgeFieldPanel`, `ForgeFieldSeam`,
-/// `ForgeFieldEmber`) resolves its club from `EnvironmentValues.forgeFieldClub` rather than a
-/// constructor parameter, and this bar does the same for the same reason -- but nothing in the
-/// running app sets that environment value yet, because `ForgeFieldDevice` (Task 2) is not hosted
-/// anywhere in the live render tree until a later phase migrates a surface onto it (ledger row E6).
-/// Every Forge Field primitive built so far carries that same known gap; this bar is only the first
-/// one actually rendered live, so the gap becomes visible here first rather than being new here.
-/// Ground, ink and hairline therefore render in the environment's default club (`.calumet`) for
-/// every team today. The one place that would visibly mismatch the coach's own team -- the 3 pt
-/// spine, whose entire job is to carry club colour -- reads the real team's own brand colour
-/// instead, falling back to the ambient club's own swatch when a team's pair cannot be resolved.
+/// **Club palette.** Every Forge Field surface resolves its runtime team to one of the four authored
+/// palettes at its `ForgeFieldDevice` root. This bar reads that ambient value, exactly like the
+/// panels, seams and ember controls beneath it. The 3 pt spine still reads the real team's primary
+/// through `CoachWorldTeamIdentity`, falling back to the resolved palette when the generated pair
+/// cannot clear the identity resolver's contrast contract.
 /// **That resolution must go through `CoachWorldTeamIdentity`, never a direct `primaryColorHex`
 /// read** -- `04` section 5 names it the sole resolution point, ContractTests.swift's "no view
 /// resolves a generated colour except through the identity type" scans for exactly this, and the
@@ -55,6 +49,8 @@ public struct ForgeFieldChromeBar: View {
     private static let tightGap = ForgeFieldTokens.Space.ladder[0]    // 4
     private static let gap = ForgeFieldTokens.Space.ladder[1]        // 8
     private static let sectionGap = ForgeFieldTokens.Space.ladder[3] // 16
+    private static let markPlateSize: CGFloat = 22
+    private static let markImageSize: CGFloat = 16
 
     @Environment(\.forgeFieldClub) private var club
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -121,9 +117,8 @@ public struct ForgeFieldChromeBar: View {
     /// `04` section 5: `CoachWorldTeamIdentity` is the sole resolution point for a generated
     /// team's colour pair, and this is where the legibility refusal lives -- `init?` returns nil
     /// rather than a colour nobody measured when the pair cannot clear the floor. `behind` and
-    /// `inks` are drawn from the ambient club palette (see this type's own doc comment on why that
-    /// palette itself is not yet the real team's) rather than Press Box's `Floodlit` tokens, since
-    /// nothing here draws on that system.
+    /// `inks` are drawn from the nearest approved Forge Field palette selected by the enclosing
+    /// surface rather than Press Box's `Floodlit` tokens, since nothing here draws on that system.
     private var identity: CoachWorldTeamIdentity? {
         CoachWorldTeamIdentity(
             team: model.club,
@@ -132,30 +127,37 @@ public struct ForgeFieldChromeBar: View {
         )
     }
 
-    /// The real team's own brand colour where `identity` resolves one, rather than the ambient
-    /// club's authored swatch: `club.palette.club` only ever reflects one of Forge Field's four
-    /// authored hues (`EnvironmentValues.forgeFieldClub`'s default, unset here), so it would show
-    /// the same colour for every team. `.field` is the primary half of the resolved pair -- `04`
-    /// 6.1e's `club`/`club-deep` row is itself a primary/deep pair, so `field` is the closer match
-    /// to "club colour" than `.accent`, which `TeamIdentity.swift` reserves for the uniform mark.
+    /// The real team's own brand colour where `identity` resolves one, with the enclosing
+    /// surface's nearest approved Forge Field club swatch as the legibility fallback. `.field` is
+    /// the primary half of the resolved pair -- `04` 6.1e's `club`/`club-deep` row is itself a
+    /// primary/deep pair, so `field` is the closer match to "club colour" than `.accent`, which
+    /// `TeamIdentity.swift` reserves for the uniform mark.
     private var spineColor: Color {
         (identity?.field ?? club.palette.club).color
     }
 
-    /// The mark: a plate holding the club's identity, `04` section 2.6's "mark plate... holding a
-    /// club mark [or] staff initials" -- an abbreviation plate is squarely inside that vocabulary.
-    /// Deliberately not `CoachWorldTeamLogo`: its no-image fallback clips to `CoachWorldCutCorner`,
-    /// a Press Box shape, and 04 6.3a states one radius system-wide with mark named explicitly
-    /// among the things that share it, so a Press Box cut corner has no place inside this bar.
-    /// Sized to the bar's own height so no new size token is needed for it.
+    /// The authoritative FF Chrome component draws a 16 pt packaged crest inside a 22 pt mark plate.
+    /// `ForgeFieldChip` supplies the one approved radius and clips the logo helper's fallback too,
+    /// so an unavailable asset cannot reintroduce the retired Press Box cut-corner silhouette.
     private func mark(_ palette: ForgeFieldTokens.ClubPalette) -> some View {
         ForgeFieldChip {
-            Text(model.club.abbreviation.uppercased())
-                .font(ForgeFieldType.font(.chrome))
-                .lineLimit(1)
-                .foregroundStyle(palette.ink1.color)
-                .frame(width: Self.height, height: Self.height)
-                .background(palette.ground3.color)
+            CoachWorldTeamLogo(
+                team: model.club,
+                dimension: Self.markImageSize,
+                surface: palette.club
+            )
+            .frame(width: Self.markPlateSize, height: Self.markPlateSize)
+            .background((identity?.field ?? palette.club).color)
+            .overlay {
+                RoundedRectangle(
+                    cornerRadius: ForgeFieldTokens.Space.radius,
+                    style: .continuous
+                )
+                .stroke(
+                    ForgeFieldTokens.Fixed.gold.color.opacity(ForgeFieldTokens.Edge.goldStrong),
+                    lineWidth: ForgeFieldTokens.Edge.hairlineWidth
+                )
+            }
         }
         .accessibilityHidden(true)
     }
@@ -201,27 +203,33 @@ public struct ForgeFieldChromeBar: View {
         }
     }
 
+    @ViewBuilder
     private func familyButton(
         _ family: CoachWorldSurfaceFamily, _ palette: ForgeFieldTokens.ClubPalette
     ) -> some View {
         let isCurrent = family == model.family
-        return Button {
-            guard let destination = family.surfaces.first else { return }
-            onNavigate(CoachWorldIntentID(rawValue: "route|\(destination.rawValue)"))
-        } label: {
-            Text(family.forgeFieldTitle.uppercased())
-                .font(ForgeFieldType.font(.chrome))
-                // A button label, not the club lockup -- `Step.chrome`'s own doc comment names this
-                // exact split: a button-label call site passes `Tracking.chrome.em` (.14em)
-                // explicitly rather than taking the step's lockup-tracking default.
-                .tracking(CoachWorldTokens.DisplaySize.tracking(ForgeFieldType.Tracking.chrome.em,
-                                                                  at: ForgeFieldType.Step.chrome.points))
-                .lineLimit(1)
-                // Pinned to its natural width, never shrunk or truncated: this is the label class
-                // `04` 6.1f's bar exists to stop truncating. `clubName`'s own doc comment above is
-                // the other half of this row's yield ladder -- the club name gives way first.
-                .fixedSize()
-                .foregroundStyle((isCurrent ? palette.ink1 : palette.ink4).color)
+        let destination = model.families.first { $0.family == family }
+        Group {
+            if isCurrent, model.siblings.count > 1 {
+                Menu {
+                    ForEach(model.siblings) { sibling in
+                        Button(sibling.accessibleTitle) {
+                            onNavigate(sibling.intentID)
+                        }
+                        .disabled(sibling.screen == model.screen)
+                    }
+                } label: {
+                    familyLabel(family, palette: palette, isCurrent: true)
+                }
+            } else {
+                Button {
+                    if let destination { onNavigate(destination.intentID) }
+                } label: {
+                    familyLabel(family, palette: palette, isCurrent: false)
+                }
+                .disabled(destination == nil)
+                .accessibilityHint(destination == nil ? "Unavailable in this career" : "")
+            }
         }
         .buttonStyle(.plain)
         // The 44 pt tap-target fault: see this type's own doc comment. `frame` widens the hit
@@ -231,6 +239,27 @@ public struct ForgeFieldChromeBar: View {
         .contentShape(Rectangle())
         .accessibilityLabel(family.forgeFieldTitle)
         .accessibilityAddTraits(isCurrent ? .isSelected : [])
+    }
+
+    private func familyLabel(
+        _ family: CoachWorldSurfaceFamily,
+        palette: ForgeFieldTokens.ClubPalette,
+        isCurrent: Bool
+    ) -> some View {
+        Text(family.forgeFieldTitle.uppercased())
+            .font(ForgeFieldType.font(.chrome))
+            .tracking(CoachWorldTokens.DisplaySize.tracking(
+                ForgeFieldType.Tracking.chrome.em,
+                at: ForgeFieldType.Step.chrome.points
+            ))
+            .lineLimit(1)
+            .fixedSize()
+            .foregroundStyle((isCurrent ? palette.ink1 : palette.ink4).color)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(isCurrent ? palette.ember.color : Color.clear)
+                    .frame(height: ForgeFieldTokens.Edge.hairlineWidth * 2)
+            }
     }
 
     private func weekLabel(_ palette: ForgeFieldTokens.ClubPalette) -> some View {

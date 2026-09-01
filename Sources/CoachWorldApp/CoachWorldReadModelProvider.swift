@@ -520,9 +520,9 @@ public enum CoachWorldReadModelProvider {
     /// does not spend. `04` section 4.4 makes under-claiming the honest failure mode -- a plain,
     /// honestly computed streak, not an invented league ranking.
     static func currentStreak(_ organisationID: UUID, in state: GameState) -> String? {
-        // Most recent first. A tie neither extends nor is claimed as a streak of either kind, so
-        // it is dropped from the walk rather than mislabelled a loss.
-        let outcomes: [Bool] = state.competition.currentSchedule.games
+        // Most recent first. Zero records a tie so it terminates, rather than disappears from, the
+        // active run.
+        let margins: [Int] = state.competition.currentSchedule.games
             .filter { $0.season == state.calendar.season
                 && ($0.homeID == organisationID || $0.awayID == organisationID) }
             .sorted { $0.week > $1.week }
@@ -531,11 +531,11 @@ public enum CoachWorldReadModelProvider {
                 let isHome = game.homeID == organisationID
                 let ours = isHome ? result.homeScore : result.awayScore
                 let theirs = isHome ? result.awayScore : result.homeScore
-                return ours == theirs ? nil : ours > theirs
+                return ours - theirs
             }
-        guard let mostRecent = outcomes.first else { return nil }
-        let length = outcomes.prefix { $0 == mostRecent }.count
-        return "\(mostRecent ? "Won" : "Lost") \(length)"
+        guard let mostRecent = margins.first, mostRecent != 0 else { return nil }
+        let length = margins.prefix { $0 != 0 && ($0 > 0) == (mostRecent > 0) }.count
+        return "\(mostRecent > 0 ? "Won" : "Lost") \(length)"
     }
 
     static func seasonLabel(_ calendar: CalendarState) -> String {

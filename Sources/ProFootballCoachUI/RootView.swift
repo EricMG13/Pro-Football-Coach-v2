@@ -23,7 +23,9 @@ private struct DebugCoachingHQRoot: View {
     @State private var coachingHQ = CoachWorldSampleData.coachingHQ
     @State private var recruitingBoard = CoachWorldSampleData.recruitingBoard
     @State private var recruitingProspectID: String?
-    private let matchDay = CoachWorldSampleData.matchDay
+    private let matchDay = ProcessInfo.processInfo.environment["PROOF_SCREEN"] == "match"
+        ? CoachWorldSampleData.matchDayBaseState
+        : CoachWorldSampleData.matchDay
     private let aftermath = AftermathReadModel(
         recordedOutcomeID: "sample-aftermath",
         provenance: .sample,

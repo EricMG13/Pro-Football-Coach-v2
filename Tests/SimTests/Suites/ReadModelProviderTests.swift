@@ -583,6 +583,65 @@ func runReadModelProviderTests() {
             expectEqual(model.rankLabel, ranked.map { "#\($0 + 1)" })
         }
 
+        test("a tie terminates the active win or loss streak") {
+            var (state, programme) = try startedCareer(seed: 4_005_1)
+            guard let opponent = state.programmes.values.first(where: { $0.id != programme.id })
+            else {
+                expect(false, "a generated world produced no streak-test opponent")
+                return
+            }
+
+            func statistics(_ points: Int) -> TeamGameStatistics {
+                TeamGameStatistics(
+                    points: points,
+                    offensiveYards: 0,
+                    passingYards: 0,
+                    rushingYards: 0,
+                    turnovers: 0
+                )
+            }
+            func summary(_ ours: Int, _ theirs: Int) -> GameSummary {
+                GameSummary(
+                    homeScore: ours,
+                    awayScore: theirs,
+                    homeStatistics: statistics(ours),
+                    awayStatistics: statistics(theirs),
+                    playerStatistics: []
+                )
+            }
+            func game(week: Int, ours: Int, theirs: Int) -> ScheduledGame {
+                ScheduledGame(
+                    id: UUID(),
+                    season: state.calendar.season,
+                    tier: .college,
+                    week: week,
+                    stage: .regularSeason,
+                    homeID: programme.id,
+                    awayID: opponent.id,
+                    result: summary(ours, theirs)
+                )
+            }
+
+            state.calendar = CalendarState(season: state.calendar.season, week: 4)
+            state.competition.currentSchedule = SeasonSchedule(
+                season: state.calendar.season,
+                games: [
+                    game(week: 1, ours: 24, theirs: 17),
+                    game(week: 2, ours: 20, theirs: 20),
+                    game(week: 3, ours: 31, theirs: 14),
+                ]
+            )
+            expectEqual(CoachWorldReadModelProvider.coachingHQ(from: state)?.currentStreak, "Won 1",
+                        "the week-two tie must separate the wins on either side")
+
+            state.calendar = CalendarState(season: state.calendar.season, week: 5)
+            state.competition.currentSchedule.append(contentsOf: [
+                game(week: 4, ours: 10, theirs: 10),
+            ])
+            expectEqual(CoachWorldReadModelProvider.coachingHQ(from: state)?.currentStreak, nil,
+                        "a most-recent tie has no active win or loss streak")
+        }
+
         test("the same seed produces the same read model") {
             let first = CoachWorldReadModelProvider.coachingHQ(from: try startedCareer(seed: 4_006).0)
             let second = CoachWorldReadModelProvider.coachingHQ(from: try startedCareer(seed: 4_006).0)

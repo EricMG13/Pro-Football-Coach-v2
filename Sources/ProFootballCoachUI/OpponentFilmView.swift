@@ -78,7 +78,10 @@ public struct OpponentFilmView: View, CoachWorldChromedSurface {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.forgeFieldClub) private var club
+
+    private var club: ForgeFieldTokens.Club {
+        .resolved(for: chrome?.club ?? model.team)
+    }
 
     public init(
         model: OpponentFilmReadModel,
@@ -93,7 +96,7 @@ public struct OpponentFilmView: View, CoachWorldChromedSurface {
     }
 
     public var body: some View {
-        ForgeFieldDevice(club: FilmMetric.club) {
+        ForgeFieldDevice(club: club) {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     accessibleComposition
@@ -188,33 +191,60 @@ public struct OpponentFilmView: View, CoachWorldChromedSurface {
     /// corner `CoachingHQView.ghostMark` bleeds, no corner of its own being stamped for this
     /// surface. Fully desaturated (`Color.white`), not the standard's .75 default: see this file's
     /// own header comment.
+    @ViewBuilder
     private var ghostMark: some View {
-        RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
-            .fill(Color.white)
-            .frame(width: FilmMetric.ghostSize, height: FilmMetric.ghostSize)
-            .opacity(FilmMetric.ghostOpacity)
-            .offset(x: FilmMetric.ghostSize / 2, y: -FilmMetric.ghostSize / 2)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
+        if let opponent = model.opponent {
+            CoachWorldTeamLogo(
+                team: opponent,
+                dimension: FilmMetric.ghostSize,
+                surface: ForgeFieldTokens.Fixed.rival
+            )
+                .saturation(0)
+                .brightness(FilmMetric.ghostBrightness)
+                .opacity(FilmMetric.ghostOpacity)
+                .offset(x: FilmMetric.ghostOffsetX, y: FilmMetric.ghostOffsetY)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
     }
 
     private var floodContent: some View {
-        VStack(alignment: .leading, spacing: FilmMetric.tightGap) {
-            if let statusMessage {
-                statusBanner(statusMessage)
-            }
-            HStack(alignment: .firstTextBaseline, spacing: FilmMetric.gap) {
-                styledText(headlineText, .heading)
-                    .foregroundStyle(club.palette.ink1.color)
-                    .lineLimit(filmLineLimit)
-                if !model.isCurrent {
-                    styledText("STALE", .columnHead)
-                        .foregroundStyle(ForgeFieldTokens.Fixed.signalCaution.color)
+        HStack(spacing: FilmMetric.sectionGap) {
+            if let opponent = model.opponent {
+                ForgeFieldChip {
+                    CoachWorldTeamLogo(
+                        team: opponent,
+                        dimension: FilmMetric.fixtureMarkImageSize,
+                        surface: ForgeFieldTokens.Fixed.rival
+                    )
+                    .saturation(0)
+                    .frame(
+                        width: FilmMetric.fixtureMarkPlateSize,
+                        height: FilmMetric.fixtureMarkPlateSize
+                    )
+                    .background(
+                        ForgeFieldTokens.Fixed.rival.color.opacity(ForgeFieldTokens.Edge.raised)
+                    )
                 }
+                .accessibilityHidden(true)
             }
-            styledText(filmCoverageLine, .prose)
-                .foregroundStyle(club.palette.ink3.color)
-                .lineLimit(filmLineLimit)
+            VStack(alignment: .leading, spacing: FilmMetric.tightGap) {
+                if let statusMessage {
+                    statusBanner(statusMessage)
+                }
+                HStack(alignment: .firstTextBaseline, spacing: FilmMetric.gap) {
+                    styledText(headlineText, .heading)
+                        .foregroundStyle(club.palette.ink1.color)
+                        .lineLimit(filmLineLimit)
+                    if !model.isCurrent {
+                        styledText("STALE", .columnHead)
+                            .foregroundStyle(ForgeFieldTokens.Fixed.signalCaution.color)
+                    }
+                }
+                styledText(filmCoverageLine, .prose)
+                    .foregroundStyle(club.palette.ink3.color)
+                    .lineLimit(filmLineLimit)
+            }
         }
     }
 
@@ -436,12 +466,6 @@ public struct OpponentFilmView: View, CoachWorldChromedSurface {
 /// everything else is this file's own choice from `ForgeFieldTokens.Space.ladder`, matching
 /// `InboxMetric`'s own convention (`InboxView.swift`).
 private enum FilmMetric {
-    /// `04` 6.1e's four authored clubs are not yet resolved per-team (ledger row E6); `.calumet` is
-    /// the same interim default every other Forge Field surface renders every team in today. This
-    /// surface's own flood is cold regardless (see the header comment), so the club only governs
-    /// the chrome bar's spine and the studied body's `ground1`/ink tones.
-    static let club = ForgeFieldTokens.Club.calumet
-
     static let columnWidth = ForgeFieldChromeBar.width
     static let chromeOrigin = ForgeFieldChromeBar.origin
     static let chromeSize = CGSize(width: columnWidth, height: ForgeFieldChromeBar.height)
@@ -467,6 +491,11 @@ private enum FilmMetric {
     /// `ForgeFieldBudget.weeklyCommand[.opponentReportFilmRoom]`'s `ghost`.
     static let ghostSize: CGFloat = 230
     static let ghostOpacity: Double = ForgeFieldTokens.Register.ghostOpacity
+    static let ghostBrightness = 0.5
+    static let ghostOffsetX: CGFloat = 42
+    static let ghostOffsetY: CGFloat = -48
+    static let fixtureMarkPlateSize: CGFloat = 48
+    static let fixtureMarkImageSize: CGFloat = 34
 
     static let situationColumn: CGFloat = 110
     static let splitColumn: CGFloat = 150

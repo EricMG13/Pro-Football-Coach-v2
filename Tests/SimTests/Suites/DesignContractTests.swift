@@ -466,7 +466,7 @@ func runDesignContractTests() {
             let pendingCanonAmendment: [String: Int] = [
                 "CoachWorldDeskComponents.swift": 0,
                 "MatchDayField.swift": 0,
-                "MatchDayScoreBug.swift": 1,           // .bowl kind's alternate ground, ~#0E0A06
+                "MatchDayScoreBug.swift": 0,
             ]
             for file in swiftFiles(under: "Sources/ProFootballCoachUI")
             where !file.path.hasSuffix("/DesignTokens.swift") {
@@ -699,7 +699,10 @@ func runDesignContractTests() {
             // -- the choice row's `selected ? "checkmark.circle.fill" : "circle"` and
             // `noDecision`'s `preparationNeeded ? "clipboard" : "checkmark.circle"` -- with a
             // surface that draws no SF Symbol at all, so the pin shrinks to 6.
-            let knownNonLiteralSites = 6
+            // Match day's Forge Field apron is text-only, so the retired Floodlit metric and
+            // primary-control `Image(systemName:)` sites are both gone. The typed symbol register
+            // remains as the semantic contract even though the authoritative apron draws labels.
+            let knownNonLiteralSites = 4
             var found = 0
             var byFile: [String] = []
             for file in swiftFilesImportingUIFramework() {
@@ -1240,6 +1243,39 @@ func runDesignContractTests() {
             }
         }
 
+        test("a runtime team resolves to the nearest authored club hue") {
+            func team(primary: String?, secondary: String? = "#FFFFFF") -> CoachWorldTeamReference {
+                CoachWorldTeamReference(
+                    stableID: primary ?? "missing",
+                    name: "Palette probe",
+                    abbreviation: "PAL",
+                    primaryColorHex: primary,
+                    secondaryColorHex: secondary
+                )
+            }
+
+            expectEqual(ForgeFieldTokens.Club.resolved(for: team(primary: "#7A1F2B")), .calumet)
+            expectEqual(ForgeFieldTokens.Club.resolved(for: team(primary: "#1E5426")), .maritime)
+            expectEqual(ForgeFieldTokens.Club.resolved(for: team(primary: "#0E4A50")), .zeeland)
+            expectEqual(ForgeFieldTokens.Club.resolved(for: team(primary: "#571F70")), .binghamton)
+            expectEqual(
+                ForgeFieldTokens.Club.resolved(
+                    for: team(primary: "#000000", secondary: "#1E5426")
+                ),
+                .maritime,
+                "an achromatic primary must yield to the team's chromatic secondary"
+            )
+            expectEqual(
+                ForgeFieldTokens.Club.resolved(
+                    for: team(primary: "not-a-colour", secondary: "#0E4A50")
+                ),
+                .calumet,
+                "a malformed pair must be refused at the shared identity boundary"
+            )
+            expectEqual(ForgeFieldTokens.Club.resolved(for: team(primary: nil)), .calumet,
+                        "a team with no usable colour pair keeps the documented fallback")
+        }
+
         test("the single radius is 3 and the device frame is the only exception") {
             expectEqual(ForgeFieldTokens.Space.radius, 3)
             expectEqual(ForgeFieldTokens.Space.radiusDevice, 14)
@@ -1538,19 +1574,30 @@ func runDesignContractTests() {
                    "club colour must never become the bar's own ground fill")
         }
 
-        test("the mark plate keeps the one system-wide radius, not Press Box's cut corner") {
+        test("the mark plate renders the packaged crest inside the one system-wide radius") {
             let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
             let bar = ui.first { $0.path.hasSuffix("/ForgeFieldChromeBar.swift") }?.text ?? ""
-            // Usage syntax, not the bare name: the file's own doc comment names both types by
-            // way of explaining why it does not use them ("Deliberately not CoachWorldTeamLogo
-            // ... clips to CoachWorldCutCorner"), so a bare-substring check would fail on that
-            // prose. `(` and `.` are how each would actually be reached from code.
-            expect(!bar.contains("CoachWorldTeamLogo(") && !bar.contains("CoachWorldCutCorner."),
-                   "04 6.3a: one radius system-wide, mark named explicitly among the things that "
-                       + "share it -- a Press Box cut-corner shape has no place in this bar")
+            expect(bar.contains("CoachWorldTeamLogo(") && bar.contains("ForgeFieldChip"),
+                   "FF Chrome passes a mark asset; the production bar must render that packaged "
+                       + "crest inside the shared Forge Field plate")
+            expect(!bar.contains("CoachWorldCutCorner."),
+                   "04 6.3a: the bar must not introduce a Press Box cut-corner plate")
             expect(bar.contains("ForgeFieldChip"),
                    "the mark plate must clip through the shared Forge Field primitive, not a "
                        + "one-off shape")
+        }
+
+        test("the current family opens its available sibling routes") {
+            let ui = swiftFiles(under: "Sources/ProFootballCoachUI")
+            let bar = ui.first { $0.path.hasSuffix("/ForgeFieldChromeBar.swift") }?.text ?? ""
+            expect(bar.contains("Menu") && bar.contains("model.siblings"),
+                   "the fixed five-family chrome must expose the current family's sibling "
+                       + "screens without adding another visible route bar")
+            expect(!bar.contains("family.surfaces.first"),
+                   "a family control must not blindly route to the registry's first screen")
+            expect(bar.contains(".disabled(destination == nil)"),
+                   "a family unavailable in this career must be visibly disabled, never a silent "
+                       + "no-op control")
         }
 
         test("the week fact is threaded from the week hub, not left unset") {
@@ -2057,6 +2104,10 @@ func runDesignContractTests() {
             }
             expectEqual(CoachingHQView.ghostSize, ghost.size, "ghost size")
             expectEqual(CoachingHQView.ghostOpacity, ghost.opacity, "ghost opacity")
+            let source = swiftFiles(under: "Sources/ProFootballCoachUI")
+                .first { $0.path.hasSuffix("/CoachingHQView.swift") }?.text ?? ""
+            expect(source.contains("CoachWorldTeamLogo("),
+                   "Coaching HQ's ghost must render the packaged club crest, not an empty plate")
         }
 
         test("Coaching HQ's own background count matches its stamped budget") {
@@ -2070,6 +2121,14 @@ func runDesignContractTests() {
             }
             expectEqual(CoachingHQView.backgroundCount, stamped,
                         "Coaching HQ must draw exactly the stamped background count")
+        }
+
+        test("Coaching HQ does not insert an unstamped secondary action row above the fixture") {
+            let source = swiftFiles(under: "Sources/ProFootballCoachUI")
+                .first { $0.path.hasSuffix("/CoachingHQView.swift") }?.text ?? ""
+            expect(!source.contains("secondaryLinks") && !source.contains("secondaryLink("),
+                   "the authoritative flood stack starts with kickoff; an extra action row "
+                       + "pushes the fixture into the fixed ember band")
         }
     }
 
@@ -2376,13 +2435,21 @@ func runDesignContractTests() {
             expectEqual(PracticePlanView.emberElementCount, 0, "PracticePlanView.emberElementCount")
         }
 
-        test("Practice plan draws no ghost mark, matching its stamped budget") {
+        test("Practice plan's ghost mark matches the authoritative package") {
             guard let budget else {
                 expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .practicePlan")
                 return
             }
-            expect(budget.ghost == nil, "Practice plan's stamped budget must carry no ghost")
-            expect(PracticePlanView.hasGhostMark == false, "PracticePlanView must draw no ghost mark")
+            guard let ghost = budget.ghost else {
+                expect(false, "Practice plan's budget must stamp the package's 230 point ghost")
+                return
+            }
+            expectEqual(PracticePlanView.ghostSize, ghost.size, "ghost size")
+            expectEqual(PracticePlanView.ghostOpacity, ghost.opacity, "ghost opacity")
+            let source = swiftFiles(under: "Sources/ProFootballCoachUI")
+                .first { $0.path.hasSuffix("/PracticePlanView.swift") }?.text ?? ""
+            expect(source.contains("CoachWorldTeamLogo("),
+                   "Practice plan's flooded strip must render the packaged club crest")
         }
 
         test("Practice plan's own background count matches its stamped budget -- flood, ground 1") {
@@ -2520,13 +2587,21 @@ func runDesignContractTests() {
                         "Team health must carry exactly the stamped ember count")
         }
 
-        test("Team health draws no ghost mark, matching its stamped budget") {
+        test("Team health's ghost mark matches the authoritative package") {
             guard let budget else {
                 expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .teamHealth")
                 return
             }
-            expect(budget.ghost == nil, "Team health's stamped budget must carry no ghost")
-            expect(TeamHealthView.hasGhostMark == false, "TeamHealthView must draw no ghost mark")
+            guard let ghost = budget.ghost else {
+                expect(false, "Team health's budget must stamp the package's 230 point ghost")
+                return
+            }
+            expectEqual(TeamHealthView.ghostSize, ghost.size, "ghost size")
+            expectEqual(TeamHealthView.ghostOpacity, ghost.opacity, "ghost opacity")
+            let source = swiftFiles(under: "Sources/ProFootballCoachUI")
+                .first { $0.path.hasSuffix("/TeamHealthView.swift") }?.text ?? ""
+            expect(source.contains("CoachWorldTeamLogo("),
+                   "Team health's flooded strip must render the packaged club crest")
         }
 
         test("Team health's own background count matches its stamped budget -- flood, ground 1") {
@@ -2702,6 +2777,10 @@ func runDesignContractTests() {
                         "the ghost must be desaturated to zero, past the standard's own .75 "
                             + "default -- \"club colour on this screen would say the opponent "
                             + "belongs to us\"")
+            let source = swiftFiles(under: "Sources/ProFootballCoachUI")
+                .first { $0.path.hasSuffix("/OpponentFilmView.swift") }?.text ?? ""
+            expect(source.contains("CoachWorldTeamLogo("),
+                   "the film-room ghost must be the opponent's packaged crest")
         }
 
         test("the film room's own background count matches its stamped budget -- cold flood, "
@@ -2848,6 +2927,10 @@ func runDesignContractTests() {
             }
             expectEqual(AftermathView.ghostSize, ghost.size, "ghost size")
             expectEqual(AftermathView.ghostOpacity, ghost.opacity, "ghost opacity")
+            let source = swiftFiles(under: "Sources/ProFootballCoachUI")
+                .first { $0.path.hasSuffix("/AftermathView.swift") }?.text ?? ""
+            expect(source.contains("CoachWorldTeamLogo("),
+                   "Aftermath's ghost must render the packaged club crest, not an empty plate")
         }
 
         test("Aftermath's own background count matches its stamped budget -- flood, ground 1") {
@@ -3127,6 +3210,92 @@ func runDesignContractTests() {
             expect(source.contains("== \"game-detail-overflow\"")
                        && source.contains("? aftermathOverflow"),
                    "the GameDetail overflow proof must reuse the bounded sample aftermath fixture")
+        }
+    }
+
+    suite("Match day (06.1e, 06.2a, 06.3a) -- weekly-command Task 10") {
+        let budget = ForgeFieldBudget.weeklyCommand[.matchDay]
+
+        test("the field is the whole stage with no management chrome or seam") {
+            guard let budget, let stamped = budget.stageFraction else {
+                expect(false, "Match day's budget must stamp a stage fraction")
+                return
+            }
+            expectEqual(MatchDayView.stageFraction, stamped.lowerBound,
+                        "Match day must spend the full 100 percent Broadcast stage")
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/MatchDayView.swift")
+            let source = (try? String(contentsOf: path, encoding: .utf8)).map(strippingLineComments) ?? ""
+            expect(source.contains("ForgeFieldDevice("),
+                   "Match day must render inside the Forge Field device")
+            expect(!source.contains("CoachWorldFloodlitStage(")
+                       && !source.contains("ForgeFieldChromeBar(")
+                       && !source.contains("ForgeFieldSeam("),
+                   "the 100 percent field has no retired stage, management chrome, or seam")
+        }
+
+        test("the four apron plates count fourteen truthful figures") {
+            guard let budget, let stamped = budget.dataPoints else {
+                expect(false, "Match day's budget must stamp an apron figure count")
+                return
+            }
+            expectEqual(MatchDayView.glassPlateCount, 4, "score, play-caller, lower third, controls")
+            expectEqual(MatchDayView.apronDataPointRoles.count, stamped,
+                        "the four apron plates must show exactly the stamped fourteen figures")
+            expectEqual(Set(MatchDayView.apronDataPointRoles).count,
+                        MatchDayView.apronDataPointRoles.count,
+                        "each apron figure must be counted once")
+        }
+
+        test("gold, ember, centred ghost, and five-control budgets are exact") {
+            guard let budget else {
+                expect(false, "ForgeFieldBudget.weeklyCommand holds no entry for .matchDay")
+                return
+            }
+            expectEqual(MatchDayView.goldElementCount, budget.goldMax,
+                        "clock, pylons, and drive head spend the three gold roles")
+            expectEqual(MatchDayView.emberElementCount, budget.emberCount,
+                        "Take the calls is the one committing ember")
+            expectEqual(MatchDayView.ghostElementCount, 1,
+                        "the existing midfield mark is the one centred field ghost")
+            expectEqual(MatchDayView.ghostSize, 76,
+                        "the authoritative centre-field ghost is 76 by 76")
+            expectEqual(MatchDayView.ghostOpacity, ForgeFieldTokens.Register.ghostOpacity,
+                        "the centred field ghost must use the Forge Field house opacity")
+            let fieldPath = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/MatchDayField.swift")
+            let fieldSource = (try? String(contentsOf: fieldPath, encoding: .utf8)) ?? ""
+            expect(fieldSource.contains("CoachWorldTeamLogo(")
+                       && fieldSource.contains("size: .field"),
+                   "a regular-season midfield ghost must render the team's packaged crest")
+            expectEqual(MatchDayView.primaryControlCount, MatchDayControlID.allCases.count,
+                        "all five existing primary control identities remain reachable")
+            expectEqual(MatchDayView.primaryControlCount, 5,
+                        "Match day must not add a sixth primary control")
+        }
+
+        test("recorded playback keeps all twenty-two actors on the field") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/MatchDayView.swift")
+            let source = (try? String(contentsOf: path, encoding: .utf8)) ?? ""
+            expect(source.contains("let trackedIDs = Set(playback.actors.map(\\.stableID))")
+                       && source.contains("let staticActors = model.actors.filter {")
+                       && source.contains("!trackedIDs.contains($0.stableID)")
+                       && source.contains("ForEach(staticActors, id: \\.stableID)"),
+                   "playback tracks must replace only their actors, not hide the other players")
+            expect(source.contains("foregroundIDs: playback.foregroundIDs"),
+                   "static actors during playback must use the playback highlight set")
+        }
+
+        test("an opaque staff call-in replaces the bottom control cluster") {
+            let path = packageRoot()
+                .appendingPathComponent("Sources/ProFootballCoachUI/MatchDayView.swift")
+            let source = (try? String(contentsOf: path, encoding: .utf8))
+                .map(strippingLineComments) ?? ""
+            let replacement = "(if\\s+model\\.staffInterruption\\s*==\\s*nil\\s*\\{\\s*bottomRightCluster)"
+            expectEqual(matches(of: replacement, in: source).count, 1,
+                        "the 218-point opaque call-in rail must replace, not overlap, the "
+                            + "44-point bottom controls")
         }
     }
 }

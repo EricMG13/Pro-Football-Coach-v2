@@ -79,8 +79,11 @@ public struct GamePlanView: View, CoachWorldChromedSurface {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.forgeFieldClub) private var club
     @State private var selectedID: String
+
+    private var club: ForgeFieldTokens.Club {
+        .resolved(for: chrome?.club ?? model.team)
+    }
 
     public init(
         model: GamePlanReadModel,
@@ -100,7 +103,7 @@ public struct GamePlanView: View, CoachWorldChromedSurface {
     }
 
     public var body: some View {
-        ForgeFieldDevice(club: GameMetric.club) {
+        ForgeFieldDevice(club: club) {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     accessibleComposition
@@ -460,10 +463,6 @@ public struct GamePlanView: View, CoachWorldChromedSurface {
 /// is this file's own choice from `ForgeFieldTokens.Space.ladder`, matching `InboxMetric`'s own
 /// convention (`InboxView.swift`).
 private enum GameMetric {
-    /// `04` 6.1e's four authored clubs are not yet resolved per-team (ledger row E6); `.calumet` is
-    /// the same interim default every other Forge Field surface renders every team in today.
-    static let club = ForgeFieldTokens.Club.calumet
-
     static let columnWidth = ForgeFieldChromeBar.width
     static let chromeOrigin = ForgeFieldChromeBar.origin
     static let chromeSize = CGSize(width: columnWidth, height: ForgeFieldChromeBar.height)

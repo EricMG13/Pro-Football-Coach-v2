@@ -54,8 +54,10 @@ import SwiftUI
 /// 7. Long generated club/opponent names scale down (`minimumScaleFactor`) rather than truncating
 ///    illegibly at 62 pt across an 832 pt column.
 /// 8. `onInspect` (film) and `onDelegate`/`onPrepare` have no stamped position on the sheet, which
-///    draws only the ember at this geometry -- they render as a small quiet link row, each control
-///    still clearing the 44 pt hit floor. The overflow/evidence caption row (item 6) does not
+///    draws only the ember at this geometry. The standard composition does not invent another
+///    action row; Film remains available from the current-family chrome menu, while the full
+///    transitional route set remains in the AX5 composition. The overflow/evidence caption row
+///    (item 6) does not
 ///    independently clear 44 pt when it is the rare tappable case; the same destination (Inbox) is
 ///    always separately reachable, so missing this specific link is recoverable, not a dead end.
 public struct CoachingHQView: View, CoachWorldChromedSurface {
@@ -84,8 +86,11 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
     public let showsRealignmentEvent: Bool
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.forgeFieldClub) private var club
     @State private var selectedChoiceID: CoachWorldIntentID?
+
+    private var club: ForgeFieldTokens.Club {
+        .resolved(for: chrome?.club ?? model.team)
+    }
 
     public init(
         model: CoachingHQReadModel,
@@ -126,7 +131,7 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
     }
 
     public var body: some View {
-        ForgeFieldDevice(club: HQMetric.club) {
+        ForgeFieldDevice(club: club) {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     accessibleComposition
@@ -212,16 +217,12 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
     private var fixtureCard: some View {
         if let opponent = model.opponent {
             VStack(spacing: HQMetric.floodStackGap) {
-                if hasSecondaryLinks {
-                    HStack(spacing: HQMetric.gap) { secondaryLinks }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-
                 styledText(kickoffLine, .columnHead)
                     .foregroundStyle(club.palette.ink3.color)
                     .lineLimit(1)
 
                 HStack(alignment: .top, spacing: HQMetric.sectionGap) {
+                    fixtureMark(model.team, isOpponent: false)
                     fixtureHalf(
                         name: displayName(for: model.team), standing: ourStandingLine,
                         standingInk: nil
@@ -232,6 +233,7 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
                         name: displayName(for: opponent), standing: opponentStandingLine,
                         standingInk: club.palette.ink3.color
                     )
+                    fixtureMark(opponent, isOpponent: true)
                 }
 
                 if let streak = model.currentStreak {
@@ -272,18 +274,35 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
         return nickname
     }
 
-    /// The oversized ghost mark, standard section 2.7 (via `ForgeFieldBudget`): 244 pt, .10
-    /// opacity, bleeding the flood field's top-right corner. No club logo asset exists to ghost --
-    /// `04` section 6.6a's mark vocabulary is an abstract plate, never an image -- so this is that
-    /// same plate shape, oversized and faint, rather than an invented crest.
+    /// The authoritative oversized club crest: 244 pt at .10, bleeding the flood's top-right edge.
     private var ghostMark: some View {
-        RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
-            .fill(club.palette.hairline.color)
-            .frame(width: HQMetric.ghostSize, height: HQMetric.ghostSize)
+        CoachWorldTeamLogo(
+            team: model.team,
+            dimension: HQMetric.ghostSize,
+            surface: club.palette.clubDeep
+        )
+            .saturation(ForgeFieldTokens.Register.ghostSaturate)
             .opacity(HQMetric.ghostOpacity)
-            .offset(x: HQMetric.ghostSize / 2, y: -HQMetric.ghostSize / 2)
+            .offset(x: HQMetric.ghostOffsetX, y: HQMetric.ghostOffsetY)
             .allowsHitTesting(false)
             .accessibilityHidden(true)
+    }
+
+    private func fixtureMark(_ team: CoachWorldTeamReference, isOpponent: Bool) -> some View {
+        ForgeFieldChip {
+            CoachWorldTeamLogo(
+                team: team,
+                dimension: HQMetric.fixtureMarkImageSize,
+                surface: isOpponent ? ForgeFieldTokens.Fixed.rival : club.palette.club
+            )
+            .saturation(isOpponent ? 0 : 1)
+            .frame(width: HQMetric.fixtureMarkPlateSize, height: HQMetric.fixtureMarkPlateSize)
+            .background(
+                (isOpponent ? ForgeFieldTokens.Fixed.rival : club.palette.club).color
+                    .opacity(ForgeFieldTokens.Edge.raised)
+            )
+        }
+        .accessibilityHidden(true)
     }
 
     private func fixtureHalf(name: String, standing: String, standingInk: Color?) -> some View {
@@ -319,36 +338,6 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
         if let isHome = model.isHomeGame { parts.append(isHome ? "HOME" : "AWAY") }
         if let venue = model.venue { parts.append(venue.name.uppercased()) }
         return parts.joined(separator: " \u{00B7} ")
-    }
-
-    private var hasSecondaryLinks: Bool {
-        model.opponent != nil || model.decision != nil || preparationNeeded
-    }
-
-    @ViewBuilder
-    private var secondaryLinks: some View {
-        if model.opponent != nil {
-            secondaryLink("FILM", action: onInspect)
-        }
-        if model.decision != nil {
-            secondaryLink("DELEGATE", action: onDelegate)
-        } else if preparationNeeded {
-            secondaryLink("DELEGATE", action: onPrepare)
-        }
-    }
-
-    private func secondaryLink(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(ForgeFieldType.font(.chrome))
-                .tracking(CoachWorldTokens.DisplaySize.tracking(
-                    ForgeFieldType.Tracking.chrome.em, at: ForgeFieldType.Step.chrome.points
-                ))
-                .foregroundStyle(club.palette.ink3.color)
-                .frame(minWidth: ForgeFieldTokens.Space.hitMin, minHeight: ForgeFieldTokens.Space.hitMin)
-        }
-        .buttonStyle(.plain)
-        .contentShape(Rectangle())
     }
 
     // MARK: Ember -- the one commit, `04` 6.1e. Deviation 4: cost names the open-obligation count.
@@ -552,8 +541,9 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
     // MARK: Legacy full-reachability navigation, AX5 only.
     //
     // `04` 6.1f's chrome bar carries only the five families, by design -- the Broadcast
-    // composition above has no room for more, and does not need it: FILM and DELEGATE in
-    // `secondaryLinks` already cover this week's own actions. But most of the game's 62 screens
+    // composition above has no room for more, and does not need it: the current-family chrome menu
+    // reaches Film and the obligations panel carries this week's decisions. But most of the game's
+    // 62 screens
     // live in families Forge Field has not migrated yet (ledger row E6), and Coaching HQ is where
     // every one of their routes has lived since before Forge Field existed. Dropping that
     // reachability here would strand every one of those screens, so it is kept -- deliberately
@@ -615,7 +605,7 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
 
     /// The calm empty state's remaining film reachability: `onInspect` has no stamped position on
     /// the sheet (deviation 8) and stays reachable even with no mandatory decision open, matching
-    /// every other week state's own FILM link in `secondaryLinks`.
+    /// every other week state's film route.
     private var noDecision: some View {
         Group {
             if model.decision == nil && model.obligations.isEmpty && model.opponent != nil {
@@ -663,11 +653,6 @@ public struct CoachingHQView: View, CoachWorldChromedSurface {
 /// rounded to the spacing ladder; only the internal gaps this file chooses (tile gap, flood stack
 /// gap) come from the ladder or a named token.
 private enum HQMetric {
-    /// `04` 6.1e's four authored clubs are not yet resolved per-team (ledger row E6, "Phase 2 --
-    /// needs its own plan"); `.calumet` is the same interim default `ForgeFieldChromeBar` already
-    /// renders every team in today.
-    static let club = ForgeFieldTokens.Club.calumet
-
     /// Shared with the chrome bar rather than re-declared, so this surface's own 832 pt column
     /// cannot drift from the chrome bar's.
     static let columnWidth = ForgeFieldChromeBar.width
@@ -711,6 +696,10 @@ private enum HQMetric {
     /// The ghost mark -- `ForgeFieldBudget.weeklyCommand[.coachingHQ]`'s `ghost`.
     static let ghostSize: CGFloat = 244
     static let ghostOpacity: Double = 0.10
+    static let ghostOffsetX: CGFloat = 48
+    static let ghostOffsetY: CGFloat = -56
+    static let fixtureMarkPlateSize: CGFloat = 48
+    static let fixtureMarkImageSize: CGFloat = 34
 
     /// The character length above which `displayName(for:)` switches a fixture name to its
     /// nickname. Calibrated from a booted-device measurement: "Claremont State" (16 characters,

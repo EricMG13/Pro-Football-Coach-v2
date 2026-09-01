@@ -1,20 +1,24 @@
 import FootballSimCore
 import SwiftUI
 
-/// Reports `topRightStack`'s rendered height, so the staff call-in panel can start below it
-/// instead of guessing a fixed offset that drifts the moment the stack's content changes (the
-/// call-in budget bug is conditional on `model.callInBudget`, so the stack's height is not a
-/// constant). MATCH-DAY.md section 5 states the panel begins at "top 122" specifically so the
-/// budget bug, the control depth selector and the halftime chip stay visible above it — a fixed
-/// top inset equal to the stack's own top offset hid all three behind the panel instead.
-private struct TopRightStackHeightKey: PreferenceKey {
-    static let defaultValue: CGFloat = 0
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-
 public struct MatchDayView: View {
+    /// Assertable Forge Field sheet facts. "Figures" are the qualified read-model values printed
+    /// on the apron, not the twenty-two actors on the field and not the five intent controls.
+    public static let apronDataPointRoles = [
+        "score.homeTeam", "score.homeScore", "score.awayTeam", "score.awayScore",
+        "situation.quarter", "situation.clock", "situation.down", "situation.yardsToGo",
+        "situation.possession", "callIns.used", "callIns.total", "callIns.marks",
+        "callIns.rateNote", "controlDepth",
+    ]
+    public static let stageFraction = 1.0
+    public static let glassPlateCount = 4
+    public static let goldElementCount = 3
+    public static let emberElementCount = 1
+    public static let ghostElementCount = 1
+    public static let ghostSize = CoachWorldTeamLogoSize.field.rawValue
+    public static let ghostOpacity = ForgeFieldTokens.Register.ghostOpacity
+    public static let primaryControlCount = MatchDayControlID.allCases.count
+
     public let model: MatchDayReadModel
     public let statusMessage: String?
     public let onControl: (CoachWorldIntentID) -> Void
@@ -38,7 +42,6 @@ public struct MatchDayView: View {
     @State private var pausedAccumulated: TimeInterval = 0
     /// Set while an in-progress pause has not yet been folded into `pausedAccumulated`.
     @State private var pausedSince: Date?
-    @State private var topRightStackHeight: CGFloat = .zero
 
     public init(
         model: MatchDayReadModel,
@@ -115,7 +118,7 @@ public struct MatchDayView: View {
     }
 
     public var body: some View {
-        CoachWorldFloodlitStage(palette: palette, register: .broadcast) {
+        ForgeFieldDevice(club: club) {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     accessibleLayout
@@ -123,6 +126,10 @@ public struct MatchDayView: View {
                     standardLayout
                 }
             }
+            .frame(
+                width: ForgeFieldTokens.Space.viewport.width,
+                height: ForgeFieldTokens.Space.viewport.height
+            )
         }
         .sheet(isPresented: $showsEvidence) { evidenceSheet }
     }
@@ -141,52 +148,37 @@ public struct MatchDayView: View {
                     .frame(width: size.width, height: size.height)
 
                 scoreBug
-                    .padding(.leading, CoachWorldTokens.Frame.leadingInset)
-                    .padding(.top, CoachWorldTokens.Frame.topInset)
+                    .padding(.leading, MatchMetric.apronLeading)
+                    .padding(.top, MatchMetric.apronTop)
 
-                topRightStack
-                    .padding(.trailing, CoachWorldTokens.Frame.gutter)
-                    .padding(.top, CoachWorldTokens.Frame.topInset)
+                playCallerPlate
+                    .frame(width: MatchMetric.playCallerWidth)
+                    .padding(.trailing, MatchMetric.apronTrailing)
+                    .padding(.top, MatchMetric.apronTop)
                     .frame(maxWidth: size.width, alignment: .trailing)
-                    .background {
-                        GeometryReader { stackGeometry in
-                            Color.clear.preference(
-                                key: TopRightStackHeightKey.self, value: stackGeometry.size.height
-                            )
-                        }
-                    }
 
                 MatchLowerThird(
                     model: model, phase: phase.label, isLive: phase.isLive,
                     headline: model.playback?.sentence, onExit: onExit
                 )
-                .frame(width: size.width * CoachWorldTokens.Frame.lowerThirdWidthRatio)
-                .padding(.leading, CoachWorldTokens.Frame.leadingInset)
-                .padding(.bottom, CoachWorldTokens.Frame.bottomInset)
+                .frame(width: MatchMetric.lowerThirdWidth)
+                .padding(.leading, MatchMetric.apronLeading)
+                .padding(.bottom, MatchMetric.apronBottom)
                 .frame(maxHeight: size.height, alignment: .bottom)
 
-                // The staff call-in panel occupies this same trailing column while a call-in is
-                // open, and the committing action is already disabled then (`.keyMoments`'s
-                // control is gated on `pendingCallIn == nil` upstream) — so this is a state change,
-                // not decoration hidden under decoration. An always-present but untappable button
-                // sitting invisibly beneath an opaque panel is a hit-testing and VoiceOver-order
-                // hazard even when nothing is visually wrong; hiding it outright removes both.
                 if model.staffInterruption == nil {
                     bottomRightCluster
-                        .padding(.trailing, CoachWorldTokens.Frame.gutter)
-                        .padding(.bottom, CoachWorldTokens.Frame.bottomInset)
+                        .padding(.trailing, MatchMetric.apronTrailing)
+                        .padding(.bottom, MatchMetric.apronBottom)
                         .frame(width: size.width, height: size.height, alignment: .bottomTrailing)
                 }
 
                 if let interruption = model.staffInterruption {
                     staffCallInPanel(interruption)
                         .frame(width: MatchMetric.callInWidth)
-                        .padding(.trailing, CoachWorldTokens.Frame.gutter)
-                        // Below the persistent top-right furniture, never over it — MATCH-DAY.md
-                        // section 5 states this panel starts at "top 122" specifically so the
-                        // budget bug, control depth and halftime chip stay visible above it.
-                        .padding(.top, topRightStackHeight + CoachWorldTokens.Gap.lg)
-                        .padding(.bottom, CoachWorldTokens.Frame.bottomInset)
+                        .frame(maxHeight: MatchMetric.callInHeight)
+                        .padding(.trailing, MatchMetric.apronTrailing)
+                        .padding(.top, MatchMetric.callInTop)
                         .frame(width: size.width, height: size.height, alignment: .topTrailing)
                         .transition(
                             .move(edge: .trailing).combined(with: .opacity)
@@ -196,20 +188,23 @@ public struct MatchDayView: View {
                 if let statusMessage {
                     Text(statusMessage)
                         .font(CoachWorldTokens.TypeRole.caption)
-                        .foregroundStyle(palette.contentSecondary.color)
+                        .foregroundStyle(club.palette.ink2.color)
                         .padding(.horizontal, CoachWorldTokens.Space.sm)
                         .padding(.vertical, CoachWorldTokens.Space.xxs)
-                        .background(.ultraThinMaterial, in: Capsule())
-                        .padding(.top, CoachWorldTokens.Frame.topInset)
+                        .background(club.palette.ground2.color)
+                        .clipShape(
+                            RoundedRectangle(
+                                cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous
+                            )
+                        )
+                        .padding(.top, MatchMetric.apronTop)
                         .frame(width: size.width, alignment: .top)
                 }
             }
-            .onPreferenceChange(TopRightStackHeightKey.self) { topRightStackHeight = $0 }
             .coachWorldAnimation(
                 CoachWorldTokens.Motion.panelEnter, value: model.staffInterruption != nil
             )
         }
-        .aspectRatio(MatchMetric.frameAspect, contentMode: .fit)
         .accessibilityIdentifier("match-day-standard")
     }
 
@@ -224,125 +219,109 @@ public struct MatchDayView: View {
         .accessibilitySortPriority(100)
     }
 
-    /// Exactly the three the handoff draws top-right: the call-in budget bug, the control depth
-    /// selector, the halftime chip.
-    ///
-    /// Pause and Take Over used to sit here too, as a fourth row, purely because they are two of
-    /// the five contract-fixed primary controls and needed somewhere to live. That made the stack
-    /// tall enough to cover the vertical middle of the opponent's end zone, which is exactly where
-    /// its painted name is drawn — the design keeps this column short so that lettering reads. They
-    /// now sit in the bottom-right cluster instead, which is both closer to the thumb and closer to
-    /// what the design draws.
-    private var topRightStack: some View {
-        VStack(alignment: .trailing, spacing: CoachWorldTokens.Gap.lg) {
+    /// The authoritative 196-point play-caller plate. Budget and depth are retained read-model
+    /// facts; no coordinator name is reconstructed when the model does not hold one.
+    private var playCallerPlate: some View {
+        VStack(alignment: .trailing, spacing: .zero) {
             if let budget = model.callInBudget {
                 CallInBudgetBug(budget: budget)
             }
             ControlDepthSelector(depth: model.controlDepth) {
                 onControl(model.controlDepthIntentID)
             }
-            .frame(width: MatchMetric.controlDepthWidth)
-            furnitureControlButton(.tactics, wide: true)
         }
+        .background(club.palette.ground0.color.opacity(ForgeFieldTokens.Material.glass))
+        .background(.ultraThinMaterial)
+        .clipShape(
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
+                .strokeBorder(
+                    club.palette.hairline.color.opacity(ForgeFieldTokens.Edge.panel),
+                    lineWidth: ForgeFieldTokens.Edge.hairlineWidth
+                )
+        }
+        .shadow(
+            color: .black.opacity(MatchMetric.plateShadowAlpha),
+            radius: MatchMetric.plateShadowRadius,
+            y: MatchMetric.plateShadowY
+        )
         .accessibilitySortPriority(85)
     }
 
     private var bottomRightCluster: some View {
-        HStack(spacing: CoachWorldTokens.Gap.xs) {
-            speedCycleButton
-            furnitureControlButton(.pause)
-            furnitureControlButton(.takeOver)
+        HStack(spacing: MatchMetric.controlGap) {
+            compactControlButton(.speed, label: "Speed")
+            compactControlButton(.pause, label: "Pause")
+            compactControlButton(.keyMoments, label: "Key Moments")
+            compactControlButton(.tactics, label: "Tactics")
             committingAction
         }
+        .padding(.leading, MatchMetric.controlPadding)
+        .background(club.palette.ground0.color.opacity(ForgeFieldTokens.Material.glass))
+        .background(.ultraThinMaterial)
+        .clipShape(
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
+        )
+        .overlay {
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
+                .strokeBorder(
+                    club.palette.hairline.color.opacity(ForgeFieldTokens.Edge.panel),
+                    lineWidth: ForgeFieldTokens.Edge.hairlineWidth
+                )
+        }
+        .shadow(
+            color: .black.opacity(MatchMetric.plateShadowAlpha),
+            radius: MatchMetric.plateShadowRadius,
+            y: MatchMetric.plateShadowY
+        )
         .accessibilitySortPriority(95)
     }
 
-    private var speedCycleButton: some View {
-        let control = orderedControls.first { $0.id == .speed }
-        return Button {
-            speedIndex = (speedIndex + 1) % MatchMetric.speedMultipliers.count
-            if let control { onControl(control.intentID) }
-        } label: {
-            Text("\(Int(speedMultiplier))×")
-                .coachWorldFigure(CoachWorldTokens.DisplaySize.action, weight: .bold)
-                .frame(width: MatchMetric.speedPillWidth)
-                .frame(minHeight: CoachWorldTokens.Shape.minimumTarget)
-        }
-        .foregroundStyle(palette.actionPrimary.color)
-        .coachWorldFloodlitPanel(
-            fill: CoachWorldTokens.Floodlit.roomDeep.color.opacity(0.86),
-            border: Color.white.opacity(CoachWorldTokens.Glass.line),
-            depth: .deep,
-            shape: CoachWorldCutCorner.actionSmall
-        )
-        .coachWorldDisabled(control?.isEnabled == false)
-        .accessibilityLabel("Speed, \(Int(speedMultiplier)) times")
-    }
-
     private var committingAction: some View {
-        let control = orderedControls.first { $0.id == .keyMoments }
-        let label = control?.isEnabled == false
-            ? (control?.value ?? "Call-in pending")
-            : committingLabel
-        return CommittingAction(title: label) {
+        let control = model.controls.first { $0.id == .takeOver }
+        return ForgeFieldEmber(
+            label: "Take the calls",
+            cost: takeoverContext,
+            isEnabled: control?.isEnabled != false
+        ) {
             if let control { onControl(control.intentID) }
         }
-        .coachWorldDisabled(control?.isEnabled == false)
+        .frame(width: MatchMetric.emberWidth)
+        .accessibilityLabel("Take Over. Take the calls. \(takeoverContext)")
     }
 
-    /// `Snap it` before a recorded play exists, `Play on` while its animation runs, `Next snap`
-    /// once it has settled — the handoff's per-frame cycle, read off the same presentation phase
-    /// the lower third uses.
-    private var committingLabel: String {
-        switch phase.label {
-        case "Pre-snap": "Snap it"
-        case "Snap": "Play on"
-        default: "Next snap"
-        }
+    private var takeoverContext: String {
+        "\(clockLabel) left · \(ordinal(model.situation.down)) down"
     }
 
-    /// Pause and Take Over: two of the five contract-fixed primary controls, rendered as small
-    /// glass icon chips rather than a bottom bar, per `04` section 6.1b's furniture-first layout.
-    /// Tactics reuses the same chip, widened. It no longer carries a hardcoded "HALFTIME" claim --
-    /// the control's own action never changes with game state, so its label should not pretend to
-    /// either, and no state anywhere in the app is retained across the actual halftime instant to
-    /// gate a truthful one (`MatchPauseBoundary.halftime` is a one-shot reducer receipt, never
-    /// captured past the step that produces it).
-    private func furnitureControlButton(
-        _ id: MatchDayControlID, wide: Bool = false, label: String? = nil
-    ) -> some View {
-        let control = orderedControls.first { $0.id == id }
-        let presentation = controlPresentation(id)
+    private func compactControlButton(_ id: MatchDayControlID, label: String) -> some View {
+        let control = model.controls.first { $0.id == id }
         return Button {
+            if id == .speed {
+                speedIndex = (speedIndex + 1) % MatchMetric.speedMultipliers.count
+            }
             if let control { onControl(control.intentID) }
         } label: {
-            Group {
-                if wide {
-                    Text((label ?? presentation.title).uppercased())
-                        .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .bold)
-                        .tracking(
-                            CoachWorldTokens.DisplaySize
-                                .tracking(0.1, at: CoachWorldTokens.DisplaySize.flag)
-                        )
-                } else {
-                    Image(systemName: presentation.symbol.rawValue)
-                        .coachWorldIcon(MatchMetric.furnitureIconSize, weight: .bold)
+            VStack(spacing: .zero) {
+                Text(label.uppercased())
+                    .font(ForgeFieldType.font(.columnHead))
+                    .lineLimit(1)
+                    .minimumScaleFactor(MatchMetric.controlScaleFloor)
+                if id == .speed {
+                    Text("\(Int(speedMultiplier))×")
+                        .font(ForgeFieldType.font(.figure))
                 }
             }
-            .frame(
-                minWidth: wide ? MatchMetric.controlDepthWidth : CoachWorldTokens.Shape.minimumTarget,
-                minHeight: CoachWorldTokens.Shape.minimumTarget
-            )
+            .foregroundStyle(club.palette.ink1.color)
+            .frame(minWidth: MatchMetric.controlWidth(id),
+                   minHeight: ForgeFieldTokens.Space.hitMin)
         }
-        .foregroundStyle(palette.contentPrimary.color)
-        .coachWorldFloodlitPanel(
-            fill: CoachWorldTokens.Floodlit.roomDeep.color.opacity(0.86),
-            border: Color.white.opacity(CoachWorldTokens.Glass.line),
-            depth: .deep,
-            shape: CoachWorldCutCorner.actionSmall
-        )
-        .coachWorldDisabled(control?.isEnabled == false)
-        .accessibilityLabel(label ?? presentation.title)
+        .buttonStyle(.plain)
+        .disabled(control?.isEnabled == false)
+        .opacity(control?.isEnabled == false ? MatchMetric.disabledOpacity : 1)
+        .accessibilityLabel(id == .speed ? "Speed, \(Int(speedMultiplier)) times" : label)
         .accessibilityAddTraits(control?.isSelected == true ? .isSelected : [])
     }
 
@@ -373,7 +352,8 @@ public struct MatchDayView: View {
                     Text(statusMessage)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(CoachWorldTokens.Space.md)
-                        .background(palette.raised.color)
+                        .foregroundStyle(club.palette.ink2.color)
+                        .background(club.palette.ground2.color)
                         .accessibilitySortPriority(65)
                 }
                 VStack(spacing: .zero) {
@@ -396,10 +376,10 @@ public struct MatchDayView: View {
                 Text("\(quarterLabel) · \(clockLabel)")
                     .monospacedDigit()
             }
-            .font(CoachWorldTokens.TypeRole.headline.weight(.black))
+            .font(ForgeFieldType.font(.chrome))
             Text("\(ordinal(model.situation.down)) & \(model.situation.yardsToGo)"
                 + " · \(possessionTeam.abbreviation) BALL · LIVE CHECKPOINT")
-                .font(CoachWorldTokens.TypeRole.body.weight(.black))
+                .font(ForgeFieldType.font(.prose))
         }
         .lineLimit(1)
         .minimumScaleFactor(MatchMetric.accessibleScoreScale)
@@ -409,7 +389,8 @@ public struct MatchDayView: View {
             minHeight: MatchMetric.accessibleScoreHeight,
             alignment: .leading
         )
-        .background(palette.raised.color.opacity(0.96))
+        .foregroundStyle(club.palette.ink1.color)
+        .background(club.palette.ground2.color)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(model.away.team.name) \(model.away.score), "
@@ -451,12 +432,26 @@ public struct MatchDayView: View {
                 fieldMarker(
                     x: size.width * CGFloat(drawnLines.firstDown / 120),
                     height: size.height,
-                    color: palette.actionPrimary.color,
+                    color: ForgeFieldTokens.Fixed.gold.color,
                     glow: true,
                     label: "First-down line"
                 )
 
                 if let playback = model.playback, !reduceMotion {
+                    let trackedIDs = Set(playback.actors.map(\.stableID))
+                    let staticActors = model.actors.filter {
+                        !trackedIDs.contains($0.stableID)
+                    }
+
+                    ForEach(staticActors, id: \.stableID) { actor in
+                        actorMark(
+                            actor,
+                            size: size,
+                            banded: bandedVertical,
+                            foregroundIDs: playback.foregroundIDs
+                        )
+                    }
+
                     TimelineView(
                         .animation(minimumInterval: MatchMetric.playbackTick,
                                    paused: playbackComplete || playback.isPaused)
@@ -688,8 +683,13 @@ public struct MatchDayView: View {
             .accessibilityLabel(label)
     }
 
-    private func actorMark(_ actor: MatchDayReadModel.Actor, size: CGSize, banded: Bool) -> some View {
-        let foreground = model.foregroundActorIDs.contains(actor.stableID)
+    private func actorMark(
+        _ actor: MatchDayReadModel.Actor,
+        size: CGSize,
+        banded: Bool,
+        foregroundIDs: [String]? = nil
+    ) -> some View {
+        let foreground = (foregroundIDs ?? model.foregroundActorIDs).contains(actor.stableID)
         let offense = actor.side == model.situation.possession
         // The same mark the animated path uses, so the pre-snap field and the animated one cannot
         // drift apart in how they read. The accessible sentence is unchanged either way: the mark's
@@ -715,52 +715,52 @@ public struct MatchDayView: View {
 
     // MARK: - Staff call-in
 
-    /// The handoff's floating panel: 2 pt live-red top rail, glass ground, options as
-    /// `.playCard`-shaped rows, a footer naming the rate that governs it.
+    /// A retained interruption rail, opaque rather than a fifth glass plate. The standard frame
+    /// gives it a finite scroll region so cost and consequence stay reachable at the install floor.
     private func staffCallInPanel(_ interruption: MatchDayReadModel.StaffInterruption) -> some View {
-        VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.lg) {
-            Text("STAFF CALL-IN")
-                .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .bold)
-                .tracking(
-                    CoachWorldTokens.DisplaySize.tracking(0.18, at: CoachWorldTokens.DisplaySize.flag)
-                )
-                .foregroundStyle(CoachWorldTokens.Floodlit.liveInk.color)
-            HStack(alignment: .top, spacing: CoachWorldTokens.Gap.xs) {
-                CoachWorldBlankPhotoPlate(name: interruption.staff.name, palette: palette, width: 36, height: 40)
-                VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.hair) {
+        ScrollView {
+            VStack(alignment: .leading, spacing: CoachWorldTokens.Space.sm) {
+                Text("STAFF CALL-IN")
+                    .font(ForgeFieldType.font(.columnHead))
+                    .tracking(
+                        CoachWorldTokens.DisplaySize.tracking(
+                            ForgeFieldType.Tracking.columnHead.em,
+                            at: ForgeFieldType.Step.columnHead.points
+                        )
+                    )
+                    .foregroundStyle(ForgeFieldTokens.Fixed.signalCaution.color)
+                VStack(alignment: .leading, spacing: CoachWorldTokens.Space.xxs) {
                     Text(interruption.staff.name)
-                        .font(CoachWorldTokens.TypeRole.body.weight(.bold))
+                        .font(ForgeFieldType.font(.chrome))
                     Text(interruption.staff.role)
-                        .font(CoachWorldTokens.TypeRole.caption)
-                        .foregroundStyle(palette.contentSecondary.color)
+                        .font(ForgeFieldType.font(.proseMin))
+                        .foregroundStyle(club.palette.ink3.color)
                 }
-            }
-            Text(interruption.message)
-                .font(CoachWorldTokens.TypeRole.body)
-                .fixedSize(horizontal: false, vertical: true)
-            Rectangle()
-                .fill(Color.white.opacity(CoachWorldTokens.Glass.hairline))
-                .frame(height: CoachWorldTokens.Shape.hairline)
-            VStack(spacing: CoachWorldTokens.Gap.xs) {
-                ForEach(interruption.actions, id: \.path) { action in
-                    interruptionButton(action)
+                Text(interruption.message)
+                    .font(ForgeFieldType.font(.proseMin))
+                    .fixedSize(horizontal: false, vertical: true)
+                VStack(spacing: CoachWorldTokens.Space.sm) {
+                    ForEach(interruption.actions, id: \.path) { action in
+                        interruptionButton(action)
+                    }
                 }
+                Text("CALL-IN \(callInFooterCount) · RATE SET BY CONTROL DEPTH")
+                    .font(ForgeFieldType.font(.columnHead))
+                    .foregroundStyle(club.palette.ink4.color)
             }
-            Text("CALL-IN \(callInFooterCount) · RATE SET BY CONTROL DEPTH")
-                .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .semibold)
-                .foregroundStyle(palette.contentQuiet.color)
+            .padding(CoachWorldTokens.Space.md)
         }
-        .padding(.vertical, CoachWorldTokens.Pad.card.v)
-        .padding(.horizontal, CoachWorldTokens.Pad.card.h)
-        .coachWorldFloodlitPanel(
-            fill: CoachWorldTokens.Floodlit.roomDeep.color.opacity(0.90),
-            border: Color.white.opacity(CoachWorldTokens.Glass.line),
-            depth: .deep,
-            shape: CoachWorldCutCorner.card
+        .foregroundStyle(club.palette.ink1.color)
+        .background(club.palette.ground1.color)
+        .clipShape(
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
         )
-        .overlay(alignment: .top) {
-            Rectangle().fill(palette.stateNegative.color).frame(height: 2)
-                .clipShape(CoachWorldCutCorner.card)
+        .overlay {
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
+                .strokeBorder(
+                    club.palette.hairline.color.opacity(ForgeFieldTokens.Edge.panel),
+                    lineWidth: ForgeFieldTokens.Edge.hairlineWidth
+                )
         }
         .accessibilitySortPriority(90)
     }
@@ -779,24 +779,32 @@ public struct MatchDayView: View {
         } label: {
             VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.hair) {
                 Text(action.title)
-                    .font(CoachWorldTokens.TypeRole.body.weight(.bold))
-                Text(action.cost)
-                    .font(CoachWorldTokens.TypeRole.caption)
-                    .foregroundStyle(palette.contentSecondary.color)
+                    .font(ForgeFieldType.font(.row))
+                Text("Cost: \(action.cost)")
+                    .font(ForgeFieldType.font(.proseMin))
+                    .foregroundStyle(club.palette.ink3.color)
+                Text("Consequence: \(action.consequence)")
+                    .font(ForgeFieldType.font(.proseMin))
+                    .foregroundStyle(club.palette.ink3.color)
             }
-            .frame(maxWidth: .infinity, minHeight: CoachWorldTokens.Shape.minimumTarget, alignment: .leading)
-            .padding(.horizontal, CoachWorldTokens.Space.xs)
+            .frame(
+                maxWidth: .infinity,
+                minHeight: ForgeFieldTokens.Space.hitMin,
+                alignment: .leading
+            )
+            .padding(.horizontal, CoachWorldTokens.Space.sm)
         }
         .buttonStyle(.plain)
         .disabled(!action.isEnabled)
-        .coachWorldFloodlitPanel(
-            fill: .clear,
-            border: action.path == .accept
-                ? palette.actionPrimary.color.opacity(0.6)
-                : Color.white.opacity(CoachWorldTokens.Glass.line),
-            depth: .glass,
-            shape: CoachWorldCutCorner.playCard
+        .background(
+            action.path == .accept
+                ? club.palette.ground3.color
+                : club.palette.ground2.color
         )
+        .clipShape(
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
+        )
+        .opacity(action.isEnabled ? 1 : MatchMetric.disabledOpacity)
         .accessibilityLabel(
             "\(action.title). Cost: \(action.cost). Consequence: \(action.consequence)"
         )
@@ -804,30 +812,51 @@ public struct MatchDayView: View {
 
     // MARK: - AX5 controls and interruption rail (unchanged structure, restyled)
 
+    @ViewBuilder
     private func controlButton(_ control: MatchDayReadModel.ControlState) -> some View {
-        let presentation = controlPresentation(control.id)
-        let displayedValue = control.id == .speed ? "\(Int(speedMultiplier))x" : control.value
-        let accessibilityLabel = displayedValue.map { "\(presentation.title), \($0)" } ?? presentation.title
+        if control.id == .takeOver {
+            ForgeFieldEmber(
+                label: "Take the calls",
+                cost: takeoverContext,
+                isEnabled: control.isEnabled
+            ) {
+                onControl(control.intentID)
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityLabel("Take Over. Take the calls. \(takeoverContext)")
+        } else {
+            let presentation = controlPresentation(control.id)
+            let displayedValue = control.id == .speed ? "\(Int(speedMultiplier))x" : control.value
+            let accessibilityLabel = displayedValue.map {
+                "\(presentation.title), \($0)"
+            } ?? presentation.title
 
-        return Button {
-            if control.id == .speed {
-                speedIndex = (speedIndex + 1) % MatchMetric.speedMultipliers.count
+            Button {
+                if control.id == .speed {
+                    speedIndex = (speedIndex + 1) % MatchMetric.speedMultipliers.count
+                }
+                onControl(control.intentID)
+            } label: {
+                VStack(spacing: CoachWorldTokens.Space.xxs) {
+                    Text(presentation.title.uppercased())
+                        .font(ForgeFieldType.font(.chrome))
+                    if let displayedValue {
+                        Text(displayedValue)
+                            .font(ForgeFieldType.font(.figure))
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: ForgeFieldTokens.Space.hitMin)
             }
-            onControl(control.intentID)
-        } label: {
-            VStack(spacing: .zero) {
-                Image(systemName: presentation.symbol.rawValue)
-                    .font(.caption.weight(.bold))
-                    .accessibilityHidden(true)
-                Text(presentation.title).font(.caption.weight(.bold))
-                if let value = displayedValue { Text(value).font(.caption) }
-            }
-            .frame(maxWidth: .infinity, minHeight: CoachWorldTokens.Shape.minimumTarget)
+            .buttonStyle(
+                MatchControlButtonStyle(
+                    selected: control.isSelected,
+                    palette: club.palette
+                )
+            )
+            .disabled(!control.isEnabled)
+            .accessibilityLabel(Text(accessibilityLabel))
+            .accessibilityAddTraits(control.isSelected ? .isSelected : [])
         }
-        .buttonStyle(MatchControlButtonStyle(selected: control.isSelected, palette: palette))
-        .disabled(!control.isEnabled)
-        .accessibilityLabel(Text(accessibilityLabel))
-        .accessibilityAddTraits(control.isSelected ? .isSelected : [])
     }
 
     private func interruptionRail(
@@ -835,30 +864,27 @@ public struct MatchDayView: View {
     ) -> some View {
         VStack(alignment: .leading, spacing: CoachWorldTokens.Space.xs) {
             Text("STAFF CALL-IN")
-                .font(CoachWorldTokens.TypeRole.caption.weight(.heavy))
-                .foregroundStyle(palette.stateWarning.color)
-            HStack(alignment: .top, spacing: CoachWorldTokens.Space.xs) {
-                CoachWorldBlankPhotoPlate(name: interruption.staff.name, palette: palette, width: 44, height: 50)
-                VStack(alignment: .leading, spacing: CoachWorldTokens.Space.xxs) {
-                    Text(interruption.staff.name).font(.headline.weight(.black))
-                    Text(interruption.staff.role)
-                        .font(.caption)
-                        .foregroundStyle(palette.contentSecondary.color)
-                }
-            }
+                .font(ForgeFieldType.font(.columnHead))
+                .foregroundStyle(ForgeFieldTokens.Fixed.signalCaution.color)
+            Text(interruption.staff.name)
+                .font(ForgeFieldType.font(.chrome))
+            Text(interruption.staff.role)
+                .font(ForgeFieldType.font(.proseMin))
+                .foregroundStyle(club.palette.ink3.color)
             Text(interruption.message)
-                .font(CoachWorldTokens.TypeRole.body.weight(.bold))
+                .font(ForgeFieldType.font(.prose))
                 .fixedSize(horizontal: false, vertical: true)
             Text(interruption.actions.map(\.title).joined(separator: " · "))
-                .font(CoachWorldTokens.TypeRole.caption.weight(.heavy))
-                .foregroundStyle(palette.contentSecondary.color)
+                .font(ForgeFieldType.font(.proseMin))
+                .foregroundStyle(club.palette.ink3.color)
             ForEach(interruption.actions, id: \.path) { action in
                 interruptionButton(action)
             }
         }
         .padding(CoachWorldTokens.Space.sm)
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .background(palette.page.color)
+        .foregroundStyle(club.palette.ink1.color)
+        .background(club.palette.ground1.color)
         .accessibilitySortPriority(90)
     }
 
@@ -899,6 +925,10 @@ public struct MatchDayView: View {
         model.perspective == .home ? model.home.team : model.away.team
     }
 
+    private var club: ForgeFieldTokens.Club {
+        .resolved(for: ourTeam)
+    }
+
     /// Whichever end zone belongs to `ourTeam` carries identity styling; the other is always the
     /// neutral opponent ground, whatever the opponent's real colours are.
     private func identity(for team: CoachWorldTeamReference) -> CoachWorldTeamIdentity? {
@@ -913,11 +943,13 @@ public struct MatchDayView: View {
     private var fieldMarkContent: FieldMarkContent {
         guard let event = model.event else {
             return FieldMarkContent(
-                kind: .regular, glyph: ourTeam.abbreviation, lead: nil, trail: nil
+                kind: .regular, team: ourTeam,
+                glyph: ourTeam.abbreviation, lead: nil, trail: nil
             )
         }
         return FieldMarkContent(
-            kind: model.kind, glyph: event.mark, lead: event.markLead, trail: event.markTrail
+            kind: model.kind, team: nil,
+            glyph: event.mark, lead: event.markLead, trail: event.markTrail
         )
     }
 
@@ -973,37 +1005,64 @@ enum MatchDayControlSymbol: String, CaseIterable {
 private struct MatchControlButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
     let selected: Bool
-    let palette: CoachWorldTokens.Palette
+    let palette: ForgeFieldTokens.ClubPalette
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(CoachWorldTokens.TypeRole.caption.weight(.heavy))
-            .padding(.horizontal, CoachWorldTokens.Space.xs)
-            .foregroundStyle(selected ? palette.page.color : palette.contentPrimary.color)
-            .background(selected ? palette.stateLive.color : palette.raised.color)
+            .padding(.horizontal, CoachWorldTokens.Space.sm)
+            .foregroundStyle(palette.ink1.color)
+            .background(selected ? palette.ground3.color : palette.ground2.color)
             .overlay {
-                Rectangle().stroke(palette.contentQuiet.color, lineWidth: CoachWorldTokens.Shape.hairline)
+                RoundedRectangle(
+                    cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous
+                )
+                .strokeBorder(
+                    palette.hairline.color.opacity(ForgeFieldTokens.Edge.panel),
+                    lineWidth: ForgeFieldTokens.Edge.hairlineWidth
+                )
             }
-            .opacity(isEnabled ? 1 : 0.55)
+            .clipShape(
+                RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
+            )
+            .opacity(isEnabled ? 1 : MatchMetric.disabledOpacity)
             .brightness(configuration.isPressed ? -0.08 : 0)
     }
 }
 
 private enum MatchMetric {
     static let fieldAspect: CGFloat = 120 / 53.3
-    /// The install floor's own aspect, so `standardLayout` scales as one frame rather than
-    /// stretching the field to whatever the container happens to be.
-    static let frameAspect: CGFloat = CoachWorldTokens.Frame.floorWidth / CoachWorldTokens.Frame.floorHeight
+    static let apronLeading: CGFloat = 64
+    static let apronTrailing: CGFloat = 16
+    static let apronTop: CGFloat = 12
+    static let apronBottom: CGFloat = 16
+    static let playCallerWidth: CGFloat = 196
+    static let lowerThirdWidth: CGFloat = 322
+    static let emberWidth: CGFloat = 184
     static let callInWidth: CGFloat = 244
-    static let controlDepthWidth: CGFloat = 140
-    static let speedPillWidth: CGFloat = 44
+    static let callInHeight: CGFloat = 218
+    static let callInTop: CGFloat = 120
+    static let controlGap: CGFloat = 4
+    static let controlPadding: CGFloat = 8
+    static let controlScaleFloor: CGFloat = 0.72
+    static let disabledOpacity = 0.38
+    static let plateShadowAlpha = 0.60
+    static let plateShadowRadius: CGFloat = 24
+    static let plateShadowY: CGFloat = 10
     static let losWidth: CGFloat = 2
     static let firstDownWidth: CGFloat = 2
     static let firstDownGlow: CGFloat = 8
-    static let furnitureIconSize: CGFloat = 15
     static let accessibleScoreHeight: CGFloat = 64
     static let accessibleFieldHeight: CGFloat = 250
     static let accessibleScoreScale: CGFloat = 0.5
+
+    static func controlWidth(_ id: MatchDayControlID) -> CGFloat {
+        switch id {
+        case .speed, .pause: ForgeFieldTokens.Space.hitMin
+        case .keyMoments: 72
+        case .tactics: 56
+        case .takeOver: emberWidth
+        }
+    }
     /// The ring that marks one of `04` section 9's at-most-three foreground actors. All twenty-two
     /// tokens are the same size and all carry a label, so foreground is a ring rather than being
     /// the only mark with any text on it.

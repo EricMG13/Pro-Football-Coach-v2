@@ -34,7 +34,9 @@ struct FamilyView {
     let renderedText: String
 }
 
-/// The view types that draw the Floodlit world, directly or by wholly delegating to one that does.
+/// The view types that draw a converted design-system root, directly or by wholly delegating to
+/// one that does. Management surfaces use `CoachWorldFloodlitStage`; full-stage Forge Field
+/// surfaces such as Match Day use `ForgeFieldDevice` instead.
 ///
 /// Roughly a quarter of the registry is a thin wrapper — `NewCareerCoachIdentityView` passes
 /// straight to `NewCareerSetupView`, `JobBoardView`/`OfferView`/`AppointmentView` all pass a
@@ -47,9 +49,9 @@ private func floodlitConvertedTypes() -> Set<String> {
         String(path.split(separator: "/").last ?? "").replacingOccurrences(of: ".swift", with: "")
     }
 
-    var converted = Set(
-        sources.filter { $0.text.contains("CoachWorldFloodlitStage") }.map { typeName(of: $0.path) }
-    )
+    var converted = Set(sources.filter {
+        $0.text.contains("CoachWorldFloodlitStage") || $0.text.contains("ForgeFieldDevice(")
+    }.map { typeName(of: $0.path) })
     var changed = true
     while changed {
         changed = false
@@ -326,7 +328,7 @@ func runAccessibilityReflowTests() {
         // suite above is scoped to `landed` on purpose, for the opposite reason: accessibility
         // is a question about what a player can reach, and an alias's own file is dead code no
         // player ever sees (S-6).
-        test("every family is either converted to the Floodlit stage or pending, and the split is total") {
+        test("every family is either converted to its design-system root or pending, and the split is total") {
             let (landed, _, aliased) = landedFamilies()
             let renderable = landed + aliased
             let converted = renderable.filter(isFloodlitConverted)
@@ -375,7 +377,7 @@ func runAccessibilityReflowTests() {
                 for screen in screens {
                     expect(converted.contains(screen),
                            "\(screen.canonicalName) is claimed converted by phase \(phase), but its "
-                               + "view does not resolve to CoachWorldFloodlitStage")
+                               + "view does not resolve to a converted design-system root")
                 }
             }
         }

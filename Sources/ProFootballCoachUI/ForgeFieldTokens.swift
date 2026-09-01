@@ -19,6 +19,64 @@ public enum ForgeFieldTokens {
     public enum Club: String, CaseIterable, Sendable {
         case calumet, maritime, zeeland, binghamton
 
+        /// Resolves an arbitrary generated team to the nearest of the four approved Forge Field
+        /// palettes. The primary colour owns identity when it carries a hue; an achromatic primary
+        /// yields to the secondary rather than assigning every black/white club to Calumet.
+        public static func resolved(for team: CoachWorldTeamReference) -> Club {
+            let world = CoachWorldTokens.dark
+            guard let identity = CoachWorldTeamIdentity(
+                team: team,
+                behind: world.page,
+                inks: [world.contentPrimary, world.page]
+            ) else { return .calumet }
+            let hue = chromaticHue(identity.field) ?? chromaticHue(identity.accent)
+            guard let hue else { return .calumet }
+
+            var closest = Club.calumet
+            var closestDistance = circularDistance(hue, closest.referenceHue)
+            for candidate in allCases.dropFirst() {
+                let distance = circularDistance(hue, candidate.referenceHue)
+                if distance < closestDistance {
+                    closest = candidate
+                    closestDistance = distance
+                }
+            }
+            return closest
+        }
+
+        private var referenceHue: Double {
+            switch self {
+            case .calumet: 26
+            case .maritime: 140
+            case .zeeland: 192
+            case .binghamton: 288
+            }
+        }
+
+        private static func chromaticHue(_ colour: CoachWorldTokens.ColorValue) -> Double? {
+            let maximum = max(colour.red, colour.green, colour.blue)
+            let minimum = min(colour.red, colour.green, colour.blue)
+            let chroma = maximum - minimum
+            guard chroma > 0.01 else { return nil }
+
+            let sector: Double
+            switch maximum {
+            case colour.red:
+                sector = (colour.green - colour.blue) / chroma
+            case colour.green:
+                sector = (colour.blue - colour.red) / chroma + 2
+            default:
+                sector = (colour.red - colour.green) / chroma + 4
+            }
+            let degrees = sector * 60
+            return degrees < 0 ? degrees + 360 : degrees
+        }
+
+        private static func circularDistance(_ lhs: Double, _ rhs: Double) -> Double {
+            let distance = abs(lhs - rhs)
+            return min(distance, 360 - distance)
+        }
+
         public var palette: ClubPalette {
             switch self {
             case .calumet:

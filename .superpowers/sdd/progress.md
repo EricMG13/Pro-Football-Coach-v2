@@ -40,3 +40,38 @@ Plan: `docs/plans/2026-08-25-press-box-backend-closure.md`
 - Phase 7 performance: the potent Release host gate first failed at a 7.668s median (`[7.324, 7.668, 7.771]`). Sampling found `DisciplineSystem.incidents` repeatedly recomputed organisation standings and latest results for every player. A shared per-organisation morale derivation preserves exact public readings and incident RNG while resolving that context once.
 - Phase 7 performance gates: `--discipline` 10 tests/197 checks passed; fresh Release `--performance-budget` passed at 1.839s median (`[1.828, 1.839, 1.937]`) against the 2.000s host ceiling. The separate 1.200s supported-device target remains a machine performance check; the 6–8 hour season target is non-gating product direction and requires no human approval.
 - 2026-08-26 gate policy: required season-running SimTests are reduced to a 10-season horizon for M1/M2/M3/M7 and E2E-H. Longer 20/30+ season runs remain optional diagnostics; the product's 20-season durability direction is not a release gate.
+
+# Forge Field migration handoff progress
+
+Plan: `docs/plans/2026-08-31-forge-field-handoff.md`
+
+- Task 1: complete (commits `fcd0de2`, `9628b27`, `de5e18f`, `00648cc`; final cumulative review approved with no findings). Standard and AX5 renders, scroll reachability, and chrome → outcome → flood accessibility order are verified.
+- Task 1 proof fixture: complete (commits `6e6d9e3..03bdd4a`, review clean); real surface exposed
+  standard outcome-header/scroll-affordance concerns and an AX5 reachability question.
+- Task 2: complete (commits `d4bbe49`, `b4b8fa4`). Game detail matches the authoritative Dossier
+  layout; standard overflow and AX5 evidence remain reachable.
+- Task 3: complete in the working tree. Match Day is the full 844×390 field with four glass apron
+  plates, one costed ember, and no management chrome or seam. Standard and AX5 simulator captures
+  inspected; the regular midfield mark uses the packaged 76 pt team crest at `.13` inside the
+  independent 106 pt centre circle, with a plain abbreviation fallback only when no mark exists.
+  The authoritative package's additional ghost placements and explicit no-ghost list are recorded
+  in the handoff and ledger E42 rather than generalized into a watermark system.
+- Task 3 focused gates: `swift build`; `--design-contracts` 196 tests / 1,853 checks; corrected
+  `--core-contracts` 380 tests / 4,341 checks; all passed.
+- Task 3 rewrite tournament: the readability opacity structure won together with the incumbent
+  `.field`-derived size budget. Repeated opacity modifiers were removed without changing the
+  authoritative `.13` regular/competition normalization or the no-mark abbreviation fallback.
+- Task 3 confidence review: corrected the centre-ring alpha from `.30` to the authoritative `.28`,
+  verified the packaged-mark/runtime-asset path and intentional proof fallback, confirmed AX5
+  scroll reachability, and retained staff-call-in replacement semantics so the opaque panel cannot
+  overlap or leave hidden controls in the accessibility order. No open high-risk defect remains.
+- Phase 2B adversarial review: CLEAN. The three closest concerns are documented as non-promoted
+  notes: the deterministic base-state proof does not visually exercise the call-in panel (its
+  replacement branch has a source contract); the register's `ghost: nil` stamp budget and Match
+  Day's one midfield field mark are deliberately separate concepts; and proof environment routing
+  remains release-safe only because it is enclosed by `#if DEBUG`. No new trust boundary exists.
+- Phase 2B full exit: uninterrupted `swift run SimTests` passed on 2026-09-01 — 1,282 tests /
+  933,191 checks. Its first attempt correctly exposed two integration-contract regressions: raw
+  ladder subscripts in `MatchDayView` and removal of the canonical sample staff interruption. The
+  fixes reuse named spacing tokens, keep the canonical call-in sample, and reserve an unobscured
+  base-state variant for `PROOF_SCREEN=match` only. The corrected full run passed.

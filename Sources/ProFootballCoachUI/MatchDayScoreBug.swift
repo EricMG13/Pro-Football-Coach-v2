@@ -22,6 +22,8 @@ struct BroadcastWedge: Shape {
 /// The top-left glass bug: our cell, their cell, the clock cell, and — for every kind but
 /// `.regular` — a band naming the event above or below the row.
 struct ScoreBug: View {
+    @Environment(\.forgeFieldClub) private var club
+
     let model: MatchDayReadModel
     let quarterLabel: String
     let clockLabel: String
@@ -38,20 +40,22 @@ struct ScoreBug: View {
             if kind == .playoff, let event { band(event, placement: .below) }
             if kind == .championship { Rectangle().fill(Bug.goldRule).frame(height: Bug.hairline) }
         }
-        .coachWorldFloodlitPanel(
-            fill: ground.opacity(Bug.groundAlpha),
-            border: border,
-            depth: .deep,
-            shape: CoachWorldCutCorner.card
+        .background(club.palette.ground0.color.opacity(ForgeFieldTokens.Material.glass))
+        .background(.ultraThinMaterial)
+        .clipShape(
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
+                .strokeBorder(border, lineWidth: ForgeFieldTokens.Edge.hairlineWidth)
+        }
         .overlay(alignment: .top) {
             if kind == .playoff {
-                Rectangle().fill(CoachWorldTokens.dark.stateNegative.color).frame(height: 2)
-                    .clipShape(CoachWorldCutCorner.card)
+                Rectangle().fill(ForgeFieldTokens.Fixed.signalAlarm.color).frame(height: 2)
             }
         }
         .frame(maxWidth: Bug.maxWidth)
-        .shadow(color: .black.opacity(Bug.shadowAlpha), radius: Bug.shadowRadius, y: 10)
+        .shadow(color: .black.opacity(Bug.shadowAlpha), radius: Bug.shadowRadius, y: Bug.shadowY)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(model.away.team.name) \(model.away.score), \(model.home.team.name) \(model.home.score), "
@@ -71,12 +75,12 @@ struct ScoreBug: View {
             cell(score(for: theirs), side: theirs)
             VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.hair) {
                 Text("\(quarterLabel) · \(clockLabel)")
-                    .coachWorldFigure(Bug.clock, weight: .semibold)
-                    .foregroundStyle(CoachWorldTokens.dark.contentPrimary.color)
+                    .font(ForgeFieldType.font(.chrome))
+                    .foregroundStyle(ForgeFieldTokens.Fixed.gold.color)
                 Text("\(downDistance.uppercased()) · \(spot.uppercased())")
-                    .coachWorldDisplay(Bug.subline, weight: .semibold)
+                    .font(ForgeFieldType.font(.columnHead))
                     .tracking(CoachWorldTokens.DisplaySize.tracking(0.14, at: Bug.subline))
-                    .foregroundStyle(CoachWorldTokens.dark.contentSecondary.color)
+                    .foregroundStyle(club.palette.ink3.color)
             }
             .fixedSize()
             .padding(.horizontal, CoachWorldTokens.Pad.card.h)
@@ -97,10 +101,10 @@ struct ScoreBug: View {
         return HStack(spacing: CoachWorldTokens.Gap.xs) {
             VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.hair) {
                 Text(score.team.abbreviation.uppercased())
-                    .coachWorldDisplay(Bug.name, weight: .bold)
+                    .font(ForgeFieldType.font(.chrome))
                 if let subline = score.subline {
                     Text(subline)
-                        .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .semibold)
+                        .font(ForgeFieldType.font(.columnHead))
                         .foregroundStyle(cellInk(isOurs).opacity(0.7))
                 }
             }
@@ -118,12 +122,12 @@ struct ScoreBug: View {
                     .accessibilityLabel("Seed \(seed)")
             }
             Text("\(score.score)")
-                .coachWorldFigure(scoreSize, weight: .bold)
+                .font(ForgeFieldType.font(.heading))
                 .foregroundStyle(cellInk(isOurs))
             // Trails the score, per the handoff's stated cell order (rail, name, score, triangle).
             if hasBall {
                 BroadcastWedge()
-                    .fill(CoachWorldTokens.dark.contentPrimary.color)
+                    .fill(club.palette.ink1.color)
                     .frame(width: Bug.possessionSize, height: Bug.possessionSize)
                     .accessibilityHidden(true)
             }
@@ -137,7 +141,7 @@ struct ScoreBug: View {
     }
 
     private var goldRail: some View {
-        Rectangle().fill(CoachWorldTokens.dark.actionPrimary.color).frame(width: Bug.railWidth)
+        Rectangle().fill(ForgeFieldTokens.Fixed.gold.color).frame(width: Bug.railWidth)
     }
 
     private func cellGround(_ isOurs: Bool) -> some View {
@@ -146,19 +150,19 @@ struct ScoreBug: View {
                 if let identity {
                     identity.field.color.opacity(0.30)
                 } else {
-                    CoachWorldTokens.Floodlit.clubField.color.opacity(0.30)
+                    club.palette.club.color.opacity(0.30)
                 }
             } else {
-                CoachWorldTokens.Floodlit.opponentField.color.opacity(0.5)
+                ForgeFieldTokens.Fixed.rival.color.opacity(0.22)
             }
         }
     }
 
     private func cellInk(_ isOurs: Bool) -> Color {
         if isOurs {
-            CoachWorldTokens.dark.actionPrimary.color
+            club.palette.ink1.color
         } else {
-            CoachWorldTokens.Floodlit.opponentAccent.color
+            ForgeFieldTokens.Fixed.rival.color
         }
     }
 
@@ -177,11 +181,11 @@ struct ScoreBug: View {
     private func band(_ event: MatchDayReadModel.EventBadge, placement: BandPlacement) -> some View {
         VStack(spacing: CoachWorldTokens.Gap.hair) {
             Text(event.title.uppercased())
-                .coachWorldDisplay(Bug.bandTitle, weight: .bold)
+                .font(ForgeFieldType.font(.columnHead))
                 .tracking(CoachWorldTokens.DisplaySize.tracking(0.18, at: Bug.bandTitle))
             if let subtitle = event.subtitle {
                 Text(subtitle.uppercased())
-                    .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .semibold)
+                    .font(ForgeFieldType.font(.columnHead))
                     .foregroundStyle(bandInk.opacity(0.75))
             }
         }
@@ -193,48 +197,34 @@ struct ScoreBug: View {
 
     private var bandInk: Color {
         switch kind {
-        case .conference: CoachWorldTokens.Floodlit.opponentAccent.color
-        case .playoff: CoachWorldTokens.Floodlit.liveInk.color
-        default: CoachWorldTokens.dark.contentSecondary.color
+        case .conference: ForgeFieldTokens.Fixed.rival.color
+        case .playoff: ForgeFieldTokens.Fixed.signalAlarm.color
+        default: club.palette.ink3.color
         }
     }
 
     private var bandGround: Color {
         switch kind {
-        case .conference: CoachWorldTokens.Floodlit.opponentAccent.color.opacity(0.16)
-        case .playoff: CoachWorldTokens.dark.stateNegative.color.opacity(0.14)
+        case .conference: ForgeFieldTokens.Fixed.rival.color.opacity(0.16)
+        case .playoff: ForgeFieldTokens.Fixed.signalAlarm.color.opacity(0.14)
         default: .clear
-        }
-    }
-
-    private var ground: Color {
-        switch kind {
-        case .bowl: Color(red: 14 / 255, green: 10 / 255, blue: 6 / 255)
-        default: CoachWorldTokens.Floodlit.roomDeep.color
         }
     }
 
     private var border: Color {
         switch kind {
-        case .conference: CoachWorldTokens.Floodlit.opponentAccent.color.opacity(0.34)
-        case .bowl: CoachWorldTokens.dark.actionPrimary.color.opacity(0.35)
-        case .championship: CoachWorldTokens.dark.actionPrimary.color.opacity(0.55)
-        default: Color.white.opacity(CoachWorldTokens.Glass.line)
+        case .conference: ForgeFieldTokens.Fixed.rival.color.opacity(0.34)
+        case .bowl: ForgeFieldTokens.Fixed.gold.color.opacity(0.35)
+        case .championship: ForgeFieldTokens.Fixed.gold.color.opacity(0.55)
+        default: club.palette.hairline.color.opacity(ForgeFieldTokens.Edge.panel)
         }
     }
 
-    private var scoreSize: CGFloat {
-        switch kind {
-        case .bowl: 23
-        case .championship: 26
-        default: 21
-        }
-    }
 }
 
 private enum Bug {
     static let maxWidth: CGFloat = 340
-    static let rowHeight: CGFloat = 34
+    static let rowHeight = ForgeFieldTokens.Space.hitMin
     static let name: CGFloat = 13
     /// Clock 14, down-and-spot 10 — the handoff's stated clock-cell sizes. These were 19 and 14,
     /// which wrapped "1ST & 10 · CAR BALL" onto a second line and made the whole bug twice its
@@ -246,6 +236,7 @@ private enum Bug {
     static let groundAlpha = 0.88
     static let shadowAlpha = 0.72
     static let shadowRadius: CGFloat = 20
+    static let shadowY: CGFloat = 10
     static let hairline: CGFloat = 1
     static let possessionSize: CGFloat = 7
     // S-2, 2026-08-19 review: was a hand-typed Color(red:green:blue:) literal. Its exact value,
@@ -260,26 +251,27 @@ private enum Bug {
 
 /// "18 OF 25", the three marks, and the rate note beneath.
 struct CallInBudgetBug: View {
+    @Environment(\.forgeFieldClub) private var club
     let budget: MatchDayReadModel.CallInBudget
 
     var body: some View {
         VStack(alignment: .trailing, spacing: CoachWorldTokens.Gap.xxs) {
             HStack(spacing: CoachWorldTokens.Gap.xxs) {
                 Text("CALL-INS")
-                    .coachWorldDisplay(Budget.label, weight: .bold)
+                    .font(ForgeFieldType.font(.columnHead))
                     .tracking(CoachWorldTokens.DisplaySize.tracking(0.18, at: Budget.label))
-                    .foregroundStyle(CoachWorldTokens.dark.contentSecondary.color)
+                    .foregroundStyle(club.palette.ink4.color)
                 Spacer(minLength: CoachWorldTokens.Gap.sm)
                 HStack(spacing: CoachWorldTokens.Gap.hair) {
                     ForEach(0..<3, id: \.self) { index in
                         RoundedRectangle(cornerRadius: Budget.markCorner)
                             .fill(index < budget.marks
-                                ? CoachWorldTokens.dark.actionPrimary.color
-                                : CoachWorldTokens.dark.actionPrimary.color.opacity(0.12))
+                                ? ForgeFieldTokens.Fixed.gold.color
+                                : ForgeFieldTokens.Fixed.gold.color.opacity(0.12))
                             .overlay {
                                 RoundedRectangle(cornerRadius: Budget.markCorner).stroke(
-                                    CoachWorldTokens.dark.actionPrimary.color.opacity(0.55),
-                                    lineWidth: CoachWorldTokens.Shape.hairline
+                                    ForgeFieldTokens.Fixed.gold.color.opacity(0.55),
+                                    lineWidth: ForgeFieldTokens.Edge.hairlineWidth
                                 )
                             }
                             .frame(width: Budget.markWidth, height: Budget.markHeight)
@@ -287,13 +279,13 @@ struct CallInBudgetBug: View {
                 }
                 .accessibilityHidden(true)
                 Text("\(budget.used) OF \(budget.total)")
-                    .coachWorldFigure(CoachWorldTokens.DisplaySize.lead, weight: .bold)
-                    .foregroundStyle(CoachWorldTokens.dark.actionPrimary.color)
+                    .font(ForgeFieldType.font(.figure))
+                    .foregroundStyle(club.palette.ink2.color)
             }
             Text(budget.rateNote.uppercased())
-                .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .semibold)
+                .font(ForgeFieldType.font(.columnHead))
                 .tracking(CoachWorldTokens.DisplaySize.tracking(0.12, at: CoachWorldTokens.DisplaySize.flag))
-                .foregroundStyle(CoachWorldTokens.dark.contentQuiet.color)
+                .foregroundStyle(club.palette.ink4.color)
         }
         // Hugs its content. Without this the `Spacer` above is greedy: the bug stretched to the
         // full frame width and, drawn after the scorebug in the ZStack, painted straight over it —
@@ -302,12 +294,7 @@ struct CallInBudgetBug: View {
         .fixedSize(horizontal: true, vertical: false)
         .padding(.vertical, CoachWorldTokens.Pad.card.v)
         .padding(.horizontal, CoachWorldTokens.Pad.card.h)
-        .coachWorldFloodlitPanel(
-            fill: CoachWorldTokens.Floodlit.roomDeep.color.opacity(0.86),
-            border: Color.white.opacity(CoachWorldTokens.Glass.line),
-            depth: .deep,
-            shape: CoachWorldCutCorner.card
-        )
+        .frame(maxWidth: .infinity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Call-ins, \(budget.used) of \(budget.total). \(budget.rateNote)")
     }
@@ -329,25 +316,22 @@ struct CallInBudgetBug: View {
 /// `controlDepthIntentID` names it a cycle, not one of the five contract-fixed primary controls),
 /// so the control now presents as what it is, matching this file's `speedCycleButton`.
 struct ControlDepthSelector: View {
+    @Environment(\.forgeFieldClub) private var club
     let depth: MatchControlDepth
     let onSelect: () -> Void
 
     var body: some View {
         Button(action: onSelect) {
             Text(title(depth))
-                .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .bold)
+                .font(ForgeFieldType.font(.columnHead))
                 .tracking(
                     CoachWorldTokens.DisplaySize.tracking(0.1, at: CoachWorldTokens.DisplaySize.flag)
                 )
-                .frame(maxWidth: .infinity, minHeight: CoachWorldTokens.Shape.minimumTarget)
+                .frame(maxWidth: .infinity, minHeight: ForgeFieldTokens.Space.hitMin)
         }
-        .foregroundStyle(CoachWorldTokens.dark.contentPrimary.color)
-        .coachWorldFloodlitPanel(
-            fill: CoachWorldTokens.Floodlit.roomDeep.color.opacity(0.86),
-            border: Color.white.opacity(CoachWorldTokens.Glass.line),
-            depth: .deep,
-            shape: CoachWorldCutCorner.card
-        )
+        .buttonStyle(.plain)
+        .foregroundStyle(club.palette.ink1.color)
+        .background(club.palette.ground3.color.opacity(ForgeFieldTokens.Material.glass))
         .accessibilityLabel("Control depth, \(title(depth))")
         .accessibilityHint("Cycles to the next control depth.")
     }
@@ -371,6 +355,7 @@ struct ControlDepthSelector: View {
 /// told rather than re-deriving a state machine from the read model.
 struct MatchLowerThird: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.forgeFieldClub) private var club
     let model: MatchDayReadModel
     let phase: String
     let isLive: Bool
@@ -383,29 +368,29 @@ struct MatchLowerThird: View {
     var body: some View {
         VStack(alignment: .leading, spacing: CoachWorldTokens.Gap.xxs) {
             HStack(spacing: CoachWorldTokens.Gap.xs) {
-                Text(phase.uppercased())
-                    .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .bold)
+                Text("DRIVE · \(phase)".uppercased())
+                    .font(ForgeFieldType.font(.columnHead))
                     .tracking(
                         CoachWorldTokens.DisplaySize.tracking(0.18, at: CoachWorldTokens.DisplaySize.flag)
                     )
-                    .foregroundStyle(CoachWorldTokens.dark.actionPrimary.color)
+                    .foregroundStyle(ForgeFieldTokens.Fixed.gold.color)
                 if isLive {
                     LiveDot()
                     Text("IN PLAY")
-                        .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .bold)
-                        .foregroundStyle(CoachWorldTokens.Floodlit.liveInk.color)
+                        .font(ForgeFieldType.font(.columnHead))
+                        .foregroundStyle(ForgeFieldTokens.Fixed.signalGood.color)
                 }
                 if let onExit {
                     Spacer(minLength: CoachWorldTokens.Gap.smPlus)
                     Button(action: onExit) {
                         Text("← WEEK")
-                            .coachWorldDisplay(CoachWorldTokens.DisplaySize.flag, weight: .bold)
+                            .font(ForgeFieldType.font(.columnHead))
                             .tracking(
                                 CoachWorldTokens.DisplaySize
                                     .tracking(0.18, at: CoachWorldTokens.DisplaySize.flag)
                             )
-                            .foregroundStyle(CoachWorldTokens.dark.contentSecondary.color)
-                            .frame(minHeight: CoachWorldTokens.Shape.minimumTarget)
+                            .foregroundStyle(club.palette.ink3.color)
+                            .frame(minHeight: ForgeFieldTokens.Space.hitMin)
                     }
                     .accessibilityLabel("Back to the week")
                 }
@@ -414,24 +399,32 @@ struct MatchLowerThird: View {
                let entry = model.actors.first(where: { $0.stableID == actor }),
                let headline {
                 Text("\(entry.uniformNumber) \(entry.position) · \(headline)")
-                    .coachWorldDisplay(CoachWorldTokens.DisplaySize.row, weight: .bold)
+                    .font(ForgeFieldType.font(.row))
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                     .truncationMode(.tail)
             }
             Text(model.causalCommentary)
-                .font(CoachWorldTokens.TypeRole.body)
-                .foregroundStyle(CoachWorldTokens.dark.contentSecondary.color)
+                .font(ForgeFieldType.font(.proseMin))
+                .foregroundStyle(club.palette.ink2.color)
                 .lineLimit(2)
         }
         .padding(.vertical, CoachWorldTokens.Pad.panel.v)
         .padding(.horizontal, CoachWorldTokens.Pad.panel.h)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .coachWorldFloodlitPanel(
-            fill: CoachWorldTokens.Floodlit.roomDeep.color.opacity(0.80),
-            border: Color.white.opacity(CoachWorldTokens.Glass.line),
-            depth: .deep,
-            shape: CoachWorldCutCorner.card
+        .foregroundStyle(club.palette.ink1.color)
+        .background(club.palette.ground0.color.opacity(ForgeFieldTokens.Material.glass))
+        .background(.ultraThinMaterial)
+        .clipShape(
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
         )
+        .overlay {
+            RoundedRectangle(cornerRadius: ForgeFieldTokens.Space.radius, style: .continuous)
+                .strokeBorder(
+                    club.palette.hairline.color.opacity(ForgeFieldTokens.Edge.panel),
+                    lineWidth: ForgeFieldTokens.Edge.hairlineWidth
+                )
+        }
+        .shadow(color: .black.opacity(Bug.shadowAlpha), radius: Bug.shadowRadius, y: Bug.shadowY)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
             "\(phase). \(model.playback?.sentence ?? model.causalCommentary)"
@@ -442,9 +435,8 @@ struct MatchLowerThird: View {
 private struct LiveDot: View {
     var body: some View {
         Circle()
-            .fill(CoachWorldTokens.dark.stateNegative.color)
+            .fill(ForgeFieldTokens.Fixed.signalGood.color)
             .frame(width: 5, height: 5)
-            .coachWorldPulse()
             .accessibilityHidden(true)
     }
 }

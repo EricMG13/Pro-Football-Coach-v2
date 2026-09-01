@@ -43,7 +43,10 @@ public struct GameDetailBoxScoreView: View, CoachWorldChromedSurface {
     public let onClose: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.forgeFieldClub) private var club
+
+    private var club: ForgeFieldTokens.Club {
+        .resolved(for: chrome?.club ?? model.grades.first?.team ?? model.home.team)
+    }
 
     public init(model: AftermathReadModel, onClose: @escaping () -> Void) {
         self.model = model

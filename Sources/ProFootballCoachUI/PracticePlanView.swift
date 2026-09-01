@@ -16,8 +16,8 @@ import FootballSimCore
 ///
 /// **Register, from the sheet's stamped spec column
 /// (`ForgeFieldBudget.weeklyCommand[.practicePlan]`):** Desk, one flooded strip, ACTION. Stage 19%
-/// (74 of 393). Data points 52 of 80. Gold 0. Ember 0. Ghost none. Backgrounds 2 of 2 -- flood,
-/// ground 1. Largest numeral 15 (desk ceiling 34).
+/// (74 of 393). Data points 52 of 80. Gold 0. Ember 0. Ghost 230 pt at .10, top-right.
+/// Backgrounds 2 of 2 -- flood, ground 1. Largest numeral 15 (desk ceiling 34).
 ///
 /// **Zero embers -- ruling (dispatch, 2026-08-30/31, do not relitigate).** The sheet draws an ember
 /// here, "Spend the 60", but `docs/reviews/2026-08-22-all-screen-presentation-contract.md` row 12
@@ -87,8 +87,11 @@ public struct PracticePlanView: View, CoachWorldChromedSurface {
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var contrast
-    @Environment(\.forgeFieldClub) private var club
     @State private var selectedID: String
+
+    private var club: ForgeFieldTokens.Club {
+        .resolved(for: chrome?.club ?? model.team)
+    }
 
     public init(
         model: PracticePlanReadModel,
@@ -106,7 +109,7 @@ public struct PracticePlanView: View, CoachWorldChromedSurface {
     }
 
     public var body: some View {
-        ForgeFieldDevice(club: PracticeMetric.club) {
+        ForgeFieldDevice(club: club) {
             Group {
                 if dynamicTypeSize.isAccessibilitySize {
                     accessibleComposition
@@ -130,12 +133,8 @@ public struct PracticePlanView: View, CoachWorldChromedSurface {
                 .position(PracticeMetric.center(PracticeMetric.chromeOrigin, PracticeMetric.chromeSize))
 
             VStack(alignment: .leading, spacing: .zero) {
-                floodContent
-                    .padding(.horizontal, PracticeMetric.inset)
-                    .padding(.top, PracticeMetric.tightGap)
-                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                floodStage
                     .frame(height: PracticeMetric.floodHeight)
-                    .background(club.palette.clubDeep.color)
                     .clipped()
                 ForgeFieldSeam(.hard, axis: .horizontal)
                 studiedContent
@@ -147,6 +146,30 @@ public struct PracticePlanView: View, CoachWorldChromedSurface {
             .position(PracticeMetric.center(PracticeMetric.bodyOrigin, PracticeMetric.bodySize))
         }
         .accessibilitySortPriority(100)
+    }
+
+    private var floodStage: some View {
+        ZStack(alignment: .topTrailing) {
+            club.palette.clubDeep.color
+            ghostMark
+            floodContent
+                .padding(.horizontal, PracticeMetric.inset)
+                .padding(.top, PracticeMetric.tightGap)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var ghostMark: some View {
+        CoachWorldTeamLogo(
+            team: model.team,
+            dimension: PracticeMetric.ghostSize,
+            surface: club.palette.clubDeep
+        )
+            .saturation(ForgeFieldTokens.Register.ghostSaturate)
+            .opacity(PracticeMetric.ghostOpacity)
+            .offset(x: PracticeMetric.ghostOffsetX, y: PracticeMetric.ghostOffsetY)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 
     // MARK: Chrome bar
@@ -431,10 +454,8 @@ public struct PracticePlanView: View, CoachWorldChromedSurface {
         ScrollView {
             VStack(alignment: .leading, spacing: PracticeMetric.sectionGap) {
                 chromeBarRegion
-                floodContent
-                    .padding(PracticeMetric.inset)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(club.palette.clubDeep.color)
+                floodStage
+                    .frame(minHeight: PracticeMetric.floodHeight)
                 ForgeFieldSeam(.hard, axis: .horizontal)
                 VStack(alignment: .leading, spacing: PracticeMetric.gap) {
                     styledText("Choose the week".uppercased(), .panel)
@@ -467,10 +488,6 @@ public struct PracticePlanView: View, CoachWorldChromedSurface {
 /// facts; everything else is this file's own choice from `ForgeFieldTokens.Space.ladder`, matching
 /// `InboxMetric`'s own convention (`InboxView.swift`).
 private enum PracticeMetric {
-    /// `04` 6.1e's four authored clubs are not yet resolved per-team (ledger row E6); `.calumet` is
-    /// the same interim default every other Forge Field surface renders every team in today.
-    static let club = ForgeFieldTokens.Club.calumet
-
     static let columnWidth = ForgeFieldChromeBar.width
     static let chromeOrigin = ForgeFieldChromeBar.origin
     static let chromeSize = CGSize(width: columnWidth, height: ForgeFieldChromeBar.height)
@@ -492,6 +509,10 @@ private enum PracticeMetric {
     /// The sheet's stamped stage figure, "19% (74 of 393)" -- transcribed verbatim, not derived
     /// from the ladder, per this file's own header comment.
     static let floodHeight: CGFloat = 74
+    static let ghostSize: CGFloat = 230
+    static let ghostOpacity: Double = 0.10
+    static let ghostOffsetX: CGFloat = 30
+    static let ghostOffsetY: CGFloat = -64
 
     static let sessionColumnWidth: CGFloat = 76
     static let sessionRowLabelWidth: CGFloat = 130
@@ -549,6 +570,7 @@ extension PracticePlanView {
     public static let stageFraction: Double =
         Double(PracticeMetric.floodHeight / ForgeFieldTokens.Space.viewport.height)
 
-    /// No ghost mark.
-    public static let hasGhostMark = false
+    public static let ghostSize = PracticeMetric.ghostSize
+    public static let ghostOpacity = PracticeMetric.ghostOpacity
+    public static let hasGhostMark = true
 }
