@@ -98,6 +98,26 @@ The honest picture: what exists, what is verified, what is not.
 > `.process()` flattens the directory. All three are fixed; all three are recorded in the ledger's
 > Part E because each would otherwise have shipped as silent system-face rendering.
 
+> **2026-08-26 — owner checks are final-review items, not merge blockers.** The D1 season timing,
+> device walkthrough/evidence, signed archive, and export-compliance decision remain explicitly
+> owner-only and unchecked. They stay in the pre-deployment checklist for the final review; code
+> integration is eligible without claiming any of those observations occurred.
+>
+> **Two of the four are not actually in the checklist, and the decision above overstates that.**
+> `docs/PRE-DEPLOYMENT-CHECKLIST.md` §4 covers D1 timing and the device/VoiceOver/AX5 walkthroughs,
+> already worded more strongly than this note ("never a release blocker ... their absence does not
+> block automated approval"). It says nothing about a **signed archive** or an **export-compliance
+> decision**; the only `export` in the file is §6.2B's save import/export, which is a different
+> subject and out of v1 scope. So for those two the classification is recorded here and nowhere
+> else — an open checklist gap, not a settled item.
+>
+> **Landed 2026-09-02, six days late, and that gap is the point.** This was made on 2026-08-26 as
+> `d61dc84` on `codex/loop-release-and-ci` and never merged; the branch was deleted on 2026-09-02
+> once the rest of it was found to be already in `main`. A decision about what does and does not
+> block a release, held only on a side branch, is a decision the tree cannot act on — every session
+> between those dates read a `STATUS.md` that did not contain it. Recovered from
+> `/tmp/deleted-branches-20260902/loop-release-and-ci/` before the force-delete.
+
 > **2026-08-25 — Loop 920 closed the app-layer promotion route.** Accepting a professional offer
 > now consumes the pending opportunity, seats the coach in the pro tier, routes the live root back to
 > Career Hub, and persists that destination before autosave. A child-process E2E-F walk proves the
