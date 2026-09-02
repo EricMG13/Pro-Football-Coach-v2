@@ -26,8 +26,12 @@ public struct RecruitingBoardView: View, CoachWorldChromedSurface {
         onAction: @escaping (String, CoachWorldIntentID) -> Void,
         onContinue: @escaping () -> Void,
         onNavigate: @escaping (CoachWorldScreenID) -> Void,
-        onOpenProspect: @escaping (String) -> Void = { _ in },
-        onOpenShortlist: @escaping () -> Void = {}
+        // No defaults. An omitted navigation authority used to fall back to an empty closure,
+        // so `Open profile` and `Shortlist` stayed lit and did nothing at a call site that
+        // forgot to wire them. Both production call sites already pass these, so requiring
+        // them changes no behaviour and closes the hole.
+        onOpenProspect: @escaping (String) -> Void,
+        onOpenShortlist: @escaping () -> Void
     ) {
         self.model = model
         self.statusMessage = statusMessage

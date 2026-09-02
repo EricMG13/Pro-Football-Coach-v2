@@ -4584,3 +4584,44 @@ Release/evidence `91b54f4` is the candidate baseline. Engine `fc8fa415` was inte
 The pass is blocked: `03` says constants tune on disjoint tuning worlds, while the Q4 adjustment
 uses the known fixed-holdout lower-edge miss; the resulting holdout release evidence is therefore
 not independent. No band, margin, commitment, or existing pin was relaxed or re-pinned.
+
+### 2026-09-02 — two control guards cherry-picked off `codex/loop-uidesign`
+
+A branch inventory found ten of the twelve `codex/*` branches fully merged. `codex/loop-uidesign`
+(10 commits, last touched 2026-08-25, 145 behind `main`) was the only one carrying unmerged code.
+Three of its five code/test commits are dead — `0b8a1c2`'s `weeklyMinutes` reached `main` by
+another route, `8ed6a1d` targeted a `PracticePlanView` the Forge Field rewrite has since replaced,
+and `e207c0a`'s empty-`Button` scan is a false positive (an empty closure on a `.cancel`-role
+button inside an alert is the idiomatic SwiftUI dismissal, not a dead control).
+
+Two of its scans were real and never landed, and both shapes were still in the tree. Both are
+cherry-picked here with their fixes, out of `106842f`:
+
+- **`hasOptionalControlWithoutAbsenceGuard`.** `MatchDayView.compactControlButton` disabled itself
+  on `control?.isEnabled == false`, which is also false when the entry is *absent* — so a missing
+  control stayed lit and tappable while the tap body's own `if let control` dropped it. Now
+  `control == nil || control?.isEnabled == false`. **Not a reachable state today:**
+  `MatchDayReadModel`'s sole public initialiser throws unless `controls` is exactly
+  `MatchDayControlID.allCases` with distinct intent IDs, so this is defence in depth — the value
+  is the scan, which forbids the loose shape on a model that carries no such invariant.
+- **"recruiting surface navigation controls require real authorities".**
+  `RecruitingBoardView.init` defaulted `onOpenProspect` and `onOpenShortlist` to empty closures, so
+  a call site that forgot to wire them got a lit, tappable, silent control with no compile error.
+  The defaults are removed. Both production call sites (`CoachWorldAppRootView`, `RootView`)
+  already passed them, so no behaviour changed.
+
+Each scan was proven to fire: with the fixes reverted and the scans in place, `--core-contracts`
+reports 3 failed checks across the two tests; with the fixes restored it is green. `Contracts` goes
+from 40 tests to 42. Verification: `swift build` clean, `--core-contracts` **386 tests / 4,367
+checks, all passed**. Impact analysis before the edits: `RecruitingBoardView` LOW, 2 direct
+callers, 0 affected processes; `compactControlButton` is `private` with 4 same-file call sites.
+
+**Correction to the 2026-08-24 Loop 925 entry above.** Its claim that "UI `0b8a1c2` was
+deliberately not merged" no longer describes the tree: `weeklyMinutes` is in
+`ScreenReadModels.swift` and `CoachWorldReadModelProvider.swift` today. The calibration half of
+that entry — the Q4 adjustment resting on the known fixed-holdout lower-edge miss, leaving the
+holdout release evidence non-independent — still stands unresolved.
+
+**Not run in this pass:** the full default `swift run SimTests` lane, the soaks, and
+`--legal-only`. The GitNexus index is stale against the Forge Field rewrite (it still names this
+function `furnitureControlButton`).

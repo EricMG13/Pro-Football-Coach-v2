@@ -175,6 +175,24 @@ private func usesCommittingBackAction(_ text: String) -> Bool {
     ) != nil
 }
 
+/// True when an optional model-backed control disables itself only for an explicitly *false*
+/// entry, leaving a *missing* entry lit and tappable while its guarded action dispatches nothing.
+///
+/// `control?.isEnabled == false` is false in two different situations — the entry exists and is
+/// disabled, and the entry is absent — and only the first of those is what the author meant. A
+/// view whose tap body reads `if let control { ... }` and whose `.disabled` does not is stating
+/// two different opinions about the same absence.
+///
+/// Cherry-picked from `codex/loop-uidesign` (`106842f`), which never reached `main`.
+private func hasOptionalControlWithoutAbsenceGuard(_ text: String) -> Bool {
+    codeLines(of: text).contains { line in
+        line.range(
+            of: #"\.disabled\s*\(\s*control\?\.isEnabled\s*==\s*false\s*\)"#,
+            options: .regularExpression
+        ) != nil
+    }
+}
+
 private func referencesAuthoritativeRoot(_ line: String) -> Bool {
     line.split { character in
         !(character.isLetter || character.isNumber || character == "_")
@@ -555,6 +573,49 @@ func runContractTests() {
                 "FloodlitCommittingAction(\n    \"Back to HQ\",\n    action: close\n)"
             ))
             expect(!usesCommittingBackAction(#"FloodlitCommittingAction("Advance", action: next)"#))
+        }
+
+        // Both scans below were written on `codex/loop-uidesign` (`106842f`, 2026-08-25) and never
+        // merged; the branch fell 145 commits behind `main` and the Forge Field rewrite moved the
+        // files under it. Cherry-picked here with their fixes, because the shapes they forbid were
+        // both still present in the tree on 2026-09-02.
+        test("optional match controls cannot stay tappable when their model entry is absent") {
+            let synthetic = ".disabled(control?.isEnabled == false)"
+            expect(hasOptionalControlWithoutAbsenceGuard(synthetic),
+                   "the optional-control scan missed a missing-entry guard")
+            let guarded = ".disabled(control == nil || control?.isEnabled == false)"
+            expect(!hasOptionalControlWithoutAbsenceGuard(guarded),
+                   "the optional-control scan rejected an absent-entry guard")
+            expect(!hasOptionalControlWithoutAbsenceGuard(
+                "// .disabled(control?.isEnabled == false) is the shape this forbids"
+            ), "a comment describing the forbidden shape was reported as an offender")
+
+            let views = swiftFilesImportingUIFramework()
+            expect(views.count >= 8,
+                   "found \(views.count) UI-importing sources — the scan would pass vacuously")
+            let offenders = views
+                .filter { hasOptionalControlWithoutAbsenceGuard($0.text) }
+                .map(\.path)
+            expect(offenders.isEmpty,
+                   "every optional model-backed control must disable itself when its entry is "
+                       + "absent: " + offenders.joined(separator: ", "))
+        }
+
+        test("recruiting surface navigation controls require real authorities") {
+            // A default-valued escaping closure is a control that is lit, tappable, and wired to
+            // nothing — the failure is silent at the call site rather than at compile time, which
+            // is the whole reason to forbid the default rather than to remember to pass it.
+            let recruiting = swiftFiles(under: "Sources/ProFootballCoachUI")
+                .first { $0.path.hasSuffix("/RecruitingBoardView.swift") }
+            guard let recruiting else {
+                expect(false, "RecruitingBoardView.swift was not found for control enumeration")
+                return
+            }
+            let code = codeLines(of: recruiting.text).joined(separator: "\n")
+            expect(!code.contains("onOpenProspect: @escaping (String) -> Void ="),
+                   "Open profile must not default to an empty callback")
+            expect(!code.contains("onOpenShortlist: @escaping () -> Void ="),
+                   "Shortlist must not default to an empty callback")
         }
 
         test("SnapAnchors.swift never draws a random value") {

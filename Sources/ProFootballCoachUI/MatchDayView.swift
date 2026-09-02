@@ -319,8 +319,15 @@ public struct MatchDayView: View {
                    minHeight: ForgeFieldTokens.Space.hitMin)
         }
         .buttonStyle(.plain)
-        .disabled(control?.isEnabled == false)
-        .opacity(control?.isEnabled == false ? MatchMetric.disabledOpacity : 1)
+        // `control == nil` as well as a disabled entry: the tap body above already drops a
+        // missing entry on the floor (`if let control`), so without this the control stays
+        // tappable, fully lit, and dispatches nothing. `MatchDayReadModel`'s own initialiser
+        // refuses a model missing any of `MatchDayControlID.allCases`, so this is defence in
+        // depth rather than a reachable state today -- the point is that the view agrees with
+        // that invariant instead of quietly contradicting it.
+        .disabled(control == nil || control?.isEnabled == false)
+        .opacity(control == nil || control?.isEnabled == false
+            ? MatchMetric.disabledOpacity : 1)
         .accessibilityLabel(id == .speed ? "Speed, \(Int(speedMultiplier)) times" : label)
         .accessibilityAddTraits(control?.isSelected == true ? .isSelected : [])
     }
