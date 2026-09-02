@@ -12,9 +12,14 @@ import FootballSimCore
 // tells you something broke without telling you when.
 
 func runProSoakTests() {
-    let requested = ProcessInfo.processInfo.environment["PRO_SOAK_SEASONS"]
-        .flatMap(Int.init) ?? 10
-    precondition(requested >= 1, "The professional soak needs at least one season.")
+    // Capped at `TestHorizon.maximumSeasons` by owner decision, 2026-09-02. This lane's bound was
+    // `requested >= 1` — a floor with no ceiling, so `PRO_SOAK_SEASONS` could run it arbitrarily
+    // long. It now clamps instead of trapping, so an over-large request runs the longest legal
+    // soak rather than refusing to start.
+    let requested = TestHorizon.clamped(
+        ProcessInfo.processInfo.environment["PRO_SOAK_SEASONS"]
+            .flatMap(Int.init) ?? TestHorizon.maximumSeasons
+    )
 
     suite("Professional both-tier soak") {
         test("thirty-two professional teams stay legal for \(requested) seasons") {

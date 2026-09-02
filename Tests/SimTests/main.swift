@@ -192,9 +192,9 @@ if CommandLine.arguments.contains("--catalog") {
 } else if CommandLine.arguments.contains("--roster-fill") {
     runRosterFillTests()
 } else if CommandLine.arguments.contains("--m2-soak") {
-    runM2SoakTests(seasons: 10)
+    runM2SoakTests(seasons: TestHorizon.maximumSeasons)
 } else if CommandLine.arguments.contains("--m1-soak") {
-    runM1SoakTests(seasons: 10)
+    runM1SoakTests(seasons: TestHorizon.maximumSeasons)
 } else if CommandLine.arguments.contains("--snap-anchors") {
     runSnapAnchorTests()
 } else if CommandLine.arguments.contains("--reduce-motion") {

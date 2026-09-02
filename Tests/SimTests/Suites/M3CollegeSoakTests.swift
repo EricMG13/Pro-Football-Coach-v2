@@ -2,14 +2,20 @@ import Foundation
 import FootballSimCore
 
 func runM3CollegeSoakTests() {
-    let requested = ProcessInfo.processInfo.environment["M3_SOAK_SEASONS"]
-        .flatMap(Int.init) ?? 10
-    // The default is ten because that is the horizon the 8 MB save ceiling is stated at.
-    // The range stays 1...20: the twenty-season run is what shows whether growth the
-    // ten-season margin cannot see -- it passes at about 8.35 MB against 8 MiB -- is
-    // bounded or merely slow. Clamping the range to the default deletes that measurement
-    // rather than making it optional.
-    precondition((1...20).contains(requested), "M3 soak seasons must be in 1...20.")
+    // The default is ten because that is the horizon the 8 MB save ceiling is stated at, and
+    // `03` section 6 states the soak as ten seasons.
+    //
+    // **The 1...20 range was removed by owner decision, 2026-09-02** (`TestHorizon`). It read:
+    // "the twenty-season run is what shows whether growth the ten-season margin cannot see -- it
+    // passes at about 8.35 MB against 8 MiB -- is bounded or merely slow. Clamping the range to
+    // the default deletes that measurement rather than making it optional." That is exactly what
+    // the cap does, and the cost is real: at ten seasons this soak can no longer tell bounded
+    // growth from slow growth. Recorded in `docs/STATUS.md` rather than left for someone to
+    // rediscover from a deleted comment.
+    let requested = TestHorizon.clamped(
+        ProcessInfo.processInfo.environment["M3_SOAK_SEASONS"]
+            .flatMap(Int.init) ?? TestHorizon.maximumSeasons
+    )
 
     suite("M3 college management soak") {
         testAsync("a delegated target-scale career remains legal and persistent") {

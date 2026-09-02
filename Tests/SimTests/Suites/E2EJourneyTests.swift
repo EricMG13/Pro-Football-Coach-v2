@@ -79,8 +79,12 @@ func runE2EHDurabilityChild() {
 
 @MainActor
 private func exerciseDurabilityJourney() async throws {
-    let horizon = ProcessInfo.processInfo.environment["E2E_HORIZON"].flatMap(Int.init) ?? 10
-    precondition((1...10).contains(horizon), "E2E_HORIZON must be in 1...10.")
+    // Already ten before the 2026-09-02 cap; it now reads the shared ceiling rather than its own
+    // literal, so this lane cannot drift away from the others.
+    let horizon = TestHorizon.clamped(
+        ProcessInfo.processInfo.environment["E2E_HORIZON"].flatMap(Int.init)
+            ?? TestHorizon.maximumSeasons
+    )
     let promotionSeason = max(1, horizon / 2)
     let start = GameState.bootstrap(seed: 92_020)
     let programmeID = start.programmes.values.max { lhs, rhs in

@@ -618,6 +618,69 @@ func runContractTests() {
                    "Shortlist must not default to an empty callback")
         }
 
+        // Owner decision, 2026-09-02: every validation, test and soak is capped at ten simulated
+        // seasons. The cap is only worth anything if no lane can opt out of it, so it is asserted
+        // two ways — the arithmetic, and a scan proving no season knob still carries its own
+        // literal ceiling.
+        test("the season horizon clamps, floors, and matches canon's ten") {
+            expectEqual(TestHorizon.maximumSeasons, 10,
+                        "`03` section 6 states the soak as ten seasons and section 7 states the "
+                            + "save budget at ten; the cap is that number, not a second opinion")
+            expectEqual(TestHorizon.clamped(40), 10, "an over-large request must clamp, not trap")
+            expectEqual(TestHorizon.clamped(10), 10, "the ceiling itself must survive clamping")
+            expectEqual(TestHorizon.clamped(3), 3, "a request inside the cap must pass through")
+            expectEqual(TestHorizon.clamped(0), 1, "a zero request must floor to one season")
+            expectEqual(TestHorizon.clamped(-5), 1, "a negative request must floor to one season")
+        }
+
+        test("no season knob keeps a ceiling of its own") {
+            // The failure this forbids: a lane that reads its own `?? 20` or re-asserts
+            // `precondition((1...20).contains(...))` is a lane the cap does not reach, and it
+            // would look exactly like a lane that does. Enumerated over the whole suite directory
+            // rather than a list of the knobs known today.
+            let suites = swiftFiles(under: "Tests/SimTests")
+            expect(suites.count >= 20,
+                   "found \(suites.count) suite files — the scan would pass vacuously")
+            var offenders: [String] = []
+            for file in suites where !file.path.hasSuffix("/TestKit.swift") {
+                // `strippingLineComments`, NOT `codeLines`. `codeLines` blanks the *contents* of
+                // string literals while keeping the quotes, so `environment["PRO_SOAK_SEASONS"]`
+                // reaches a predicate as `environment[""]` and a pattern naming the knob can never
+                // match. The first version of this scan used `codeLines` and was therefore
+                // vacuous — it passed with a planted offender sitting in the tree, which is the
+                // whole reason the self-test below exists.
+                let lines = strippingLineComments(file.text)
+                    .split(separator: "\n", omittingEmptySubsequences: false)
+                    .map(String.init)
+                for (index, line) in lines.enumerated() {
+                    guard line.range(
+                        // A raw string, so the quotes are written bare — `\"` would be a literal
+                        // backslash followed by a quote and would match nothing.
+                        of: #"environment\["[A-Z_]*(SEASON|HORIZON)[A-Z_]*"\]"#,
+                        options: .regularExpression
+                    ) != nil else { continue }
+                    // Two lines either side, not three forward. A knob is routinely written with
+                    // the clamp wrapping it, so `TestHorizon.clamped(` sits on the line *before*
+                    // the environment read — `ProMovementProbe` is written exactly that way, and
+                    // a forward-only window reported both of its correctly-capped knobs.
+                    let window = lines[max(0, index - 2)..<min(index + 3, lines.count)]
+                        .joined(separator: "\n")
+                    // A count, not a switch. `INVALID_COACH_SEASON_TOTAL_PROBE` and
+                    // `UNORDERED_COACH_SEASONS_PROBE` both carry SEASON in the name and are
+                    // fail-fast toggles read for presence, never parsed as a number — capping
+                    // them would be meaningless. What makes a knob a season count is that it is
+                    // turned into an `Int`, so that is the discriminator.
+                    guard window.contains("flatMap(Int.init)") else { continue }
+                    if !window.contains("TestHorizon") {
+                        offenders.append("\(file.path):\(index + 1)")
+                    }
+                }
+            }
+            expect(offenders.isEmpty,
+                   "these season knobs do not pass through TestHorizon, so the ten-season cap "
+                       + "does not reach them: " + offenders.joined(separator: ", "))
+        }
+
         test("SnapAnchors.swift never draws a random value") {
             // Phase 5, E1: blocking and pursuit anchors read outcome.matchups and
             // outcome.brokenTackleAttempts, values SnapResolver already computed. Deriving them a

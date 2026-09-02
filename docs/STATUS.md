@@ -4645,3 +4645,49 @@ holdout release evidence non-independent — still stands unresolved.
 **Not run in this pass:** the full default `swift run SimTests` lane, the soaks, and
 `--legal-only`. The GitNexus index is stale against the Forge Field rewrite (it still names this
 function `furnitureControlButton`).
+
+### 2026-09-02 — every validation, test and soak capped at ten simulated seasons
+
+Owner decision. `TestHorizon.maximumSeasons` (`Tests/SimTests/TestKit.swift`) is the single ceiling
+and `TestHorizon.clamped(_:)` the single way an environment-supplied count reaches it. Every season
+knob now routes through it: `PRO_SOAK_SEASONS` (was floored at 1 with **no ceiling at all**),
+`M3_SOAK_SEASONS` (was `1...20`), `E2E_HORIZON` (already 10, now shares the constant),
+`PRO_MOVEMENT_SEASONS` x2, and `--m1-soak` / `--m2-soak`'s call sites. Clamping, not trapping: an
+over-large request runs the longest legal soak and does not refuse to start.
+
+**This restores canon rather than overriding it.** `03` section 6 states the soak as "Ten seasons"
+and section 7 states the save-size budget "at 10 seasons". The twenty-season M3 range and the
+uncapped professional soak had both grown past what canon asks for.
+
+**Two measurements are now out of reach, and both are losses, not tidying.**
+
+1. **The M3 soak's twenty-season run.** Its deleted comment said it plainly: the long run "is what
+   shows whether growth the ten-season margin cannot see -- it passes at about 8.35 MB against
+   8 MiB -- is bounded or merely slow." At ten seasons this soak cannot tell those two apart. The
+   8 MiB ceiling is still asserted; what is gone is the evidence that clearing it is not luck.
+2. **`runM2SoakTests`'s settled-population age-curve band.** It was gated on `seasons >= 12`,
+   because the bootstrap cohort needs twelve seasons to age out. That branch is now unreachable, so
+   it is passed `settled: false` outright rather than left as a condition that silently never
+   fires. `checkProAgeCurve`'s floor and its derived ceiling still assert at every season; only the
+   at-rest band is dropped. Raising the cap restores it -- editing that call site does not.
+
+**Two contract tests, and the second one shipped broken twice before it worked.** "the season
+horizon clamps, floors, and matches canon's ten" checks the arithmetic. "no season knob keeps a
+ceiling of its own" walks `Tests/SimTests` and fails any `Int`-parsed season knob that does not
+reach `TestHorizon`. Its first version used a raw-string `\"` -- a literal backslash, matching
+nothing. Its second used `codeLines`, which blanks string-literal *contents*, so
+`environment["PRO_SOAK_SEASONS"]` arrived as `environment[""]` and the knob's name was gone before
+the pattern ran. Both passed with a planted offender in the tree. The third reads
+`strippingLineComments`, windows two lines either side of the knob (the clamp is often written
+wrapping it), and discriminates a count from a fail-fast switch by `flatMap(Int.init)` -- without
+that last part it reported `INVALID_COACH_SEASON_TOTAL_PROBE` and `UNORDERED_COACH_SEASONS_PROBE`,
+which are toggles read for presence and carry no count to cap.
+
+Verification: `swift build` clean; `--core-contracts` **388 tests / 4,375 checks, all passed**;
+`Contracts` 42 -> 44. The scan was proven by planting `PlantedCapProbe.swift` with an uncapped
+`?? 20` knob: it names that file and nothing else, and goes green when the file is removed.
+
+**Not re-run under the new cap:** the soak lanes themselves (`--m1-soak`, `--m2-soak`,
+`--m3-soak`, `--pro-soak`) and the full default lane. The cap changes what those lanes do, so the
+last full run -- 164 suites and 0 failures at `e3c2d74`, interrupted before its verdict line --
+does not stand behind this change.

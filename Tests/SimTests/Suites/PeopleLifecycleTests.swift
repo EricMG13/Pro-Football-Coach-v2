@@ -1638,10 +1638,19 @@ func runM2SoakTests(seasons: Int) {
                 }
                 expect((45...85).contains(collegeOverall.reduce(0, +) / collegeOverall.count))
                 expect((55...90).contains(proOverall.reduce(0, +) / proOverall.count))
-                // The required ten-season horizon reaches the observed recovery but does not
-                // claim that every long-run cohort has fully turned over. Keep the stricter
-                // settled-population band for optional runs long enough to support it.
-                checkProAgeCurve(state, season: season, settled: seasons >= 12 && season == seasons)
+                // `settled` is now always false, and that is a real loss stated plainly rather
+                // than left as a condition that silently never fires.
+                //
+                // It used to read `seasons >= 12 && season == seasons`: the stricter
+                // `proPastDeclineShareBand` was asserted only on a run long enough for the
+                // bootstrap cohort to age out, which needs twelve seasons. The 2026-09-02 owner
+                // cap fixes every lane at `TestHorizon.maximumSeasons` (10), so that branch became
+                // unreachable. Passing `false` outright keeps `checkProAgeCurve`'s floor and its
+                // derived ceiling — both of which hold at every season — and drops only the
+                // at-rest band, which no run this suite can now perform is entitled to assert.
+                //
+                // Restoring it means raising the cap, not editing this line.
+                checkProAgeCurve(state, season: season, settled: false)
                 checkRatingSpread(state, season: season, assertTierGap: true)
                 let currentRosters = rosterSnapshot(state)
                 checkChurn(from: previousRosters, to: currentRosters, season: season,

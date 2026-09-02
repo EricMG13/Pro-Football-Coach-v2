@@ -88,6 +88,24 @@ not a player-usability requirement.
   walkthroughs, AX5 interaction, Reduce Motion observation, D1 timing, and D9 onboarding are
   diagnostic evidence only. Their absence does not block automated approval.
 
+## 4a. Owner-only distribution gates — blocking, but never claimable by an agent
+
+Added 2026-09-02, closing the gap the 2026-08-26 classification named. These are the opposite of
+§4: that section holds observations whose absence blocks nothing, while these are hard release
+requirements no automated lane can satisfy, because both need signing identity and a decision only
+the owner can make. An agent may prepare evidence for either and must never tick either.
+
+- [ ] **Signed archive.** A Release-configuration archive is produced and signed with the owner's
+      distribution identity, and the archive that goes to TestFlight is the one built from the
+      commit every §1 gate was green on — not a rebuild of "the same" source.
+- [ ] **Export-compliance decision.** The owner records the encryption answer App Store Connect
+      asks at upload. P3 forbids network, accounts and analytics, so the expected answer is that
+      the app uses no non-exempt encryption — but stating that is the owner's declaration to make,
+      not the repo's to assume, and it is made per upload.
+
+Neither is in §1, because §1 is the set of gates an agent asserts on its own. Neither is in §4,
+because §4's items do not block a release and these two do.
+
 ## 5. Release hygiene
 
 - [ ] `docs/STATUS.md` is honest: everything unverified is named as unverified, with its files.
@@ -101,5 +119,5 @@ not a player-usability requirement.
 
 ## 6. The stop rule
 
-If any box in sections 1–3 or 5 is unchecked, the build does not go out. "Nearly green" is how the
-previous build shipped a phase that had never been compiled.
+If any box in sections 1–3, 4a or 5 is unchecked, the build does not go out. "Nearly green" is how
+the previous build shipped a phase that had never been compiled.

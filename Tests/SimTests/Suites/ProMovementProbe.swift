@@ -23,8 +23,11 @@ import FootballSimCore
 /// `--pro-draft-probe` exists: that suite takes sixteen minutes and answers "something is wrong",
 /// and this takes a fraction of it and answers "this is the wrong thing".
 func runProMovementProbe() {
-    let seasons = ProcessInfo.processInfo.environment["PRO_MOVEMENT_SEASONS"]
-        .flatMap(Int.init) ?? 3
+    // Capped at `TestHorizon.maximumSeasons` (owner decision, 2026-09-02). The default stays 3:
+    // this is a diagnostic probe, not a soak, and its whole point is answering fast.
+    let seasons = TestHorizon.clamped(
+        ProcessInfo.processInfo.environment["PRO_MOVEMENT_SEASONS"].flatMap(Int.init) ?? 3
+    )
     var state = GameState.bootstrap(seed: 96_001)
     var ownerByPlayer = proOwnership(state)
 
@@ -146,8 +149,11 @@ private func proOwnership(_ state: GameState) -> [UUID: UUID] {
 /// itself say why. This calls `ProMarketSystem.draft` the same way that loop does, the moment the
 /// real scheduler enters `.draft`, and prints what it throws.
 func runProDraftStallProbe() {
-    let seasons = ProcessInfo.processInfo.environment["PRO_MOVEMENT_SEASONS"]
-        .flatMap(Int.init) ?? 3
+    // Capped at `TestHorizon.maximumSeasons` (owner decision, 2026-09-02). The default stays 3:
+    // this is a diagnostic probe, not a soak, and its whole point is answering fast.
+    let seasons = TestHorizon.clamped(
+        ProcessInfo.processInfo.environment["PRO_MOVEMENT_SEASONS"].flatMap(Int.init) ?? 3
+    )
     var state = GameState.bootstrap(seed: 96_001)
     var reportedSeasons = 0
 
