@@ -193,6 +193,60 @@ private func hasOptionalControlWithoutAbsenceGuard(_ text: String) -> Bool {
     }
 }
 
+/// `text` as lines with **every** comment removed — whole-line and trailing alike — while string
+/// literals keep their contents.
+///
+/// Neither existing helper does this, and the season-knob scan needs both halves. `codeLines`
+/// blanks literal contents, so `environment["PRO_SOAK_SEASONS"]` arrives as `environment[""]` and
+/// the knob's own name is gone before any pattern can read it. `strippingLineComments` keeps
+/// literals but drops only whole-line comments, so a trailing `// TestHorizon` stays in the text —
+/// and a scan that looks for `TestHorizon` in a window then reads that comment as the cap being
+/// applied. Confirmed by probe: a knob written `?? 20 // not TestHorizon` passed the shipped scan.
+///
+/// A `//` inside a string literal is not a comment, so the split point is the first `//` with an
+/// even number of unescaped quotes before it. That is enough for this scan's inputs and errs
+/// toward keeping code rather than discarding it.
+private func seasonKnobScanLines(_ text: String) -> [String] {
+    text.split(separator: "\n", omittingEmptySubsequences: false).map { rawLine -> String in
+        let characters = Array(rawLine)
+        var index = 0
+        var insideString = false
+        while index < characters.count {
+            let character = characters[index]
+            if character == "\\", insideString {
+                index += 2
+                continue
+            }
+            if character == "\"" { insideString.toggle() }
+            if !insideString, character == "/", index + 1 < characters.count,
+               characters[index + 1] == "/" {
+                return String(characters[0..<index])
+            }
+            index += 1
+        }
+        return String(rawLine)
+    }
+}
+
+/// True when a season knob's surrounding `window` reads the value as a **count** rather than as a
+/// presence-only switch.
+///
+/// Fail-safe by construction, and that direction is the whole point. The shipped version asked
+/// "does this contain `flatMap(Int.init)`?" — an allowlist of one spelling, so a knob written
+/// `Int(raw) ?? 20` was skipped silently and the cap did not reach it. Confirmed by probe. This
+/// asks the opposite question: a window is exempt **only** when it is recognisably a fail-fast
+/// toggle — read for presence with `!= nil` and never converted to a number. Anything else,
+/// including a spelling nobody has thought of yet, is treated as a count and must reach
+/// `TestHorizon`.
+///
+/// The two real exemptions today are `INVALID_COACH_SEASON_TOTAL_PROBE` and
+/// `UNORDERED_COACH_SEASONS_PROBE` in `CareerArcTests`: both carry SEASON in the name, both are
+/// crash probes read for presence, and neither carries a count there is anything to cap.
+private func isSeasonCountKnob(_ window: String) -> Bool {
+    let isPresenceSwitch = window.contains("!= nil") && !window.contains("Int")
+    return !isPresenceSwitch
+}
+
 private func referencesAuthoritativeRoot(_ line: String) -> Bool {
     line.split { character in
         !(character.isLetter || character.isNumber || character == "_")
@@ -649,9 +703,7 @@ func runContractTests() {
                 // match. The first version of this scan used `codeLines` and was therefore
                 // vacuous — it passed with a planted offender sitting in the tree, which is the
                 // whole reason the self-test below exists.
-                let lines = strippingLineComments(file.text)
-                    .split(separator: "\n", omittingEmptySubsequences: false)
-                    .map(String.init)
+                let lines = seasonKnobScanLines(file.text)
                 for (index, line) in lines.enumerated() {
                     guard line.range(
                         // A raw string, so the quotes are written bare — `\"` would be a literal
@@ -665,12 +717,7 @@ func runContractTests() {
                     // a forward-only window reported both of its correctly-capped knobs.
                     let window = lines[max(0, index - 2)..<min(index + 3, lines.count)]
                         .joined(separator: "\n")
-                    // A count, not a switch. `INVALID_COACH_SEASON_TOTAL_PROBE` and
-                    // `UNORDERED_COACH_SEASONS_PROBE` both carry SEASON in the name and are
-                    // fail-fast toggles read for presence, never parsed as a number — capping
-                    // them would be meaningless. What makes a knob a season count is that it is
-                    // turned into an `Int`, so that is the discriminator.
-                    guard window.contains("flatMap(Int.init)") else { continue }
+                    guard isSeasonCountKnob(window) else { continue }
                     if !window.contains("TestHorizon") {
                         offenders.append("\(file.path):\(index + 1)")
                     }
@@ -679,6 +726,69 @@ func runContractTests() {
             expect(offenders.isEmpty,
                    "these season knobs do not pass through TestHorizon, so the ten-season cap "
                        + "does not reach them: " + offenders.joined(separator: ", "))
+        }
+
+        // Both evasions below were found by probing the *shipped* scan during a confidence review,
+        // after it had already been committed green. Each is a false negative, which is the failure
+        // mode that matters: a scan that quietly passes an uncapped knob is worse than no scan,
+        // because it is read as evidence.
+        test("the season-knob scan cannot be evaded by a comment or an unfamiliar Int parse") {
+            // The env names below are assembled at runtime rather than written whole. The scan
+            // above walks every file under `Tests/SimTests`, this file included, so a fixture
+            // containing a literal `environment["X_SEASONS"]` is indistinguishable from a real
+            // uncapped knob and the suite reports itself. Splitting the name keeps the matching
+            // text out of the file while the assembled string still exercises the scan — and it
+            // keeps `ContractTests.swift` in the scan's own scope rather than exempting the
+            // largest scan file in the tree to make its self-test pass.
+            let seasons = "SEA" + "SONS"
+            func offenders(_ source: String) -> [Int] {
+                let lines = seasonKnobScanLines(source)
+                var found: [Int] = []
+                for (index, line) in lines.enumerated() {
+                    guard line.range(
+                        of: #"environment\["[A-Z_]*(SEASON|HORIZON)[A-Z_]*"\]"#,
+                        options: .regularExpression
+                    ) != nil else { continue }
+                    let window = lines[max(0, index - 2)..<min(index + 3, lines.count)]
+                        .joined(separator: "\n")
+                    guard isSeasonCountKnob(window) else { continue }
+                    if !window.contains("TestHorizon") { found.append(index + 1) }
+                }
+                return found
+            }
+
+            // A trailing comment naming the constant must not read as the constant being applied.
+            expect(!offenders(
+                "let s = ProcessInfo.processInfo.environment[\"A_\(seasons)\"]"
+                    + ".flatMap(Int.init) ?? 20 // not TestHorizon"
+            ).isEmpty, "a trailing comment mentioning TestHorizon evaded the scan")
+
+            // A parse spelling the scan was never taught must still be treated as a count.
+            expect(!offenders("""
+            let raw = ProcessInfo.processInfo.environment["B_\(seasons)"] ?? "20"
+            let s = Int(raw) ?? 20
+            """).isEmpty, "an Int(_:) parse evaded the scan's count discriminator")
+
+            // A genuinely capped knob, with the clamp wrapping it, stays clean.
+            expect(offenders("""
+            let s = TestHorizon.clamped(
+                ProcessInfo.processInfo.environment["C_\(seasons)"]
+                    .flatMap(Int.init) ?? 10
+            )
+            """).isEmpty, "a correctly capped knob was reported as an offender")
+
+            // A presence-only crash probe carries no count and is exempt — the real shape of
+            // `INVALID_COACH_SEASON_TOTAL_PROBE`, which the scan must not demand a cap for.
+            expect(offenders(
+                "if ProcessInfo.processInfo.environment[\"INVALID_\(seasons)_PROBE\"] != nil {"
+            ).isEmpty, "a presence-only crash probe was wrongly demanded to carry a cap")
+
+            // And the comment stripper must not eat a `//` that lives inside a string literal.
+            expectEqual(
+                seasonKnobScanLines(#"let url = "https://x.io" // trailing"#).first,
+                #"let url = "https://x.io" "#,
+                "a URL inside a string literal was mistaken for a comment"
+            )
         }
 
         test("SnapAnchors.swift never draws a random value") {
