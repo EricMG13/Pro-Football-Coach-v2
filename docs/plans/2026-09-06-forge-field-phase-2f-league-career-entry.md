@@ -14,6 +14,8 @@
 
 **Entry criterion:** Phase 2S merged, including the `04` 6.1e(i) and 6.1e(ii) amendments (FF-2, FF-4).
 
+**Parallel worktree:** yes — runs beside 2C, 2D, 2E and 2I. Merge surface: `ForgeFieldBudget.swift` (`Lean.entry`, three tables), `ForgeFieldPrimitives.swift` (the filter rail, Task 2), `FloodlitFamilyRouteBar.swift`, `DesignContractTests.swift` (two additions), this family's view files. Roadmap §Running phases as parallel worktree sessions.
+
 ## Global Constraints
 
 Everything in `docs/plans/2026-09-06-forge-field-remaining-roadmap.md`'s Global Constraints, carried rulings and owner-decision defaults (FF-2, FF-3, FF-4, FF-6, FF-7) applies unchanged. Specific to these families, from the sheet:

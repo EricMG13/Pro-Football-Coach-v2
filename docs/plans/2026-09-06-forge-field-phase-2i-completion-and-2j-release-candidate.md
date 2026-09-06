@@ -16,6 +16,8 @@
 
 **Entry criterion (2I):** 2S merged (the budget contract exists, so a new fact can be registered the day it lands). 2I does not wait for 2C–2F; its closing task (I18) waits for each family it draws into.
 
+**Parallel worktree:** 2I yes — runs beside 2C, 2D, 2E and 2F, and its own tasks may fan out (I6+I7, I9+I10, I11, I12, I13, I14, I15, I16) up to the six-session cap with **at most two soak-running tasks at once** (I11, I12, I15 Steps 4–6, I6/I7's soaks, and a full `swift run SimTests` each take a slot). Merge surface: `ScreenReadModels.swift` (defaulted fields), providers, `SuiteCatalog.swift`, `main.swift`, `verify.sh`, `docs/02`, `docs/03`, `docs/03b`, `OPEN-DECISIONS.md`. I18 waits for each family it draws into. 2J no — one serial session, last.
+
 ## Global Constraints
 
 Everything in the roadmap's Global Constraints applies. Additionally:
@@ -33,7 +35,7 @@ Everything in the roadmap's Global Constraints applies. Additionally:
 
 ## Decisions this set depends on
 
-Each has a default the tasks assume, so nothing blocks. Numbering continues the roadmap's FF-1…FF-8. Ask them together, before I1 amends canon.
+Each has a default the tasks assume, so nothing blocks. Numbering continues the roadmap's FF-1…FF-8 (FF-19, the UI-test gate, is 2G's and is listed in the roadmap's table). Ask them together, before I1 amends canon.
 
 | # | Question | Default assumed below | Affects |
 |---|---|---|---|
@@ -222,7 +224,7 @@ Source: the 2026-09-06 sweep of every test name canon, the checklist and the dec
 
 - [ ] **Step 1: `ErrorSurfaceTest`** — a by-construction scan: every `failure`, `errorMessage`, `statusMessage` and `RestoreFailure` property on a read model is read by the view that owns the family (the `04` §7.1 enumeration), and every `catch` in `CoachWorldStore` writes one of them. Plant an unread sink; watch it fail; remove it.
 - [ ] **Step 2: `DestructiveActionPlacementTest`** — every irreversible action (`onCommit`, `onResign`, `onAcceptOpportunity`, release, the Match Day exit) is drawn as `ForgeFieldEmber` with a named cost or a stated "no undo", never in a leading/cancel slot; `04` §6 names the placement rule it asserts.
-- [ ] **Step 3: `SmallestDeviceLayoutTest`** — in the XCUITest target, looping `--canonical-screens` (2H Task H2's flag; write it here if 2H has not) at 844 × 390 and 852 × 393: every `canonical-screen-<id>` stamp present, every committing control hittable, at default and AX5. This is the rendered limb of G-12 (`04` §7.1, `03b` §5) that the headless suite cannot see. It runs under the `app` lane (2G Task G7 puts that target under a gate).
+- [ ] **Step 3: `SmallestDeviceLayoutTest`** — in the XCUITest target, looping `--canonical-screens` (2H Task H2's flag; write it here if 2H has not) at 844 × 390 and 852 × 393: every `canonical-screen-<id>` stamp present, every committing control hittable, at default and AX5. This is the rendered limb of G-12 (`04` §7.1, `03b` §5) that the headless suite cannot see. It runs under the `app` lane. **2I usually lands before 2G** (2G waits for all four families; 2I does not), so Step 7 below adds the `app`-lane `xcodebuild test -only-testing:ProFootballCoachUITests` invocation here when 2G Task G7 has not already — the two make the same change, and whichever lands second verifies rather than re-adds it (FF-19).
 - [ ] **Step 4: `JeopardyTests`** (D8): across 200 seeded careers under `TestHorizon`, median coach tenure inside 2.5…9 seasons, and job security never unchanged across more than 4 consecutive weeks while results move.
 - [ ] **Step 5: D10's three:** `CoordinatorAITests` — the coordinator beats a random-legal caller by a stated EPA margin over 500 games and a fixed counter-strategy does not exploit it; `RosterAITests` — no AI club ends a season illegal, and AI rating-per-dollar (pro) and rating-per-scholarship (college) are not systematically below the controlled club's at equal resources across the soak; `AdaptationTests` — the counter rate rises when the same call is run ten times. Margins go in `docs/OPEN-DECISIONS.md` D10 **before** the tests are written, and a bar that cannot be met is an escalation, not a widened band.
 - [ ] **Step 6: `GenerationDiversityTests`** (D13): the no-repeat check already in `GenerationTests` moves here; ≥ 90 % of programmes carry a distinguishable tradition set; news headline repeat rate under 2 % within a season.

@@ -14,6 +14,8 @@
 
 **Entry criterion:** Phase 2S merged (`ForgeFieldBudget.tables`/`.facts`, `ForgeFieldGhostMark`, `ForgeFieldFormat`).
 
+**Parallel worktree:** yes — runs beside 2D, 2E, 2F and 2I. Merge surface: `ForgeFieldBudget.swift` (additive), this family's five view files, ledger and STATUS. Roadmap §Running phases as parallel worktree sessions.
+
 ## Global Constraints
 
 Everything in `docs/plans/2026-09-06-forge-field-remaining-roadmap.md`'s Global Constraints, its carried rulings and its owner-decision defaults applies unchanged. Specific to this family, from the sheet:

@@ -14,6 +14,8 @@
 
 **Entry criterion (2G):** 2C, 2D, 2E and 2F all merged onto `main`; every family's budget table and facts registered; the 2S platform-chrome and raw-dollar scans green.
 
+**Parallel worktree:** 2G no — one serial session; it edits every file the Press Box layer touches. It may run beside 2I only until Task G4; land each family's I18 before G4 deletes that family's Press Box readers. 2H: H1 serial; H2 (capture) and H3 (scoring) may fan out one session per family, with a scorer who did not draw it.
+
 ## Global Constraints
 
 Everything in the roadmap's Global Constraints applies. Additionally:
@@ -140,7 +142,7 @@ For each, the reason goes in the commit body and in a comment where the suite wa
 
 - [ ] **Step 1: `04`** — above each of §§6.1a, 6.1b, 6.1c, 6.1d, 6.4, 6.5, 6.6, 6.7 add one line: `> **Superseded 2026-09-xx by §6.1e / 6.1f / 6.3a / 6.6a / 6.7a (Forge Field).** Kept as amendment history; nothing in this section is implemented.` (6.1b's Match Day register values that Forge Field kept — turf, lamp, ball, gold ink — are cited from 6.1e/`ForgeFieldTokens.Broadcast` instead; say so in the banner.)
 - [ ] **Step 2: Delete the eight `*-v3.dc.html`, `docs/proofs/design-references/` and `docs/proofs/screen-mockups/`.** In `docs/DOC-MANIFEST.md` §4a: one `DELETED` row per file group in the `*-v2` row's format (what it was, why, `git show` recovers it); §4b already records the supersession. In `CLAUDE.md`'s document table, replace the `*-v3.dc.html` row with one for the Forge Field sheets (external, transcribed in `docs/superpowers/specs/2026-08-29-forge-field-standard.md` and the six 2026-09-06 plans).
-- [ ] **Step 3: E22 — put `Tests/ProFootballCoachUITests/` under a gate.** In `scripts/verify.sh`'s `app` lane, after the build, run `xcodebuild test -project App/ProFootballCoach.xcodeproj -scheme ProFootballCoach -destination 'platform=iOS Simulator,id=<the lane's booted UDID>' -only-testing:ProFootballCoachUITests` when a simulator is booted, and fail the lane when it is not (a lane that silently skips is the E22 defect). **Owner decision FF-9:** if the lane's cost is refused, the target is retired instead — never left ungated.
+- [ ] **Step 3: E22 — put `Tests/ProFootballCoachUITests/` under a gate.** In `scripts/verify.sh`'s `app` lane, after the build, run `xcodebuild test -project App/ProFootballCoach.xcodeproj -scheme ProFootballCoach -destination 'platform=iOS Simulator,id=<the lane's booted UDID>' -only-testing:ProFootballCoachUITests` when a simulator is booted, and fail the lane when it is not (a lane that silently skips is the E22 defect). **Owner decision FF-19** (roadmap table): if the lane's cost is refused, the target is retired instead — never left ungated. **Ordering with 2I:** 2I Task I15 Step 3 writes `SmallestDeviceLayoutTest` into this target and, if 2G has not landed yet, adds the same `xcodebuild test` invocation to the `app` lane itself (I15 Step 7). Whichever of 2G and 2I lands second finds the gate in place and this step is verification only — run the lane, confirm the target executes, and record it.
 - [ ] **Step 4: Build; `--design-contracts` (the manifest suite reads the new rows); `scripts/verify.sh --lane app`.**
 - [ ] **Step 5: Commit** (two: `docs: supersede the Press Box sections of 04 and delete the v3 sheets`; `ci: gate the UI-test target in the app lane`).
 

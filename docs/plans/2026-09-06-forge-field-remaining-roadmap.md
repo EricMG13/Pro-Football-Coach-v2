@@ -80,6 +80,9 @@ Each has a **default the plans assume**, so nothing blocks; each is also a quest
 | FF-6 | Screen 55 (Promotion) is 52's first row at size: alias it, or keep the Dossier? | **Keep the Dossier** — it is the row 52 opens into, the 24→25 pattern. | 2F Promotion |
 | FF-7 | Where is `career` reached from (6.1f's open question)? | **Unchanged**: off the bar, reachable through model-owned destinations, moved between via the route bar (6.1f(i)). | 2F |
 | FF-8 | The sheets' fifteen-item findings ledger (money formatter, calendar label, units on `value: Int`, references not strings, generator headroom, signing bonuses, markets, undeclared aliases…)? | **Items 1, 2 and 7 are done in 2S** (they are presentation). **Everything else is a read-model or engine ask**, recorded as one ledger row per family, drawn around honestly, and not built in these phases — **built in 2I** (`docs/plans/2026-09-06-forge-field-phase-2i-completion-and-2j-release-candidate.md` Tasks I1–I5; I18 draws them once each family has merged). | Every family |
+| FF-19 | E22: gating `Tests/ProFootballCoachUITests/` costs an `xcodebuild test` run in the `app` lane. Pay it, or retire the target? | **Pay it** — the target carries the rendered limb of G-12 (`SmallestDeviceLayoutTest`, 2I Task I15). Retiring it is the owner's call only, never a silent skip. | 2I Task I15, 2G Task G7 |
+
+**FF-9…FF-18** are 2I's and live in its own table (`docs/plans/2026-09-06-forge-field-phase-2i-completion-and-2j-release-candidate.md`).
 
 ---
 
@@ -375,7 +378,7 @@ Each is its own file, written against its sheet:
 | 2E | `docs/plans/2026-09-06-forge-field-phase-2e-pro-management.md` | Cap & contracts, Negotiation, Roster cuts, Draft room, Pro front office (+ aliases 37, 38, 40) | `Game screens - Pro management.dc.html` |
 | 2F | `docs/plans/2026-09-06-forge-field-phase-2f-league-career-entry.md` | World search, Map, Team profile, Standings, Schedule, Rankings, Bracket, Statistics, Awards, News, Realignment; Opportunities, Stakeholders, Promotion, Record book, Rivalries, Career line, Coaching tree, Title, Settings; Coach identity | `Game screens - League, career and entry.dc.html` |
 
-**They are independent.** Run them in any order, or in parallel worktrees (`superpowers:using-git-worktrees`), harvested onto `main` and deleted. **Each family plan's Task 1 stamps its budget table**, and each surface task registers its facts; the 2S generic suite then holds the family to its sheet from the first commit.
+**They are independent.** Run them in any order, or in parallel worktrees (`superpowers:using-git-worktrees`), harvested onto `main` and deleted. See **Running phases as parallel worktree sessions** below for what may run beside what, and where the merges touch. **Each family plan's Task 1 stamps its budget table**, and each surface task registers its facts; the 2S generic suite then holds the family to its sheet from the first commit.
 
 ### The per-surface procedure every family plan uses
 
@@ -403,6 +406,30 @@ xcrun simctl ui 7082DFE5-3BFB-4073-859B-83E95B35531B content_size accessibility-
 xcrun simctl ui 7082DFE5-3BFB-4073-859B-83E95B35531B content_size medium                                   # reset
 ```
 `PROOF_SCREEN_NUMBER` is read by `CoachWorldAppRootView` (`#if DEBUG`) after a new career starts; `simctl launch` forwards any shell variable prefixed `SIMCTL_CHILD_` to the app's environment, which is how the override reaches it. Screens 1 and 2 (Entry) need no override — they are what launches before a career exists.
+
+---
+
+## Running phases as parallel worktree sessions
+
+The repository stays on `main` (owner rule): a session works in its own worktree branch, rebases on `main` before harvest, and the branch is deleted after. **At most 6 concurrent sessions** (`CLAUDE.md` delegation cap) and **at most 2 that run a simulation or soak** at any moment (`--m*-soak`, `--pro-soak`, `--e2e-h-durability`, `--calibration-*`, `--week-advance-timing`, the full `swift run SimTests`) — two `swift run` builds against one scratch path also collide, so a second lane runs the built binary directly.
+
+| Session | Phase / tasks | May start when | May run beside | Shared files it edits (the merge surface) |
+|---|---|---|---|---|
+| **S** | 2S (S1–S5), one session, serial | now | nothing — everything below consumes it | `docs/04`, `ForgeFieldBudget.swift`, `ForgeFieldPrimitives.swift`, `DesignContractTests.swift`, five 2B views (S5) |
+| **C** | 2C personnel, Tasks 1–7 | 2S merged | D, E, F, I | `ForgeFieldBudget.swift` (adds `personnel` + five `facts` lines); its five view files; ledger, STATUS |
+| **D** | 2D recruiting, Tasks 1–8 | 2S merged | C, E, F, I | `ForgeFieldBudget.swift` (adds `recruiting` + seven lines); `ScreenReadModels.swift` (`CoachWorldIntentID.offerScholarship`, additive); `ForgeFieldTokens.swift` (`Material.lampWash`, additive); its seven view files |
+| **E** | 2E pro management, Tasks 1–7 | 2S merged | C, D, F, I | `ForgeFieldBudget.swift` (adds `proManagement` + five lines); its five view files (the four `currency()` deletions are all pro-family files) |
+| **F** | 2F league/career/entry, Tasks 1–18 | 2S merged | C, D, E, I | `ForgeFieldBudget.swift` (adds `Lean.entry` + three tables + 21 lines); `ForgeFieldPrimitives.swift` (`ForgeFieldFilterRail`); `FloodlitFamilyRouteBar.swift`; `DesignContractTests.swift` (the `.entry` clause, the rail test); its view files |
+| **I** | 2I, Tasks I1–I17 (I18 per family, after that family merges) | 2S merged | C, D, E, F — and, within itself, up to the session cap: I6+I7 (pro systems), I9+I10 (tactical, match), I11 (calibration — a soak slot), I12 (scheduler — a soak slot), I13 (persistence), I14 (career, college), I15 (gates — Steps 4–6 are soak slots), I16 (canon) | `ScreenReadModels.swift` (defaulted fields, additive), providers, `SuiteCatalog.swift`, `main.swift`, `verify.sh`, `docs/02`, `docs/03`, `docs/03b`, `OPEN-DECISIONS.md`, ledger, STATUS |
+| **G** | 2G, G1–G8, one session, serial | C, D, E, F all merged | I (until G4 — G4/G5 delete files I may still touch; land I first or hold G4 until it has) | everything the Press Box layer touches; `DesignContractTests.swift`; `04`; `DOC-MANIFEST.md`; `CLAUDE.md` |
+| **H** | 2H: H1 serial; **H2 capture and H3 scoring may fan out one session per family** (7), scorer ≠ author | G and I merged, FF-1 decided | H2/H3 sessions beside each other only | `docs/proofs/forge-field/<family>/`, the audit document (one section per family, merged by section) |
+| **J** | 2J, one session, serial | 2H exited | nothing | `STATUS`, checklist, `project.yml`, `SaveEnvelope.swift`, `OWNER-WALKTHROUGH.md` |
+
+**The merge rule for the shared files.** Every family adds to `ForgeFieldBudget.swift` and to `ForgeFieldBudget.facts` in its own region; conflicts on harvest are additive and resolved by keeping both sides. `ScreenReadModels.swift` is touched by D (one constant) and I (defaulted fields) — additive. `DesignContractTests.swift` is touched by S, F, I15 and G — each adds a suite; keep every suite. `docs/04` is touched by S1, F (if a ruling needs canon), I16 and G7 — rebase and re-read the section before amending. A session that finds HEAD moved under it confirms the drift misses its files and carries on (handoff §10).
+
+**What must not run beside what.** Two families never edit the same view file, so nothing blocks them. G4/G5 delete `CoachWorldVocabulary`/`DesignTokens` readers, so I18 (which edits family views) and G must be sequenced: land I18 for a family before G4 touches that family's files. H1's full suite and I11/I12's soaks count against the two-soak limit together.
+
+**Invoking a session.** Each session gets one plan file and one task range: "execute `docs/plans/2026-09-06-forge-field-phase-2d-recruiting.md` Tasks 1–8 in a worktree, per `superpowers:subagent-driven-development`; rebase on `main` before each harvest; do not push." Phase exits (the full suite, the adversarial review, the ledger/STATUS rows) are run once, by the session that harvests the family, not per task.
 
 ---
 
