@@ -57,9 +57,15 @@ func runM3CollegeSoakTests() {
                 let data = try await session.saveData()
                 let state = try SaveEnvelope.decode(GameState.self, from: data)
                 let completedSeason = targetSeason - 1
+                // The named constant, not an inlined `8 * 1024 * 1024`. Inlining it meant this
+                // lane -- the one running closest to the ceiling -- would keep checking the old
+                // number if `03` section 7's budget were ever amended and
+                // `productionSaveByteCeiling` moved with it. `CLAUDE.md`: never inline a magic
+                // number.
                 expect(
-                    data.count <= 8 * 1024 * 1024,
-                    "save is \(data.count) B at season \(targetSeason), over the 8 MB D4 ceiling"
+                    data.count <= SaveEnvelope.productionSaveByteCeiling,
+                    "save is \(data.count) B at season \(targetSeason), over the "
+                        + "\(SaveEnvelope.productionSaveByteCeiling) byte D4 ceiling"
                 )
                 expectEqual(state.calendar, CalendarState(season: targetSeason, week: 2))
                 expectEqual(state.college.portal.phase, .closed)
@@ -256,6 +262,39 @@ func runM3CollegeSoakTests() {
                     saveSizes[targetSeason] = data.count
                     expectEqual(try SaveEnvelope.decode(GameState.self, from: data), state)
                 }
+            }
+
+            // Save growth must be decelerating, not merely under the ceiling.
+            //
+            // **This is the assertion the owner's 2026-09-02 acceptance rests on.** At ten seasons
+            // this lane finishes 67,611 bytes under the 8 MiB ceiling -- 0.81 percent, against the
+            // ~12 percent the other three soaks carry. The twenty-season run that used to
+            // distinguish *bounded* growth from *slow* growth was removed by the ten-season cap,
+            // and the ceiling check alone cannot replace it: a save creeping 8.32 -> 8.38 MB stays
+            // green right up until the run that goes over.
+            //
+            // What the acceptance actually relied on was the shape of the curve -- 469k a season
+            // across s1-s5 against 47k a season across s5-s10, a tenfold deceleration. So that is
+            // what is checked. Growth in the second half must be strictly smaller than growth in
+            // the first; if a change makes it linear again, this fails while the ceiling still
+            // passes, which is the whole point of writing it down rather than trusting it.
+            //
+            // Deliberately not a ratio. The claim is "decelerating", and pinning a specific
+            // tenfold factor would invent a precision the two measurements do not support and turn
+            // ordinary tuning into a false red.
+            if requested > 5,
+               let first = saveSizes[1],
+               let middle = saveSizes[min(5, requested)],
+               let last = saveSizes[requested] {
+                let earlyGrowth = middle - first
+                let lateGrowth = last - middle
+                expect(lateGrowth < earlyGrowth,
+                       "M3 save growth is not decelerating: seasons 1-\(min(5, requested)) added "
+                           + "\(earlyGrowth) bytes and \(min(5, requested))-\(requested) added "
+                           + "\(lateGrowth). The ten-season margin under the ceiling is thin "
+                           + "(\(SaveEnvelope.productionSaveByteCeiling - last) bytes here), and "
+                           + "the long run that would show whether growth is bounded no longer "
+                           + "exists, so a curve that stops flattening is the signal.")
             }
 
             let sortedClassSizes = classSizes.sorted()

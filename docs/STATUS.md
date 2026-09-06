@@ -4716,9 +4716,24 @@ the horizon canon states.
 **The growth curve is the reassuring half.** s1 -> s5 adds 1,874,938 bytes (about 469k a season);
 s5 -> s10 adds 237,371 (about 47k a season). A tenfold deceleration is the signature of bounded
 growth rather than linear growth. A naive linear extrapolation to twenty seasons lands at 8,795,739
--- over the ceiling -- but the deceleration makes that pessimistic. The honest position: growth
-*looks* asymptotic, and the run that would settle it is the one the cap removed. **Open for the
-owner**: accept the ten-season figure, exempt M3 from the cap, or amend `03` section 7's ceiling.
+-- over the ceiling -- but the deceleration makes that pessimistic.
+
+**Settled by the owner, 2026-09-02: accepted.** The ten-season figure stands, on the basis that the
+curve is clearly bounded rather than merely slow. M3 is not exempted from the cap and `03` section
+7's ceiling is unchanged.
+
+**The acceptance is now an assertion rather than a judgement.** A decision that rests on the shape
+of a curve is worth exactly as much as the check that holds the curve to that shape, so
+`runM3CollegeSoakTests` gains one: growth across the second half of the run must be strictly
+smaller than growth across the first. Measured, that is 237,371 bytes against 1,874,938. If a change
+makes growth linear again the check fails while the ceiling still passes -- which is the failure the
+removed twenty-season run used to catch. Deliberately not a ratio: the claim is "decelerating", and
+pinning the observed tenfold factor would invent a precision two measurements cannot support.
+
+The same pass replaced this lane's inlined `8 * 1024 * 1024` with
+`SaveEnvelope.productionSaveByteCeiling`. It was the one soak checking the ceiling by literal, so
+an amendment to `03` section 7 would have moved the constant and left the lane closest to the
+ceiling still testing the old number.
 
 **A second figure worth recording.** The professional soak counts `proContractExpired=2423` across
 ten seasons -- about 242 a season against the roughly 339 `02` section 4.2a implies. That is the
