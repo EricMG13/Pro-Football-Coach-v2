@@ -4746,3 +4746,55 @@ Verification of the cap's own machinery, separate from the soaks: `--core-contra
 4,380 checks, all passed**, `Contracts` at 45. Two false negatives in the season-knob scan were
 found by probing it after it had already shipped green (`5fc854b`), and `TestHorizon.clamped` now
 announces a reduction rather than performing it silently (`bd81a4f`).
+
+### 2026-09-06 — OPEN: the professional soak's dead-money assertions have never been exercised
+
+**Come back to this and resolve it.** Not a regression and not a release stop — a gate that reports
+green without having tested the thing it is named for, which is the pattern `CLAUDE.md` calls the
+coverage boundary becoming the quality boundary.
+
+**The measurement.** `--pro-soak` at ten seasons reports `deadMoneyTotal=0`, `deadMoneyMax=0` and
+`waivers=0` across 32 teams. Not "small" — exactly zero, every team, every season. `ProSoakTests`
+asserts cap legality with `if cap.deadMoney > cap.capLimit` and prints an overage as a breach; with
+dead money pinned at zero that comparison cannot fail, so the bounded-overage-from-dead-money
+clause `03` section 6 names as a soak assertion has never once run against a non-zero value.
+
+**Root cause, traced rather than guessed.**
+
+1. `ProMarketSystem.placeOnWaivers` is reached from exactly one place: `IntentResolver`
+   (`.placeOnWaivers`), which fires only on a *user* intent. No AI system calls it.
+2. `ProCapComplianceSystem` looks like the counterexample and is not. It *projects*
+   `ProLegalActionProjection` rows with `kind: .placeOnWaivers` — advisory legal actions for a
+   surface to render. It never executes one.
+3. The only engine-driven release is `ProMarketSystem.resolveExpiredWaivers`, which releases players
+   whose waiver deadline passed. With nobody ever placed on waivers, it never fires.
+4. `ProManagementSystem.release` is what adds dead money
+   (`contract.deadMoney(ifReleasedAtSeason:)`), and its only non-user caller is the waiver
+   resolution in (3).
+
+So: no AI cut path -> no waivers -> no releases -> no dead money -> a trivially satisfied
+assertion. An unattended league never sheds a player under contract.
+
+**Why this is worth resolving rather than noting.** Dead money is the mechanism that makes the cap a
+constraint rather than a ceiling nobody approaches. A ten-season league that accrues none is not
+exercising `ProCapComplianceSystem` at all, and the soak's clean bill of health for cap legality is
+currently evidence about a code path, not about the model.
+
+**Related, same run, same lane.** `proContractExpired=2423` over ten seasons is about 242 a season
+against the roughly 339 `02` section 4.2a implies ("roughly a fifth of each roster reaches expiry
+each season", about 11 of 53 across 32 clubs). That is the expiry-rate gap the churn note in this
+file already records, now with a number. The two are probably one problem: a professional roster
+that neither expires at the canon rate nor cuts anybody is the "the professional roster never turns
+over" finding that `--pro-soak` has carried since `e710924`.
+
+**What resolving looks like.** An AI cut path that can place a player on waivers, so the release and
+dead-money arithmetic runs unattended; then a soak assertion that dead money is non-zero somewhere
+across the run, so this cannot silently return to zero. The assertion is the half that matters — the
+current one passes either way.
+
+**Prior art, and a caveat about it.** `docs/BETA-READINESS-CONSOLIDATED.md` SYS-10 already asks for
+"cap cuts, waivers/claims" as part of completing AI roster construction, and records that the
+"current AI signs one top-overall free agent and drafts best overall". That register is **not listed
+in `docs/DOC-MANIFEST.md`**, so by the manifest's own two-limb rule it carries no authority; it is
+noted here as corroboration, not as the requirement. What is new here is the measurement and the
+traced call graph, and specifically that a *test* is green because of it.
