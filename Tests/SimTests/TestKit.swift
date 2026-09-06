@@ -227,7 +227,23 @@ enum TestHorizon {
     /// Clamps rather than trapping on purpose: an over-large `PRO_SOAK_SEASONS=40` should run the
     /// longest legal soak and say so, not refuse to start. A non-positive request is the caller
     /// asking for no simulation at all, which is a mistake worth a floor rather than a crash.
+    ///
+    /// **"and say so" is the print, and it is the whole reason this is not silent.** The lanes this
+    /// replaced used `precondition((1...20).contains(requested))`, which failed loudly on an
+    /// out-of-range request. Clamping without a word would be strictly worse than that: an operator
+    /// who sets `M3_SOAK_SEASONS=50` gets a green ten-season run and no reason to doubt they
+    /// measured fifty, which is a false result rather than a refused one. The print names both
+    /// numbers so the run's own log carries what was asked for beside what happened.
+    ///
+    /// Printed only when the value actually moves, so the ordinary path — a lane taking the
+    /// default, or an operator asking for something already legal — stays quiet.
     static func clamped(_ requested: Int) -> Int {
-        min(maximumSeasons, max(1, requested))
+        let granted = min(maximumSeasons, max(1, requested))
+        guard granted != requested else { return granted }
+        let reason = requested > maximumSeasons
+            ? "the ten-season cap (owner decision, 2026-09-02)"
+            : "the one-season floor"
+        print("season horizon: requested \(requested), running \(granted) — \(reason)")
+        return granted
     }
 }
