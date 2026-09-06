@@ -4691,3 +4691,43 @@ Verification: `swift build` clean; `--core-contracts` **388 tests / 4,375 checks
 `--m3-soak`, `--pro-soak`) and the full default lane. The cap changes what those lanes do, so the
 last full run -- 164 suites and 0 failures at `e3c2d74`, interrupted before its verdict line --
 does not stand behind this change.
+
+### 2026-09-02 — the four soak lanes re-run under the ten-season cap, and what M3's save size shows
+
+All four green. `--m1-soak` 1 test / 32 checks; `--m2-soak` 1 test / 422 checks; `--m3-soak`
+1 test / 4,599 checks; `--pro-soak` 2 tests / 16 checks. M1 and M2 were each run twice and produced
+byte-identical save checkpoints, which is an unplanned cross-run determinism confirmation.
+
+**The M3 college soak sits 0.81 percent under the 8 MiB save ceiling at ten seasons.**
+
+| Lane | season-10 save | margin under 8,388,608 |
+|---|---|---|
+| M1 | 7,338,379 | 12.52% |
+| M2 | 7,385,022 | 11.96% |
+| pro | 7,319,324 | 12.75% |
+| **M3** | **8,320,997** | **0.81% (67,611 bytes)** |
+
+This is the measurement the cap removed, arriving as a number rather than as a worry. The comment
+deleted from `M3CollegeSoakTests` said the twenty-season run "is what shows whether growth the
+ten-season margin cannot see -- it passes at about 8.35 MB against 8 MiB -- is bounded or merely
+slow." That was not describing a distant risk; it was describing where this lane already sits at
+the horizon canon states.
+
+**The growth curve is the reassuring half.** s1 -> s5 adds 1,874,938 bytes (about 469k a season);
+s5 -> s10 adds 237,371 (about 47k a season). A tenfold deceleration is the signature of bounded
+growth rather than linear growth. A naive linear extrapolation to twenty seasons lands at 8,795,739
+-- over the ceiling -- but the deceleration makes that pessimistic. The honest position: growth
+*looks* asymptotic, and the run that would settle it is the one the cap removed. **Open for the
+owner**: accept the ten-season figure, exempt M3 from the cap, or amend `03` section 7's ceiling.
+
+**A second figure worth recording.** The professional soak counts `proContractExpired=2423` across
+ten seasons -- about 242 a season against the roughly 339 `02` section 4.2a implies. That is the
+same expiry-rate gap the churn note elsewhere in this file records, now with a measurement attached.
+Also `deadMoneyTotal=0` and `waivers=0` across the whole run, both of which are worth a look: a
+league that accrues no dead money in ten seasons is not exercising the cap mechanics the soak
+asserts legality against.
+
+Verification of the cap's own machinery, separate from the soaks: `--core-contracts` **389 tests /
+4,380 checks, all passed**, `Contracts` at 45. Two false negatives in the season-knob scan were
+found by probing it after it had already shipped green (`5fc854b`), and `TestHorizon.clamped` now
+announces a reduction rather than performing it silently (`bd81a4f`).
