@@ -12,6 +12,8 @@ How to use it:
    paste; nothing else needs editing.
 3. Paste everything from the `# GOAL` heading down into the first session, or save that part as
    `GOAL.md` in the new repository and point each session at it.
+4. Expect images first. The builder's first deliverable is a set of images of the game (§0). It
+   stops until you approve them, and builds nothing before then.
 
 ---
 
@@ -31,6 +33,56 @@ decisions. The world stays believable across a long career.
 **You are done when** every bar in §8 passes, verified in the session that claims it or by CI, and
 a person can install the build, start a career, play a full college season, and see a path to the
 pro league.
+
+**Start with §0.** Your first deliverable is a set of images of the game, and you build nothing
+until the owner approves them.
+
+---
+
+## 0. First: images of the game, for the owner to approve
+
+Before writing any game code, show the owner what the game will look like. **Your first
+deliverable is a set of images. You stop until the owner approves them.**
+
+1. **Design first.** Write `DESIGN.md` v0 (§11) so the images show a designed game rather than a
+   mood board. Every control and number in an image must correspond to something in the design. An
+   image must not promise a system the design does not have.
+2. **Make the images.** Draw full screens at landscape iPhone size: 852 × 393 points, rendered at
+   3x (2556 × 1179 pixels), or the orientation your design chooses under §3.2. Every image shows
+   the same fictional save: the same coach, programme, week, opponent and figures. Use realistic
+   data and no placeholder text. At minimum:
+   - choosing the first job from three offers;
+   - the weekly command screen;
+   - the game plan;
+   - match day mid-drive, with a call-in open;
+   - the post-match aftermath;
+   - the recruiting board;
+   - a player profile;
+   - the roster or depth chart;
+   - one pro front-office screen (the cap ledger or the draft room);
+   - job security and the stakeholders;
+   - one sheet of the visual language itself: palette, type, spacing, key components, and how a
+     club's colours are applied;
+   - match day and one dense screen again at the largest accessibility text size.
+3. **Use whatever your environment supports.** In a container without Xcode, HTML and CSS
+   rendered to PNG by a headless browser at the device's point size works reliably. On a Mac,
+   SwiftUI screenshots from the simulator also work. Commit the source next to the images so that
+   they can be regenerated.
+4. **Present and stop.** Put the images in `design/` with a one-page index. For each image, the
+   index says what the screen is for, which decision it hosts, and which pillar it serves. Show
+   the owner the images themselves, not just a path, then wait. Revise on feedback until the owner
+   approves. Build nothing else in the meantime, unless the owner says headless engine work may
+   start alongside.
+5. **Record the approval** in `DECISIONS.md`: the date, what was approved, and the commit.
+
+After approval:
+
+- **The approved images are the visual target.** Production screens are built to match them and
+  are checked against them with screenshots. `DESIGN.md` still owns every rule and number; an image
+  is never the source of a fact.
+- **The look is locked.** Any change to the visual language goes back to the owner as new images
+  first. New screens drawn in the approved language need no separate approval. Show them in the
+  next milestone report.
 
 ---
 
@@ -110,6 +162,7 @@ list, or visual design system. Where this prompt says how the earlier game did s
 ### 3.1 Fixed — do not change without the owner
 
 - The ten pillars above.
+- **The owner approves the look first** (§0), and approves any later change to it.
 - **Native iPhone app**: Swift and SwiftUI, current iOS. It is release-tested on iPhone
   15-generation hardware and newer.
 - **Deterministic simulation.** The same seed and inputs reproduce the same results *across
@@ -550,9 +603,9 @@ history.
     Meanwhile the AI never cut a player and there were no penalties. **Keep the fixed, small
     document set in §9.3, and use git history as the archive.**
 20. **Design-system churn.** About seven design directions in three weeks. The last one had redrawn
-    10 of 47 surfaces when work stopped, and 62 files still used the previous tokens. **Choose a
-    visual language, prove it on three screens (weekly command, recruiting board, match day), then
-    commit to it.** Refine tokens after that; do not replace the system.
+    10 of 47 surfaces when work stopped, and 62 files still used the previous tokens. **Get the look
+    approved as images before building anything (§0), then commit to it.** Refine tokens after
+    that. Never replace the system without the owner approving new images.
 21. **Horizontal build order.** The engine grew for days before the app first built. Read models
     turned out to be reachable from no screen, and at one point 56 of 62 screen families had no
     view. **Keep a thin vertical slice (engine, screen, device) working at every milestone.**
@@ -595,12 +648,14 @@ Every bar names its instrument. Build each instrument as early as its subject ex
 | Performance | On iPhone 15-class hardware: college week advance at most 2.0 s (target 1.2 s); pro at most 0.6 s; match rendering at 60 fps; cold launch to playable at most 2 s; save write off the main thread at most 400 ms. A host timing probe runs in the fast lane as an early warning | Asserted timing probes; Instruments on device before release |
 | No dead capability | Every screen is reachable from the root. Every system has at least one test that observes its effect downstream. Every mandatory decision passes the three-part test in `DESIGN.md` | Reachability test plus a review checklist |
 | Accessibility | Every screen, enumerated by construction: Dynamic Type up to AX5 without losing information, VoiceOver labels and order, Reduce Motion, 44 pt targets, and contrast of at least 4.5:1 for every text and background pair, including generated club colours | Contract tests plus a device pass |
+| Look | Every production screen that has an approved image matches it in hierarchy and style, at the smallest and largest supported sizes | Screenshots beside the approved images in each milestone report |
 | Stability | Saves are atomic, keep a backup, and survive a kill at any point. A newer-version save is refused with a plain message. Migrations are forward-only, with a fixture at each version boundary. A corrupt file is quarantined, never deleted | Persistence tests, including fault injection |
 | Playable | A default new career, with default settings and nothing delegated, finishes its first season headlessly. From a fresh install in the simulator: start a career, play the first week in about 15 minutes without instructions, finish a college season, and resume exactly where you left off | End-to-end test, plus a simulator walkthrough with screenshots recorded in `STATUS.md` |
 | Originality (final phase) | No generated name collides with a real institution, league or mark. No generated colour pair reads as a real club's trade dress | Final-phase checks at the generation seam |
 
 A person watching and judging the play (timing a season, a first-time player's onboarding) is
-useful evidence. It never blocks machine-verifiable completion.
+useful evidence. It never blocks machine-verifiable completion. The one exception is the owner's
+approval of the images in §0, which blocks the start of building.
 
 ---
 
@@ -608,17 +663,19 @@ useful evidence. It never blocks machine-verifiable completion.
 
 ### 9.1 Order of work — a suggested arc (reorder if you have a better one)
 
-Keep two things whatever order you choose: a **playable vertical slice by the end of the second
-milestone**, and **nothing built that cannot be reached and observed**.
+Whatever order you choose, keep three things: **the look approved before anything else is built**,
+a **playable vertical slice by the end of milestone 2**, and **nothing built that cannot be reached
+and observed**.
 
+0. **The look, approved by the owner** (§0). Nothing else starts until this is done.
 1. **Foundations and engine spike, headless.** Seeded RNG and seed derivation. A small generated
    world. One game resolved snap by snap into a box score. The cross-process determinism test.
    A calibration harness running on a first handful of metrics. A command-line tool that simulates
    a season and prints tables. macOS CI running the fast suite.
 2. **A playable college week, in a small league** (one or two conferences). App shell, weekly
    command screen, game plan, match day with call-ins, aftermath, standings, save and resume. The
-   first fifteen minutes of onboarding work. Prove the visual language on this slice (lesson 20),
-   and look at the match on screen: it has to read as football.
+   first fifteen minutes of onboarding work. Build the slice to the approved images and compare
+   screenshots against them. Look at the match on screen: it has to read as football.
 3. **College depth at full scale.** The full league. The off-screen model and the consistency gate.
    Recruiting, portal, NIL, eligibility, development, staff and scheme. Stakes and the carousel.
    The college offseason. A 10-season soak, with the performance and save-size probes green.
@@ -675,6 +732,7 @@ Then continue.
 | `ARCHITECTURE.md` | Modules, boundaries, data flow, persistence, test lanes | Describes what exists now, not history |
 | `DECISIONS.md` | One short entry per significant decision: context, choice, why, how you would know it is wrong, cost of reversing it | Includes every departure from this prompt's reference answers |
 | `STATUS.md` | The honest state of the build: what works, what is verified and how, what is not | Rewrite it rather than append; keep it under about 300 lines |
+| `design/` | The approved images (§0), their source and the one-page index | Changed only with the owner's approval |
 
 Nothing else, unless the owner asks for it: no handoff files, ledgers, manifests, evidence packs or
 per-phase plan archives. Git history is the archive. If a document needs another document to explain
@@ -684,6 +742,7 @@ whether it still counts, delete one of them.
 
 Ask only when:
 
+- the images in §0 are ready for approval, or the look needs to change;
 - a pillar or a fixed constraint conflicts with another, or has to bend;
 - a budget in §8 cannot be met and the change you would make affects the product (for example, a
   smaller league or a larger save budget);
@@ -719,12 +778,19 @@ generators, the successive design systems, and any test that parses markdown.
 ## 11. First session
 
 1. Read this whole prompt.
-2. Write `DESIGN.md` v0, one to three pages: your answer to "what does the coach do instead of
-   pressing buttons", the week, the tiers, and **every place where you are departing from §5 and
-   why**.
-3. Write `ARCHITECTURE.md` v0: modules, the simulation/UI boundary, the state and mutation model,
-   persistence, test lanes.
-4. Set up the package, the app shell and macOS CI running the fast suite.
-5. Start milestone 1. Resolve a single game headless with a seeded RNG, print the box score, and
-   prove it identical across two processes.
-6. Report what you built, what you verified and how, and what you decided.
+2. Write `DESIGN.md` v0, one to three pages. It covers:
+   - your answer to "what does the coach do instead of pressing buttons";
+   - the week and the two tiers;
+   - **every place where you depart from §5, and why**.
+3. Make the images in §0, put them in `design/` with the index, and show them to the owner.
+4. **Stop and wait for approval.** Revise until the owner approves, then record the approval in
+   `DECISIONS.md`.
+
+Then, once the look is approved:
+
+5. Write `ARCHITECTURE.md` v0. It covers modules, the simulation/UI boundary, the state and
+   mutation model, persistence and test lanes.
+6. Set up the package, the app shell and macOS CI running the fast suite.
+7. Start milestone 1. Resolve a single game headless with a seeded RNG, print the box score, and
+   prove it is identical across two processes.
+8. Report what you built, what you verified and how, and what you decided.
